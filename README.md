@@ -1,17 +1,11 @@
-<<<<<<< HEAD
 # AI_Scholar
 A comprehensive AI chatbot platform with local LLM support, RAG capabilities, embeddings, fine-tuning, and multi-cloud deployment options.
-=======
+
 # AI Chatbot Web GUI
-=======
 # 🤖 AI Chatbot - Advanced Conversational Interface
->>>>>>> 3001d50 (📚 Update README with comprehensive project documentation)
-=======
+
 # 🤖 AI Scholar Chatbot: A Novel AI RAG-aware Model for Academic Paper Analysis - Advanced Conversational Interface
->>>>>>> 92d533d (Update README.md)
-=======
 # 🤖 Enhanced AI Chatbot Platform
->>>>>>> fa5267e (First commit)
 
 A comprehensive AI chatbot platform with local LLM support, RAG capabilities, embeddings, fine-tuning, and multi-cloud deployment options.
 
