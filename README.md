@@ -1,11 +1,4 @@
-# AI_Scholar
-A comprehensive AI chatbot platform with local LLM support, RAG capabilities, embeddings, fine-tuning, and multi-cloud deployment options.
-
-# AI Chatbot Web GUI
-# 🤖 AI Chatbot - Advanced Conversational Interface
-
 # 🤖 AI Scholar Chatbot: A Novel AI RAG-aware Model for Academic Paper Analysis - Advanced Conversational Interface
-# 🤖 Enhanced AI Chatbot Platform
 
 A comprehensive AI chatbot platform with local LLM support, RAG capabilities, embeddings, fine-tuning, and multi-cloud deployment options.
 
@@ -161,9 +154,7 @@ export DB_PASSWORD="secure-password"
 
 | Use Case | Model | Size | Memory Required |
 |----------|-------|------|-----------------|
-| General Chat | llama2:7b-chat | ~4GB | 8GB RAM |
 | Code Assistance | codellama:7b-instruct | ~4GB | 8GB RAM |
-| Lightweight | tinyllama:1.1b | ~1GB | 4GB RAM |
 | High Quality | llama2:13b-chat | ~8GB | 16GB RAM |
 
 ## 📊 API Endpoints
@@ -261,7 +252,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Documentation**: Check the docs folder
 - **Issues**: GitHub Issues for bug reports
 - **Discussions**: GitHub Discussions for questions
-- **Enterprise**: Contact for enterprise support
 
 ---
 
