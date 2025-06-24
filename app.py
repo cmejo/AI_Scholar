@@ -14,6 +14,7 @@ import requests
 import json
 import uuid
 import os
+import time
 from datetime import datetime, timedelta
 import jwt
 import hashlib
@@ -764,6 +765,21 @@ def get_available_models(current_user_id):
         return jsonify({
             'models': models_data,
             'total_count': len(models_data)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'message': f'Failed to get models: {str(e)}'}), 500
+
+@app.route('/api/models/simple', methods=['GET'])
+def get_models_simple():
+    """Get simple list of model names (no auth required for frontend)"""
+    try:
+        models = ollama_service.list_models()
+        model_names = [model.name for model in models]
+        
+        return jsonify({
+            'models': model_names,
+            'default_model': DEFAULT_MODEL
         }), 200
         
     except Exception as e:
