@@ -1,188 +1,236 @@
 #!/usr/bin/env python3
 """
-Enhanced Backend Setup Script
-Sets up the AI Chatbot backend with Ollama, Hugging Face integration, and model management
+Enhanced LLM Backend Setup Script
+Sets up the AI Scholar chatbot with open source LLM integration
 """
 
 import os
 import sys
 import subprocess
+import json
 import requests
 import time
-import json
 from pathlib import Path
 
-def print_step(step, message):
-    """Print a formatted step message"""
-    print(f"\n{'='*60}")
-    print(f"STEP {step}: {message}")
-    print('='*60)
+def print_status(message, status="INFO"):
+    """Print colored status messages"""
+    colors = {
+        "INFO": "\033[94m",
+        "SUCCESS": "\033[92m", 
+        "WARNING": "\033[93m",
+        "ERROR": "\033[91m",
+        "RESET": "\033[0m"
+    }
+    print(f"{colors.get(status, '')}{status}: {message}{colors['RESET']}")
 
-def check_command_exists(command):
-    """Check if a command exists in PATH"""
-    try:
-        subprocess.run([command, '--version'], capture_output=True, check=True)
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
+def check_system_requirements():
+    """Check if system requirements are met"""
+    print_status("Checking system requirements...")
+    
+    # Check Python version
+    if sys.version_info < (3, 8):
+        print_status("Python 3.8+ is required", "ERROR")
         return False
+    
+    # Check if Docker is available (for optional containerized deployment)
+    try:
+        subprocess.run(["docker", "--version"], capture_output=True, check=True)
+        print_status("Docker is available", "SUCCESS")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print_status("Docker not found (optional for development)", "WARNING")
+    
+    # Check available disk space (need at least 10GB for models)
+    import shutil
+    free_space = shutil.disk_usage('.').free / (1024**3)  # GB
+    if free_space < 10:
+        print_status(f"Low disk space: {free_space:.1f}GB available. Recommend 10GB+ for models", "WARNING")
+    else:
+        print_status(f"Disk space OK: {free_space:.1f}GB available", "SUCCESS")
+    
+    return True
 
 def install_ollama():
-    """Install Ollama if not present"""
-    print_step(1, "Installing Ollama")
+    """Install Ollama if not already installed"""
+    print_status("Checking Ollama installation...")
     
-    if check_command_exists('ollama'):
-        print("✅ Ollama is already installed")
-        return True
+    try:
+        # Check if Ollama is already installed
+        result = subprocess.run(["ollama", "--version"], capture_output=True, text=True)
+        if result.returncode == 0:
+            print_status(f"Ollama already installed: {result.stdout.strip()}", "SUCCESS")
+            return True
+    except FileNotFoundError:
+        pass
     
-    print("📥 Installing Ollama...")
+    print_status("Installing Ollama...")
     
-    # Detect OS and install accordingly
+    # Install Ollama based on OS
     import platform
     system = platform.system().lower()
     
-    if system == 'linux' or system == 'darwin':  # Linux or macOS
+    if system == "linux" or system == "darwin":  # Linux or macOS
         try:
             # Download and run Ollama install script
-            result = subprocess.run([
-                'curl', '-fsSL', 'https://ollama.ai/install.sh'
-            ], capture_output=True, text=True)
-            
-            if result.returncode == 0:
-                # Run the install script
-                subprocess.run(['sh'], input=result.stdout, text=True, check=True)
-                print("✅ Ollama installed successfully")
-                return True
-            else:
-                print("❌ Failed to download Ollama install script")
-                return False
-                
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Failed to install Ollama: {e}")
+            install_cmd = "curl -fsSL https://ollama.ai/install.sh | sh"
+            subprocess.run(install_cmd, shell=True, check=True)
+            print_status("Ollama installed successfully", "SUCCESS")
+            return True
+        except subprocess.CalledProcessError:
+            print_status("Failed to install Ollama automatically", "ERROR")
+            print_status("Please install Ollama manually from https://ollama.ai", "INFO")
             return False
     
-    elif system == 'windows':
-        print("🪟 For Windows, please download Ollama from: https://ollama.ai/download")
-        print("   Then run this script again.")
+    elif system == "windows":
+        print_status("Please download and install Ollama from https://ollama.ai/download/windows", "INFO")
         return False
     
     else:
-        print(f"❌ Unsupported operating system: {system}")
+        print_status(f"Unsupported OS: {system}", "ERROR")
         return False
 
 def start_ollama_service():
     """Start Ollama service"""
-    print_step(2, "Starting Ollama Service")
+    print_status("Starting Ollama service...")
     
     try:
-        # Check if Ollama is already running
-        response = requests.get('http://localhost:11434/api/tags', timeout=5)
-        if response.status_code == 200:
-            print("✅ Ollama service is already running")
-            return True
-    except requests.exceptions.RequestException:
-        pass
-    
-    print("🚀 Starting Ollama service...")
-    
-    # Start Ollama service in background
-    try:
-        subprocess.Popen(['ollama', 'serve'], 
-                        stdout=subprocess.DEVNULL, 
-                        stderr=subprocess.DEVNULL)
+        # Try to start Ollama service
+        subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
         # Wait for service to start
         for i in range(30):  # Wait up to 30 seconds
             try:
-                response = requests.get('http://localhost:11434/api/tags', timeout=2)
+                response = requests.get("http://localhost:11434/api/tags", timeout=2)
                 if response.status_code == 200:
-                    print("✅ Ollama service started successfully")
+                    print_status("Ollama service started successfully", "SUCCESS")
                     return True
             except requests.exceptions.RequestException:
                 pass
             time.sleep(1)
         
-        print("❌ Ollama service failed to start within 30 seconds")
+        print_status("Ollama service failed to start", "ERROR")
         return False
         
     except Exception as e:
-        print(f"❌ Failed to start Ollama service: {e}")
+        print_status(f"Error starting Ollama: {e}", "ERROR")
         return False
 
-def pull_default_models():
-    """Pull default models for the chatbot"""
-    print_step(3, "Pulling Default Models")
+def pull_recommended_models():
+    """Pull recommended models for different use cases"""
+    print_status("Pulling recommended models...")
     
-    # List of recommended models to pull
-    models_to_pull = [
-        'llama2:7b-chat',
-        'mistral:7b-instruct',
-        'tinyllama:1.1b'
-    ]
+    # Recommended models by size and use case
+    models = {
+        "lightweight": ["tinyllama:1.1b"],
+        "general": ["llama2:7b-chat", "mistral:7b-instruct"],
+        "code": ["codellama:7b-instruct"],
+        "advanced": ["llama2:13b-chat"]
+    }
     
-    for model in models_to_pull:
-        print(f"📥 Pulling model: {model}")
-        try:
-            result = subprocess.run(['ollama', 'pull', model], 
-                                  capture_output=True, text=True, timeout=600)
-            
-            if result.returncode == 0:
-                print(f"✅ Successfully pulled {model}")
-            else:
-                print(f"⚠️ Failed to pull {model}: {result.stderr}")
-                
-        except subprocess.TimeoutExpired:
-            print(f"⚠️ Timeout while pulling {model} (this is normal for large models)")
-        except Exception as e:
-            print(f"❌ Error pulling {model}: {e}")
-
-def install_python_dependencies():
-    """Install Python dependencies"""
-    print_step(4, "Installing Python Dependencies")
+    # Ask user which models to install
+    print("\nAvailable model categories:")
+    for category, model_list in models.items():
+        print(f"  {category}: {', '.join(model_list)}")
     
-    try:
-        print("📦 Installing requirements...")
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'], 
-                      check=True)
-        print("✅ Python dependencies installed successfully")
+    print("\nChoose models to install:")
+    print("1. Lightweight only (tinyllama - ~1GB)")
+    print("2. General purpose (llama2:7b, mistral:7b - ~8GB)")
+    print("3. Code assistance (codellama:7b - ~4GB)")
+    print("4. All recommended models (~15GB)")
+    print("5. Skip model installation")
+    
+    choice = input("Enter choice (1-5): ").strip()
+    
+    models_to_pull = []
+    if choice == "1":
+        models_to_pull = models["lightweight"]
+    elif choice == "2":
+        models_to_pull = models["general"]
+    elif choice == "3":
+        models_to_pull = models["code"]
+    elif choice == "4":
+        models_to_pull = sum(models.values(), [])
+    elif choice == "5":
+        print_status("Skipping model installation", "INFO")
         return True
-        
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to install Python dependencies: {e}")
+    else:
+        print_status("Invalid choice, skipping model installation", "WARNING")
+        return True
+    
+    # Pull selected models
+    for model in models_to_pull:
+        print_status(f"Pulling model: {model}", "INFO")
+        try:
+            subprocess.run(["ollama", "pull", model], check=True)
+            print_status(f"Successfully pulled {model}", "SUCCESS")
+        except subprocess.CalledProcessError:
+            print_status(f"Failed to pull {model}", "ERROR")
+    
+    return True
+
+def setup_python_environment():
+    """Set up Python virtual environment and install dependencies"""
+    print_status("Setting up Python environment...")
+    
+    # Create virtual environment if it doesn't exist
+    venv_path = Path("venv")
+    if not venv_path.exists():
+        print_status("Creating virtual environment...")
+        subprocess.run([sys.executable, "-m", "venv", "venv"], check=True)
+        print_status("Virtual environment created", "SUCCESS")
+    
+    # Determine activation script path
+    if os.name == 'nt':  # Windows
+        activate_script = venv_path / "Scripts" / "activate.bat"
+        pip_path = venv_path / "Scripts" / "pip"
+    else:  # Unix/Linux/macOS
+        activate_script = venv_path / "bin" / "activate"
+        pip_path = venv_path / "bin" / "pip"
+    
+    # Install requirements
+    print_status("Installing Python dependencies...")
+    try:
+        subprocess.run([str(pip_path), "install", "-r", "requirements.txt"], check=True)
+        print_status("Dependencies installed successfully", "SUCCESS")
+    except subprocess.CalledProcessError:
+        print_status("Failed to install dependencies", "ERROR")
         return False
+    
+    return True
 
 def setup_database():
-    """Set up the database"""
-    print_step(5, "Setting Up Database")
+    """Set up database"""
+    print_status("Setting up database...")
     
+    # Check if PostgreSQL is available
     try:
-        # Run database migrations
-        print("🗄️ Running database migrations...")
-        subprocess.run([sys.executable, 'manage_db.py', 'upgrade'], check=True)
-        print("✅ Database setup completed successfully")
-        return True
-        
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to set up database: {e}")
-        return False
+        subprocess.run(["psql", "--version"], capture_output=True, check=True)
+        postgres_available = True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        postgres_available = False
+    
+    if postgres_available:
+        print_status("PostgreSQL detected", "SUCCESS")
+        # You could add automatic database setup here
+        print_status("Please ensure your database is configured in .env file", "INFO")
+    else:
+        print_status("PostgreSQL not found, will use SQLite for development", "WARNING")
+    
+    return True
 
 def create_env_file():
     """Create .env file with default configuration"""
-    print_step(6, "Creating Environment Configuration")
+    print_status("Creating environment configuration...")
     
-    env_file = Path('.env')
-    
+    env_file = Path(".env")
     if env_file.exists():
-        print("✅ .env file already exists")
+        print_status(".env file already exists", "INFO")
         return True
     
-    # Default environment configuration
-    env_content = """# AI Chatbot Backend Configuration
+    env_content = """# AI Scholar Chatbot Configuration
 
-# Flask Configuration
-SECRET_KEY=your-secret-key-change-in-production
-JWT_SECRET_KEY=jwt-secret-string-change-in-production
-JWT_EXPIRES_HOURS=24
-JWT_REFRESH_EXPIRES_DAYS=30
+# Ollama Configuration
+OLLAMA_BASE_URL=http://localhost:11434
+DEFAULT_MODEL=llama2:7b-chat
 
 # Database Configuration (PostgreSQL)
 DB_HOST=localhost
@@ -191,171 +239,197 @@ DB_NAME=chatbot_db
 DB_USER=chatbot_user
 DB_PASSWORD=chatbot_password
 
-# Ollama Configuration
-OLLAMA_BASE_URL=http://localhost:11434
-DEFAULT_MODEL=llama2:7b-chat
+# For SQLite (development only)
+# DATABASE_URL=sqlite:///chatbot.db
 
-# Model Management
-MODEL_CACHE_TTL=300
-MAX_CONTEXT_LENGTH=4000
-DEFAULT_TEMPERATURE=0.7
+# Security
+SECRET_KEY=your-secret-key-change-in-production
+JWT_SECRET_KEY=jwt-secret-string-change-in-production
+JWT_EXPIRES_HOURS=24
+JWT_REFRESH_EXPIRES_DAYS=30
 
-# System Monitoring
-ENABLE_MONITORING=true
-MONITORING_INTERVAL=30
+# Frontend Configuration
+REACT_APP_API_URL=http://localhost:5000
 
-# Hugging Face (optional)
-# HF_TOKEN=your_huggingface_token_here
+# Optional: HuggingFace Hub Token for model downloads
+# HUGGINGFACE_HUB_TOKEN=your_token_here
 
-# Development
+# Optional: OpenAI API Key for comparison/fallback
+# OPENAI_API_KEY=your_openai_key_here
+
+# Development Settings
 FLASK_ENV=development
-FLASK_DEBUG=true
+FLASK_DEBUG=True
 """
     
-    try:
-        with open(env_file, 'w') as f:
-            f.write(env_content)
-        print("✅ Created .env file with default configuration")
-        print("⚠️ Please update the configuration values as needed")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Failed to create .env file: {e}")
-        return False
+    with open(env_file, 'w') as f:
+        f.write(env_content)
+    
+    print_status(".env file created", "SUCCESS")
+    print_status("Please review and update the .env file with your settings", "INFO")
+    return True
 
-def test_backend_functionality():
-    """Test basic backend functionality"""
-    print_step(7, "Testing Backend Functionality")
+def run_tests():
+    """Run basic tests to verify setup"""
+    print_status("Running setup verification tests...")
     
     try:
-        # Import and test services
-        print("🧪 Testing service imports...")
-        
-        from services.ollama_service import ollama_service
-        from services.huggingface_service import hf_service
-        from services.chat_service import chat_service
-        from services.model_manager import model_manager
-        
-        print("✅ All services imported successfully")
-        
         # Test Ollama connection
-        print("🧪 Testing Ollama connection...")
-        if ollama_service.is_available():
-            print("✅ Ollama service is accessible")
-            
-            # List available models
-            models = ollama_service.list_models()
-            print(f"✅ Found {len(models)} available models")
-            
-            for model in models[:3]:  # Show first 3 models
-                print(f"   - {model.name}")
+        response = requests.get("http://localhost:11434/api/tags", timeout=5)
+        if response.status_code == 200:
+            models = response.json().get('models', [])
+            print_status(f"Ollama connection OK - {len(models)} models available", "SUCCESS")
         else:
-            print("⚠️ Ollama service is not accessible")
-        
-        # Test model manager
-        print("🧪 Testing model manager...")
-        model_manager.start_monitoring()
-        print("✅ Model manager started successfully")
-        
-        print("✅ Backend functionality test completed")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Backend functionality test failed: {e}")
+            print_status("Ollama connection failed", "ERROR")
+            return False
+    except requests.exceptions.RequestException:
+        print_status("Ollama service not responding", "ERROR")
         return False
-
-def print_next_steps():
-    """Print next steps for the user"""
-    print_step(8, "Setup Complete!")
     
-    print("""
-🎉 Enhanced AI Chatbot Backend Setup Complete!
+    # Test Python imports
+    try:
+        import flask
+        import ollama
+        import transformers
+        print_status("Python dependencies OK", "SUCCESS")
+    except ImportError as e:
+        print_status(f"Missing Python dependency: {e}", "ERROR")
+        return False
+    
+    return True
 
-Next Steps:
-1. Review and update the .env file with your specific configuration
-2. Start the backend server:
-   python app.py
+def create_startup_scripts():
+    """Create convenient startup scripts"""
+    print_status("Creating startup scripts...")
+    
+    # Create start script for Unix/Linux/macOS
+    start_script = """#!/bin/bash
+# AI Scholar Chatbot Startup Script
 
-3. The backend will be available at: http://localhost:5000
+echo "🚀 Starting AI Scholar Chatbot..."
 
-Available API Endpoints:
-- /api/health - System health check
-- /api/models - Model management
-- /api/chat/stream - Streaming chat responses
-- /api/system/status - System monitoring
-- /api/huggingface/search - HuggingFace model search
+# Start Ollama service if not running
+if ! pgrep -f "ollama serve" > /dev/null; then
+    echo "📡 Starting Ollama service..."
+    ollama serve &
+    sleep 3
+fi
 
-Features Available:
-✅ Local LLM support via Ollama
-✅ Multiple model management
-✅ Real-time streaming responses
-✅ System monitoring and analytics
-✅ Hugging Face model integration
-✅ Advanced conversation management
-✅ Model performance tracking
+# Activate virtual environment
+source venv/bin/activate
 
-For frontend integration, ensure your React app connects to:
-http://localhost:5000
+# Start the Flask application
+echo "🌐 Starting Flask backend..."
+python app.py
+"""
+    
+    with open("start.sh", 'w') as f:
+        f.write(start_script)
+    os.chmod("start.sh", 0o755)
+    
+    # Create start script for Windows
+    start_script_win = """@echo off
+REM AI Scholar Chatbot Startup Script for Windows
 
-Documentation:
-- API documentation: Check the /api endpoints
-- Model management: Use /api/models endpoints
-- System monitoring: Use /api/system endpoints
+echo 🚀 Starting AI Scholar Chatbot...
 
-Enjoy your enhanced AI chatbot! 🤖
-""")
+REM Start Ollama service if not running
+tasklist /FI "IMAGENAME eq ollama.exe" 2>NUL | find /I /N "ollama.exe">NUL
+if "%ERRORLEVEL%"=="1" (
+    echo 📡 Starting Ollama service...
+    start /B ollama serve
+    timeout /t 3 /nobreak >nul
+)
+
+REM Activate virtual environment
+call venv\\Scripts\\activate.bat
+
+REM Start the Flask application
+echo 🌐 Starting Flask backend...
+python app.py
+"""
+    
+    with open("start.bat", 'w') as f:
+        f.write(start_script_win)
+    
+    print_status("Startup scripts created", "SUCCESS")
 
 def main():
     """Main setup function"""
-    print("🤖 Enhanced AI Chatbot Backend Setup")
-    print("=====================================")
+    print_status("🤖 AI Scholar Chatbot Enhanced LLM Backend Setup", "INFO")
+    print_status("=" * 60, "INFO")
     
-    # Check if we're in the right directory
-    if not Path('app.py').exists():
-        print("❌ Please run this script from the project root directory")
-        sys.exit(1)
+    # Check system requirements
+    if not check_system_requirements():
+        print_status("System requirements not met", "ERROR")
+        return False
     
-    success_steps = 0
-    total_steps = 7
+    # Install and setup Ollama
+    if not install_ollama():
+        print_status("Ollama installation failed", "ERROR")
+        return False
     
-    # Step 1: Install Ollama
-    if install_ollama():
-        success_steps += 1
+    if not start_ollama_service():
+        print_status("Failed to start Ollama service", "ERROR")
+        return False
     
-    # Step 2: Start Ollama service
-    if start_ollama_service():
-        success_steps += 1
+    # Setup Python environment
+    if not setup_python_environment():
+        print_status("Python environment setup failed", "ERROR")
+        return False
     
-    # Step 3: Pull default models
-    pull_default_models()  # This might partially fail, so we don't count it
-    success_steps += 1
+    # Setup database
+    if not setup_database():
+        print_status("Database setup failed", "ERROR")
+        return False
     
-    # Step 4: Install Python dependencies
-    if install_python_dependencies():
-        success_steps += 1
+    # Create configuration
+    if not create_env_file():
+        print_status("Configuration setup failed", "ERROR")
+        return False
     
-    # Step 5: Setup database
-    if setup_database():
-        success_steps += 1
+    # Pull recommended models
+    if not pull_recommended_models():
+        print_status("Model installation had issues", "WARNING")
     
-    # Step 6: Create environment file
-    if create_env_file():
-        success_steps += 1
+    # Create startup scripts
+    create_startup_scripts()
     
-    # Step 7: Test functionality
-    if test_backend_functionality():
-        success_steps += 1
+    # Run verification tests
+    if not run_tests():
+        print_status("Setup verification failed", "ERROR")
+        return False
     
-    # Print results
-    print(f"\n{'='*60}")
-    print(f"Setup Results: {success_steps}/{total_steps} steps completed successfully")
-    print('='*60)
+    print_status("=" * 60, "SUCCESS")
+    print_status("🎉 Setup completed successfully!", "SUCCESS")
+    print_status("=" * 60, "SUCCESS")
     
-    if success_steps >= 6:  # Allow for some model pulling failures
-        print_next_steps()
-    else:
-        print("❌ Setup incomplete. Please check the errors above and try again.")
-        sys.exit(1)
+    print("\n📋 Next steps:")
+    print("1. Review and update the .env file with your settings")
+    print("2. Start the application:")
+    print("   - Unix/Linux/macOS: ./start.sh")
+    print("   - Windows: start.bat")
+    print("   - Manual: python app.py")
+    print("3. Access the application at http://localhost:5000")
+    print("4. The React frontend should be at http://localhost:3000")
+    
+    print("\n🔧 Available API endpoints:")
+    print("- Health check: GET /api/health")
+    print("- Models: GET /api/models")
+    print("- Chat: POST /api/chat")
+    print("- Streaming chat: POST /api/chat/stream")
+    print("- RAG: POST /api/rag/chat")
+    print("- HuggingFace search: GET /api/huggingface/search")
+    
+    return True
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    try:
+        success = main()
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print_status("\nSetup interrupted by user", "WARNING")
+        sys.exit(1)
+    except Exception as e:
+        print_status(f"Setup failed with error: {e}", "ERROR")
+        sys.exit(1)
