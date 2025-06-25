@@ -163,8 +163,4 @@ The enhanced backend is designed to be extensible and welcomes contributions:
 
 ## 📄 License
 
-This enhanced backend maintains the same license as the original project.
-
----
-
-**Transform your chatbot into a powerful local LLM platform! 🤖✨**
+MIT
