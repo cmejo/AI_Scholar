@@ -304,7 +304,7 @@ The enhanced AI Scholar now provides:
 ✅ **Performance Optimization** - Smart resource management
 ✅ **Extensible Architecture** - Easy to add new models and features
 
-Your AI Scholar is now a true AI expert that can:
+AI Scholar is now a true AI expert that can:
 - Answer questions about your specific domain
 - Switch between specialized models automatically
 - Provide cited, accurate responses
