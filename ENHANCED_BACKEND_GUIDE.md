@@ -449,7 +449,7 @@ for response in ollama_service.chat(
 
 ## License
 
-[MIT]
+MIT
 
 ## Support
 
