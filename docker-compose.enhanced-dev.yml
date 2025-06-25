@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Ollama service for local LLM hosting
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-scholar-ollama-dev
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_dev_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - ai-scholar-dev-network
+
+  # Development Backend (with hot reload)
+  backend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.enhanced
+    container_name: ai-scholar-backend-dev
+    ports:
+      - "5001:5000"  # Different port for development
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=true
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - DEFAULT_MODEL=llama2:latest
+      - DATABASE_URL=sqlite:///chatbot_dev.db  # SQLite for development
+      - SECRET_KEY=dev-secret-key
+      - JWT_SECRET_KEY=dev-jwt-secret-key
+      - JWT_EXPIRES_HOURS=24
+    volumes:
+      - .:/app  # Mount source code for hot reload
+      - backend_dev_data:/app/data
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    command: ["python", "app_minimal.py"]
+    networks:
+      - ai-scholar-dev-network
+
+  # React Frontend Development Server
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: ai-scholar-frontend-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5001
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend-dev
+    restart: unless-stopped
+    networks:
+      - ai-scholar-dev-network
+
+volumes:
+  ollama_dev_data:
+  backend_dev_data:
+
+networks:
+  ai-scholar-dev-network:
+    driver: bridge

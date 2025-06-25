@@ -1,0 +1,155 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "AI Scholar Production Dashboard",
+    "tags": ["ai-scholar", "production"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "System Overview",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "system_cpu_usage_percent",
+            "legendFormat": "CPU Usage %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Memory Usage",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "system_memory_usage_percent",
+            "legendFormat": "Memory Usage %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "50th percentile"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"4..|5..\"}[5m]) / rate(http_requests_total[5m])",
+            "legendFormat": "Error Rate"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Model Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(model_response_time_seconds_bucket[5m]))",
+            "legendFormat": "{{model_name}} - 95th percentile"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Rate Limit Violations",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(rate_limit_hits_total[5m])",
+            "legendFormat": "{{rule}} violations/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 8,
+        "title": "Active Users",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "active_users_total",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 24}
+      },
+      {
+        "id": 9,
+        "title": "Database Connections",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "database_connections_active",
+            "legendFormat": "DB Connections"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 24}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

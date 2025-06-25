@@ -1,0 +1,47 @@
+# Production Dockerfile for AI Scholar
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    ENVIRONMENT=production \
+    FLASK_ENV=production
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p logs uploads && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:5000/api/health || exit 1
+
+# Expose port
+EXPOSE 5000
+
+# Run the production application
+CMD ["python", "production_app.py"]
