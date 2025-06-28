@@ -1,0 +1,395 @@
+/* Content Script Styles for AI Scholar Extension */
+
+/* Ensure our styles don't conflict with page styles */
+.ai-scholar-floating-button,
+.ai-scholar-loader,
+.ai-scholar-modal,
+.ai-scholar-notification,
+.ai-scholar-inserted-response {
+  all: initial;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+}
+
+/* Floating Action Button */
+.ai-scholar-floating-button {
+  position: absolute !important;
+  z-index: 2147483647 !important;
+  background: white !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  font-size: 13px !important;
+  max-width: 300px !important;
+  animation: ai-scholar-fade-in 0.2s ease !important;
+  cursor: default !important;
+}
+
+.ai-scholar-button-content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px !important;
+}
+
+.ai-scholar-logo {
+  font-size: 16px !important;
+  padding: 4px !important;
+}
+
+.ai-scholar-actions {
+  display: flex !important;
+  gap: 4px !important;
+  flex-wrap: wrap !important;
+}
+
+.ai-scholar-action {
+  background: #f3f4f6 !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+  white-space: nowrap !important;
+  color: #374151 !important;
+  text-decoration: none !important;
+  font-weight: normal !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+}
+
+.ai-scholar-action:hover {
+  background: #3b82f6 !important;
+  color: white !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Loading Indicator */
+.ai-scholar-loader {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2147483647 !important;
+}
+
+.ai-scholar-loader-content {
+  background: white !important;
+  padding: 24px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.ai-scholar-spinner {
+  width: 20px !important;
+  height: 20px !important;
+  border: 2px solid #3b82f6 !important;
+  border-top: 2px solid transparent !important;
+  border-radius: 50% !important;
+  animation: ai-scholar-spin 1s linear infinite !important;
+}
+
+.ai-scholar-loader-text {
+  color: #374151 !important;
+  font-size: 14px !important;
+  font-weight: normal !important;
+  margin: 0 !important;
+}
+
+/* Modal */
+.ai-scholar-modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 2147483647 !important;
+}
+
+.ai-scholar-modal-overlay {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+
+.ai-scholar-modal-content {
+  position: relative !important;
+  background: white !important;
+  margin: 5% auto !important;
+  width: 90% !important;
+  max-width: 600px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  max-height: 80vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.ai-scholar-modal-header {
+  padding: 20px !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.ai-scholar-modal-header h3 {
+  margin: 0 !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #1f2937 !important;
+}
+
+.ai-scholar-close-button {
+  background: none !important;
+  border: none !important;
+  font-size: 24px !important;
+  cursor: pointer !important;
+  color: #6b7280 !important;
+  padding: 0 !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 4px !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+}
+
+.ai-scholar-close-button:hover {
+  background: #f3f4f6 !important;
+}
+
+.ai-scholar-modal-body {
+  padding: 20px !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+}
+
+.ai-scholar-original-text,
+.ai-scholar-ai-response {
+  margin-bottom: 20px !important;
+}
+
+.ai-scholar-original-text h4,
+.ai-scholar-ai-response h4 {
+  margin: 0 0 8px 0 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+}
+
+.ai-scholar-text-content {
+  background: #f3f4f6 !important;
+  padding: 12px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  color: #4b5563 !important;
+  border-left: 3px solid #3b82f6 !important;
+  max-height: 120px !important;
+  overflow-y: auto !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+}
+
+.ai-scholar-response-content {
+  background: #ffffff !important;
+  padding: 16px !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  color: #1f2937 !important;
+  border: 1px solid #e5e7eb !important;
+  margin: 0 !important;
+}
+
+.ai-scholar-modal-footer {
+  padding: 20px !important;
+  border-top: 1px solid #e5e7eb !important;
+  display: flex !important;
+  gap: 8px !important;
+  justify-content: flex-end !important;
+}
+
+.ai-scholar-button {
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+  border: 1px solid !important;
+  transition: all 0.2s !important;
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  font-weight: 500 !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.ai-scholar-button-primary {
+  background: #3b82f6 !important;
+  color: white !important;
+  border-color: #3b82f6 !important;
+}
+
+.ai-scholar-button-primary:hover {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+}
+
+.ai-scholar-button-secondary {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+  border-color: #d1d5db !important;
+}
+
+.ai-scholar-button-secondary:hover {
+  background: #e5e7eb !important;
+  border-color: #9ca3af !important;
+}
+
+/* Notifications */
+.ai-scholar-notification {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  padding: 12px 20px !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  z-index: 2147483647 !important;
+  animation: ai-scholar-slide-in 0.3s ease !important;
+  max-width: 300px !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+
+.ai-scholar-notification-success {
+  background: #10b981 !important;
+  color: white !important;
+}
+
+.ai-scholar-notification-error {
+  background: #ef4444 !important;
+  color: white !important;
+}
+
+.ai-scholar-notification-warning {
+  background: #f59e0b !important;
+  color: white !important;
+}
+
+.ai-scholar-notification-info {
+  background: #3b82f6 !important;
+  color: white !important;
+}
+
+/* Inserted Response */
+.ai-scholar-inserted-response {
+  margin: 10px 0 !important;
+  padding: 12px !important;
+  background: #f0f9ff !important;
+  border-left: 4px solid #3b82f6 !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  user-select: text !important;
+  color: #1f2937 !important;
+}
+
+.ai-scholar-inserted-response > div:first-child {
+  font-weight: 600 !important;
+  color: #1e40af !important;
+  margin-bottom: 8px !important;
+}
+
+/* Animations */
+@keyframes ai-scholar-fade-in {
+  from { 
+    opacity: 0 !important; 
+    transform: scale(0.95) !important; 
+  }
+  to { 
+    opacity: 1 !important; 
+    transform: scale(1) !important; 
+  }
+}
+
+@keyframes ai-scholar-spin {
+  from { transform: rotate(0deg) !important; }
+  to { transform: rotate(360deg) !important; }
+}
+
+@keyframes ai-scholar-slide-in {
+  from { transform: translateX(100%) !important; }
+  to { transform: translateX(0) !important; }
+}
+
+/* Scrollbar styling for modal content */
+.ai-scholar-modal-body::-webkit-scrollbar,
+.ai-scholar-text-content::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.ai-scholar-modal-body::-webkit-scrollbar-track,
+.ai-scholar-text-content::-webkit-scrollbar-track {
+  background: #f1f1f1 !important;
+  border-radius: 3px !important;
+}
+
+.ai-scholar-modal-body::-webkit-scrollbar-thumb,
+.ai-scholar-text-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1 !important;
+  border-radius: 3px !important;
+}
+
+.ai-scholar-modal-body::-webkit-scrollbar-thumb:hover,
+.ai-scholar-text-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8 !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .ai-scholar-modal-content {
+    width: 95% !important;
+    margin: 2% auto !important;
+    max-height: 90vh !important;
+  }
+  
+  .ai-scholar-floating-button {
+    max-width: 250px !important;
+  }
+  
+  .ai-scholar-actions {
+    flex-direction: column !important;
+  }
+  
+  .ai-scholar-action {
+    width: 100% !important;
+    text-align: center !important;
+  }
+}
+
+@media (max-height: 600px) {
+  .ai-scholar-modal-content {
+    max-height: 95vh !important;
+  }
+  
+  .ai-scholar-modal-body {
+    max-height: 300px !important;
+  }
+}

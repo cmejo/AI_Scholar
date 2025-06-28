@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Scholar Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="popup-header">
+      <div class="logo">
+        <span class="logo-icon">🤖</span>
+        <span class="logo-text">AI Scholar</span>
+      </div>
+      <div class="version">v1.0.0</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="popup-content">
+      <!-- Setup Section (shown when not configured) -->
+      <div id="setup-section" class="section" style="display: none;">
+        <div class="setup-header">
+          <h2>Welcome to AI Scholar!</h2>
+          <p>Configure your API key to start using AI assistance anywhere on the web.</p>
+        </div>
+        
+        <div class="form-group">
+          <label for="api-key-input">API Key:</label>
+          <div class="input-group">
+            <input type="password" id="api-key-input" placeholder="Enter your API key">
+            <button type="button" id="toggle-api-key" class="toggle-btn">👁️</button>
+          </div>
+          <div class="help-text">
+            Get your API key from the <a href="#" id="dashboard-link" target="_blank">AI Scholar Dashboard</a>
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button id="test-api-key" class="btn btn-secondary">Test Connection</button>
+          <button id="save-api-key" class="btn btn-primary">Save & Continue</button>
+        </div>
+        
+        <div id="api-test-result" class="test-result" style="display: none;"></div>
+      </div>
+
+      <!-- Main Section (shown when configured) -->
+      <div id="main-section" class="section">
+        <!-- User Info -->
+        <div class="user-info">
+          <div class="user-avatar">👤</div>
+          <div class="user-details">
+            <div class="user-name" id="user-name">Loading...</div>
+            <div class="user-status" id="user-status">Connected</div>
+          </div>
+          <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+          <h3>Quick Actions</h3>
+          <div class="action-grid">
+            <button class="action-btn" data-action="explain">
+              <span class="action-icon">💡</span>
+              <span class="action-text">Explain</span>
+              <span class="action-shortcut">Ctrl+Shift+E</span>
+            </button>
+            <button class="action-btn" data-action="summarize">
+              <span class="action-icon">📝</span>
+              <span class="action-text">Summarize</span>
+              <span class="action-shortcut">Ctrl+Shift+S</span>
+            </button>
+            <button class="action-btn" data-action="rewrite">
+              <span class="action-icon">✏️</span>
+              <span class="action-text">Rewrite</span>
+              <span class="action-shortcut">Ctrl+Shift+R</span>
+            </button>
+            <button class="action-btn" data-action="translate">
+              <span class="action-icon">🌐</span>
+              <span class="action-text">Translate</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Usage Stats -->
+        <div class="usage-stats">
+          <h3>Today's Usage</h3>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-value" id="today-requests">0</div>
+              <div class="stat-label">Requests</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="today-words">0</div>
+              <div class="stat-label">Words Processed</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="recent-activity">
+          <h3>Recent Activity</h3>
+          <div id="activity-list" class="activity-list">
+            <div class="activity-item">
+              <span class="activity-icon">💡</span>
+              <span class="activity-text">Explained text on example.com</span>
+              <span class="activity-time">2 min ago</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="footer-actions">
+          <button id="open-dashboard" class="btn btn-outline">
+            📊 Dashboard
+          </button>
+          <button id="help-btn" class="btn btn-outline">
+            ❓ Help
+          </button>
+        </div>
+      </div>
+
+      <!-- Settings Section -->
+      <div id="settings-section" class="section" style="display: none;">
+        <div class="section-header">
+          <button id="back-to-main" class="back-btn">← Back</button>
+          <h2>Settings</h2>
+        </div>
+
+        <div class="settings-content">
+          <!-- Model Settings -->
+          <div class="setting-group">
+            <h3>AI Model</h3>
+            <div class="form-group">
+              <label for="model-select">Preferred Model:</label>
+              <select id="model-select">
+                <option value="llama2:7b-chat">Llama 2 7B Chat</option>
+                <option value="llama2:13b-chat">Llama 2 13B Chat</option>
+                <option value="codellama:7b">Code Llama 7B</option>
+                <option value="mistral:7b">Mistral 7B</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="temperature-slider">Creativity (Temperature):</label>
+              <div class="slider-group">
+                <input type="range" id="temperature-slider" min="0" max="1" step="0.1" value="0.7">
+                <span id="temperature-value">0.7</span>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="max-tokens-input">Max Response Length:</label>
+              <input type="number" id="max-tokens-input" min="100" max="2000" value="500">
+            </div>
+          </div>
+
+          <!-- Behavior Settings -->
+          <div class="setting-group">
+            <h3>Behavior</h3>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="auto-translate">
+                <span class="checkmark"></span>
+                Auto-detect and translate foreign text
+              </label>
+            </div>
+            
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="show-notifications" checked>
+                <span class="checkmark"></span>
+                Show notifications
+              </label>
+            </div>
+            
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="floating-button" checked>
+                <span class="checkmark"></span>
+                Show floating action button on text selection
+              </label>
+            </div>
+          </div>
+
+          <!-- API Settings -->
+          <div class="setting-group">
+            <h3>API Configuration</h3>
+            <div class="form-group">
+              <label for="api-key-settings">API Key:</label>
+              <div class="input-group">
+                <input type="password" id="api-key-settings" placeholder="••••••••••••••••">
+                <button type="button" id="toggle-api-key-settings" class="toggle-btn">👁️</button>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="api-endpoint">API Endpoint:</label>
+              <input type="url" id="api-endpoint" value="http://localhost:5000">
+            </div>
+          </div>
+
+          <!-- Data & Privacy -->
+          <div class="setting-group">
+            <h3>Data & Privacy</h3>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="usage-analytics" checked>
+                <span class="checkmark"></span>
+                Allow usage analytics to improve the service
+              </label>
+            </div>
+            
+            <div class="form-actions">
+              <button id="clear-data" class="btn btn-danger">Clear All Data</button>
+              <button id="export-data" class="btn btn-outline">Export Data</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-footer">
+          <button id="save-settings" class="btn btn-primary">Save Settings</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading...</div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
