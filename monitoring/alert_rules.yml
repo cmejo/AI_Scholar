@@ -1,0 +1,166 @@
+# Prometheus alert rules for AI Scholar RAG
+
+groups:
+  - name: ai_scholar_alerts
+    rules:
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% for more than 5 minutes on {{ $labels.instance }}"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 85% for more than 5 minutes on {{ $labels.instance }}"
+
+      # Disk space low
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space is running low"
+          description: "Disk usage is above 85% on {{ $labels.instance }} {{ $labels.mountpoint }}"
+
+      # Backend service down
+      - alert: BackendServiceDown
+        expr: up{job="ai-scholar-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI Scholar Backend is down"
+          description: "The AI Scholar backend service has been down for more than 1 minute"
+
+      # Database connection issues
+      - alert: DatabaseConnectionIssues
+        expr: up{job="postgres"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL database is unreachable"
+          description: "Cannot connect to PostgreSQL database for more than 2 minutes"
+
+      # Redis connection issues
+      - alert: RedisConnectionIssues
+        expr: up{job="redis"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis cache is unreachable"
+          description: "Cannot connect to Redis cache for more than 2 minutes"
+
+      # High response time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is above 5 seconds for more than 5 minutes"
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 10% for more than 5 minutes"
+
+      # Ollama service issues
+      - alert: OllamaServiceIssues
+        expr: up{job="ollama"} == 0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ollama LLM service is down"
+          description: "Ollama service has been unreachable for more than 3 minutes"
+
+      # Vector store issues
+      - alert: VectorStoreIssues
+        expr: up{job="chromadb"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ChromaDB vector store is down"
+          description: "ChromaDB service has been unreachable for more than 2 minutes"
+
+      # Container restart frequency
+      - alert: ContainerRestartingFrequently
+        expr: rate(container_start_time_seconds[15m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container restarting frequently"
+          description: "Container {{ $labels.name }} is restarting more than once every 10 minutes"
+
+      # Low disk I/O performance
+      - alert: HighDiskIOWait
+        expr: rate(node_cpu_seconds_total{mode="iowait"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High disk I/O wait time"
+          description: "Disk I/O wait time is high on {{ $labels.instance }}"
+
+  - name: ai_scholar_business_alerts
+    rules:
+      # Low document processing rate
+      - alert: LowDocumentProcessingRate
+        expr: rate(documents_processed_total[1h]) < 1
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low document processing activity"
+          description: "Document processing rate is below 1 per hour"
+
+      # High query failure rate
+      - alert: HighQueryFailureRate
+        expr: rate(queries_failed_total[5m]) / rate(queries_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High query failure rate"
+          description: "Query failure rate is above 5% for more than 5 minutes"
+
+      # Memory service issues
+      - alert: MemoryServiceIssues
+        expr: rate(memory_operations_failed_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory service experiencing issues"
+          description: "Memory service failure rate is elevated"
+
+      # Knowledge graph update failures
+      - alert: KnowledgeGraphUpdateFailures
+        expr: rate(knowledge_graph_updates_failed_total[10m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Knowledge graph update failures"
+          description: "Knowledge graph updates are failing at an elevated rate"

@@ -1,0 +1,67 @@
+# Production overrides for docker-compose.yml
+version: '3.8'
+
+services:
+  frontend:
+    environment:
+      - NODE_ENV=production
+      - VITE_API_URL=https://api.your-domain.com
+    restart: always
+
+  streamlit:
+    environment:
+      - API_BASE_URL=https://api.your-domain.com
+      - OLLAMA_URL=http://ollama:11434
+    restart: always
+
+  backend:
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/ai_scholar
+      - SECRET_KEY=${SECRET_KEY}
+      - CORS_ORIGINS=https://your-domain.com,https://streamlit.your-domain.com
+    restart: always
+
+  postgres:
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    restart: always
+
+  nginx:
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    restart: always
+
+  # Production monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - ai-scholar-network
+    restart: always
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    networks:
+      - ai-scholar-network
+    restart: always
+
+volumes:
+  prometheus_data:
+  grafana_data:
