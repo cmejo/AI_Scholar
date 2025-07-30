@@ -1,0 +1,58 @@
+# Advanced RAG Research Ecosystem - Crontab Configuration
+# Automated tasks for maintenance, backups, and monitoring
+
+# Environment variables
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=admin@yourdomain.com
+
+# Change to application directory
+HOME=/home/appuser/advanced-rag-research-ecosystem
+
+# Daily backups at 2:00 AM
+0 2 * * * cd $HOME && ./scripts/backup.sh >> ./logs/backup.log 2>&1
+
+# Weekly maintenance on Sundays at 3:00 AM
+0 3 * * 0 cd $HOME && ./scripts/maintenance.sh >> ./logs/maintenance.log 2>&1
+
+# Health checks every 5 minutes
+*/5 * * * * cd $HOME && ./scripts/health-check.sh >> ./logs/health-check.log 2>&1
+
+# SSL certificate renewal check (daily at 4:00 AM)
+0 4 * * * /usr/bin/certbot renew --quiet --post-hook "cd $HOME && docker-compose restart nginx"
+
+# Log rotation (daily at 1:00 AM)
+0 1 * * * /usr/sbin/logrotate /home/appuser/advanced-rag-research-ecosystem/config/logrotate.conf
+
+# Docker cleanup (weekly on Saturdays at 1:00 AM)
+0 1 * * 6 cd $HOME && docker system prune -f >> ./logs/docker-cleanup.log 2>&1
+
+# Database statistics update (daily at 5:00 AM)
+0 5 * * * cd $HOME && docker-compose exec -T postgres psql -U rag_user -d advanced_rag_db -c "ANALYZE;" >> ./logs/db-analyze.log 2>&1
+
+# Redis memory optimization (daily at 6:00 AM)
+0 6 * * * cd $HOME && docker-compose exec -T redis redis-cli bgrewriteaof >> ./logs/redis-optimize.log 2>&1
+
+# Security scan (weekly on Mondays at 2:00 AM)
+0 2 * * 1 cd $HOME && ./scripts/security-scan.sh >> ./logs/security-scan.log 2>&1
+
+# Performance monitoring (every hour)
+0 * * * * cd $HOME && ./scripts/performance-monitor.sh >> ./logs/performance.log 2>&1
+
+# Disk space monitoring (every 30 minutes)
+*/30 * * * * df -h | awk '$5 > 80 {print "Disk space warning: " $0}' | mail -s "Disk Space Alert" admin@yourdomain.com
+
+# Memory monitoring (every 15 minutes)
+*/15 * * * * free | awk 'NR==2{printf "Memory usage: %.0f%%\n", $3*100/$2}' | awk '$3 > 90 {print}' | mail -s "Memory Alert" admin@yourdomain.com
+
+# Failed login monitoring (every hour)
+0 * * * * grep "Failed password" /var/log/auth.log | tail -10 | wc -l | awk '$1 > 5 {print "Multiple failed login attempts detected"}' | mail -s "Security Alert" admin@yourdomain.com
+
+# Application error monitoring (every 10 minutes)
+*/10 * * * * cd $HOME && grep -i error ./logs/*.log | tail -5 | grep -q . && echo "Application errors detected" | mail -s "Application Error Alert" admin@yourdomain.com
+
+# Backup verification (daily at 7:00 AM)
+0 7 * * * cd $HOME && find ./backups -name "database_$(date +%Y%m%d)*.sql.gz" -size +1M || echo "Backup verification failed" | mail -s "Backup Alert" admin@yourdomain.com
+
+# Monthly reports (first day of month at 8:00 AM)
+0 8 1 * * cd $HOME && ./scripts/generate-monthly-report.sh >> ./logs/monthly-report.log 2>&1
