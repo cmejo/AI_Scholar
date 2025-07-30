@@ -26,7 +26,7 @@ If you prefer to do it manually or the scripts don't work, follow these steps:
 
 1. Go to [github.com](https://github.com) and sign in
 2. Click the "+" icon → "New repository"
-3. **Repository name**: `advanced-rag-research-ecosystem` (or your choice)
+3. **Repository name**: `AI_Scholar` (or your choice)
 4. **Description**: `AI-powered research assistance platform with comprehensive research lifecycle support`
 5. Choose **Public** or **Private**
 6. **Important**: Do NOT check "Add a README file" (we already have one)
@@ -166,8 +166,8 @@ Your repository will contain:
 ### **Development Setup:**
 ```bash
 # Clone your repository
-git clone https://github.com/yourusername/advanced-rag-research-ecosystem.git
-cd advanced-rag-research-ecosystem
+git clone https://github.com/cmejo/AI_Scholar.git
+cd ai_scholar
 
 # Set up Python environment
 python -m venv venv
@@ -197,7 +197,7 @@ cp .env.example .env
 ```bash
 # Use personal access token instead of password
 # Or set up SSH key authentication
-git remote set-url origin git@github.com:yourusername/advanced-rag-research-ecosystem.git
+git remote set-url origin git@github.com:yourusername/AI_Scholar.git
 ```
 
 **Repository Already Exists:**
@@ -239,7 +239,7 @@ Your uploaded repository will include:
 
 Once uploaded, your repository will be:
 
-- **🌐 Publicly Available**: At `https://github.com/yourusername/advanced-rag-research-ecosystem`
+- **🌐 Publicly Available**: At `https://github.com/yourusername/AI_Scholar`
 - **📖 Well Documented**: With comprehensive README and guides
 - **🔧 Ready for Development**: With all necessary configuration files
 - **🚀 Production Ready**: With proper security and deployment setup
