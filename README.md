@@ -215,9 +215,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 **Support**
 
 - **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/advanced-rag-research-ecosystem/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/advanced-rag-research-ecosystem/discussions)
-- **Email**: support@yourproject.com
+- **Issues**: [GitHub Issues](https://github.com/cmejo/AI_Scholar/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/cmejo/AI_Scholar/discussions)
 
 
 ---
