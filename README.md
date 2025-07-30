@@ -1,3 +1,23 @@
+# AI Scholar - Advanced Research Ecosystem
+
+## 📁 Repository Organization
+
+This repository has been organized for better navigation:
+
+- **docs/** - All documentation (setup guides, implementation summaries, user guides)
+- **scripts/** - Setup and deployment scripts
+- **config/** - Configuration files and Dockerfiles
+- **backend/** - Backend services and APIs
+- **frontend/** - Frontend application
+
+## 🚀 Quick Start
+
+1. See [Quick Launch Guide](docs/setup/QUICK_LAUNCH_GUIDE.md) for immediate setup
+2. See [Deployment Guide](docs/setup/DEPLOYMENT_GUIDE.md) for production deployment
+3. See [User Guide](docs/USER_GUIDE.md) for usage instructions
+
+---
+
 # 🚀 Advanced RAG Research Ecosystem
 
 A comprehensive AI-powered research assistance platform that transforms the research lifecycle from ideation to publication and impact measurement.
