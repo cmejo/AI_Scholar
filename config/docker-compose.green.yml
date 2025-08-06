@@ -1,0 +1,96 @@
+# Green environment configuration for zero-downtime deployment
+version: '3.8'
+
+services:
+  frontend-green:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-ai-scholar/advanced-rag}-frontend:${IMAGE_TAG:-latest}
+    container_name: advanced-rag-frontend-green
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=https://aischolar.com/api
+      - REACT_APP_WS_URL=wss://aischolar.com/ws
+      - REACT_APP_ENVIRONMENT=green
+    ports:
+      - "3003:3000"
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend-green.rule=Host(`aischolar.com`) && PathPrefix(`/`)"
+      - "traefik.http.services.frontend-green.loadbalancer.server.port=3000"
+      - "deployment.environment=green"
+
+  backend-green:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-ai-scholar/advanced-rag}-backend:${IMAGE_TAG:-latest}
+    container_name: advanced-rag-backend-green
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://rag_user:${POSTGRES_PASSWORD}@postgres:5432/advanced_rag_db
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - VECTOR_DB_URL=http://chromadb:8000
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - ENVIRONMENT=production
+      - DEPLOYMENT_ENV=green
+      - DEBUG=False
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs/green:/app/logs
+    ports:
+      - "8003:8000"
+    networks:
+      - rag-network
+    depends_on:
+      - postgres
+      - redis
+      - chromadb
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend-green.rule=Host(`aischolar.com`) && PathPrefix(`/api`)"
+      - "traefik.http.services.backend-green.loadbalancer.server.port=8000"
+      - "deployment.environment=green"
+
+  worker-green:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-ai-scholar/advanced-rag}-backend:${IMAGE_TAG:-latest}
+    container_name: advanced-rag-worker-green
+    restart: unless-stopped
+    command: celery -A app.celery worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql://rag_user:${POSTGRES_PASSWORD}@postgres:5432/advanced_rag_db
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - VECTOR_DB_URL=http://chromadb:8000
+      - SECRET_KEY=${SECRET_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - ENVIRONMENT=production
+      - DEPLOYMENT_ENV=green
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs/green:/app/logs
+    networks:
+      - rag-network
+    depends_on:
+      - postgres
+      - redis
+    labels:
+      - "deployment.environment=green"
+
+networks:
+  rag-network:
+    external: true

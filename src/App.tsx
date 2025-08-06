@@ -6,14 +6,19 @@ import { EnterpriseAnalyticsDashboard } from './components/EnterpriseAnalyticsDa
 import { SecurityDashboard } from './components/SecurityDashboard';
 import { WorkflowManager } from './components/WorkflowManager';
 import { IntegrationHub } from './components/IntegrationHub';
-import { VoiceInterface } from './components/VoiceInterface';
+import VoiceInterface from './components/VoiceInterface';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
+import { MobileLayout } from './components/mobile/MobileLayout';
+import { AccessibilityFeatures } from './components/AccessibilityFeatures';
+import { AccessibilityToolbar } from './components/AccessibilityToolbar';
 import { EnhancedChatProvider } from './contexts/EnhancedChatContext';
 import { DocumentProvider } from './contexts/DocumentContext';
+import { useMobileDetection } from './hooks/useMobileDetection';
 import { securityService } from './services/securityService';
 import { analyticsService } from './services/analyticsService';
 import { memoryService } from './services/memoryService';
+import { accessibilityService } from './services/accessibilityService';
 
 type ViewType = 'chat' | 'documents' | 'analytics' | 'security' | 'workflows' | 'integrations';
 
@@ -22,10 +27,31 @@ function App() {
   const [currentView, setCurrentView] = useState<ViewType>('chat');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const { isMobile, isTablet } = useMobileDetection();
 
   useEffect(() => {
     // Initialize enterprise features
     initializeEnterpriseFeatures();
+    
+    // Initialize accessibility features
+    accessibilityService.announce('AI Scholar Enterprise application loaded', 'polite');
+    
+    // Set up global keyboard shortcuts
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Alt + 1-6 for quick navigation
+      if (event.altKey && event.key >= '1' && event.key <= '6') {
+        event.preventDefault();
+        const views: ViewType[] = ['chat', 'documents', 'analytics', 'security', 'workflows', 'integrations'];
+        const viewIndex = parseInt(event.key) - 1;
+        if (views[viewIndex]) {
+          setCurrentView(views[viewIndex]);
+          accessibilityService.announce(`Navigated to ${views[viewIndex]}`, 'polite');
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const initializeEnterpriseFeatures = async () => {
@@ -118,32 +144,71 @@ function App() {
     }
   };
 
+  // Use mobile layout for mobile and tablet devices
+  if (isMobile || isTablet) {
+    return (
+      <DocumentProvider>
+        <EnhancedChatProvider>
+          <AccessibilityFeatures>
+            <MobileLayout
+              currentView={currentView}
+              onViewChange={(view) => {
+                setCurrentView(view);
+                accessibilityService.announcePageChange(view);
+              }}
+              user={user}
+              voiceEnabled={voiceEnabled}
+              onToggleVoice={setVoiceEnabled}
+            >
+              {renderCurrentView()}
+            </MobileLayout>
+          </AccessibilityFeatures>
+        </EnhancedChatProvider>
+      </DocumentProvider>
+    );
+  }
+
+  // Desktop layout
   return (
     <DocumentProvider>
       <EnhancedChatProvider>
-        <div className="h-screen bg-gray-900 text-white flex overflow-hidden">
-          <Sidebar 
-            isOpen={sidebarOpen} 
-            onClose={() => setSidebarOpen(false)}
-            currentView={currentView}
-            onViewChange={setCurrentView}
-            user={user}
-            voiceEnabled={voiceEnabled}
-            onToggleVoice={setVoiceEnabled}
-          />
-          
-          <div className="flex-1 flex flex-col">
-            <Header 
-              onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+        <AccessibilityFeatures>
+          <div className="h-screen bg-gray-900 text-white flex overflow-hidden">
+            <Sidebar 
+              isOpen={sidebarOpen} 
+              onClose={() => setSidebarOpen(false)}
               currentView={currentView}
+              onViewChange={(view) => {
+                setCurrentView(view);
+                accessibilityService.announcePageChange(view);
+              }}
               user={user}
+              voiceEnabled={voiceEnabled}
+              onToggleVoice={setVoiceEnabled}
             />
             
-            <main className="flex-1 overflow-hidden">
-              {renderCurrentView()}
-            </main>
+            <div className="flex-1 flex flex-col">
+              <Header 
+                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                currentView={currentView}
+                user={user}
+              />
+              
+              <main 
+                id="main-content"
+                className="flex-1 overflow-hidden"
+                role="main"
+                aria-label="Main application content"
+                tabIndex={-1}
+              >
+                {renderCurrentView()}
+              </main>
+            </div>
+            
+            {/* Accessibility Toolbar */}
+            <AccessibilityToolbar />
           </div>
-        </div>
+        </AccessibilityFeatures>
       </EnhancedChatProvider>
     </DocumentProvider>
   );

@@ -1,0 +1,147 @@
+# Fastfile for iOS deployment
+default_platform(:ios)
+
+platform :ios do
+  desc "Deploy to TestFlight"
+  lane :beta do
+    # Ensure we have the latest provisioning profiles
+    match(type: "appstore", readonly: true)
+    
+    # Build the app
+    build_app(
+      workspace: "App/App.xcworkspace",
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: {
+          "com.aischolar.advancedrag" => "match AppStore com.aischolar.advancedrag"
+        }
+      }
+    )
+    
+    # Upload to TestFlight
+    upload_to_testflight(
+      skip_waiting_for_build_processing: false,
+      distribute_external: false,
+      notify_external_testers: false
+    )
+    
+    slack(
+      message: "AI Scholar iOS app uploaded to TestFlight",
+      channel: "#deployments",
+      success: true
+    ) if ENV["SLACK_WEBHOOK_URL"]
+  end
+
+  desc "Wait for TestFlight processing"
+  lane :wait_for_testflight_processing do
+    # Wait for Apple to process the build
+    wait_for_build_processing_to_be_complete(
+      app_identifier: "com.aischolar.advancedrag",
+      platform: "ios"
+    )
+    
+    UI.success("TestFlight processing completed")
+  end
+
+  desc "Run TestFlight tests"
+  lane :run_testflight_tests do
+    # Enable external testing with internal testers
+    upload_to_testflight(
+      skip_submission: true,
+      distribute_external: true,
+      groups: ["Internal Testers"],
+      notify_external_testers: true,
+      beta_app_review_info: {
+        contact_email: "support@aischolar.com",
+        contact_first_name: "AI Scholar",
+        contact_last_name: "Support",
+        contact_phone: "+1234567890",
+        demo_account_name: "demo@aischolar.com",
+        demo_account_password: "demo123",
+        notes: "AI Scholar Advanced RAG mobile app for research assistance"
+      }
+    )
+    
+    # Wait for feedback from testers (this would be manual in practice)
+    UI.message("TestFlight testing initiated. Monitor feedback before proceeding to App Store.")
+  end
+
+  desc "Submit for App Store review"
+  lane :release do
+    # Ensure we have the latest metadata
+    deliver(
+      submit_for_review: true,
+      automatic_release: false,
+      force: true,
+      submission_information: {
+        add_id_info_limits_tracking: true,
+        add_id_info_serves_ads: false,
+        add_id_info_tracks_action: true,
+        add_id_info_tracks_install: true,
+        add_id_info_uses_idfa: false,
+        content_rights_has_rights: true,
+        content_rights_contains_third_party_content: false,
+        export_compliance_platform: "ios",
+        export_compliance_compliance_required: false,
+        export_compliance_encryption_updated: false,
+        export_compliance_app_type: nil,
+        export_compliance_uses_encryption: false,
+        export_compliance_is_exempt: false,
+        export_compliance_contains_third_party_cryptography: false,
+        export_compliance_contains_proprietary_cryptography: false,
+        export_compliance_available_on_french_store: false
+      }
+    )
+    
+    slack(
+      message: "AI Scholar iOS app submitted for App Store review",
+      channel: "#deployments",
+      success: true
+    ) if ENV["SLACK_WEBHOOK_URL"]
+  end
+
+  desc "Update metadata and screenshots"
+  lane :update_metadata_and_screenshots do
+    deliver(
+      skip_binary_upload: true,
+      skip_screenshots: false,
+      skip_metadata: false,
+      force: true
+    )
+  end
+
+  desc "Run tests"
+  lane :test do
+    run_tests(
+      workspace: "App/App.xcworkspace",
+      scheme: "App",
+      device: "iPhone 14"
+    )
+  end
+
+  desc "Build and deploy to TestFlight"
+  lane :deploy do
+    test
+    beta
+    wait_for_testflight_processing
+  end
+
+  desc "Full App Store deployment"
+  lane :deploy_production do
+    beta
+    wait_for_testflight_processing
+    run_testflight_tests
+    release
+    update_metadata_and_screenshots
+  end
+
+  error do |lane, exception|
+    slack(
+      message: "iOS deployment failed in lane #{lane}: #{exception.message}",
+      channel: "#deployments",
+      success: false
+    ) if ENV["SLACK_WEBHOOK_URL"]
+  end
+end

@@ -30,6 +30,24 @@ from api.advanced_endpoints import router as advanced_router
 from api.monitoring_endpoints import router as monitoring_router
 from api.multimodal_endpoints import router as multimodal_router
 from api.research_endpoints import router as research_router
+from api.voice_endpoints import router as voice_router
+from api.quiz_endpoints import router as quiz_router
+from api.spaced_repetition_endpoints import router as spaced_repetition_router
+from api.learning_progress_endpoints import router as learning_progress_router
+from api.gamification_endpoints import router as gamification_router
+from api.secure_code_execution_endpoints import router as secure_execution_router
+from api.student_progress_endpoints import router as student_progress_router
+from api.institutional_role_management_endpoints import router as institutional_role_management_router
+from api.compliance_endpoints import router as compliance_router
+from api.resource_optimization_endpoints import router as resource_optimization_router
+from api.funding_matcher_endpoints import router as funding_matcher_router
+from api.publication_venue_endpoints import router as publication_venue_router
+from api.grant_application_endpoints import router as grant_application_router
+from api.unified_api_endpoints import router as unified_api_router
+from api.graphql_schema import graphql_router
+from api.integration_auth_endpoints import router as integration_auth_router
+from api.webhook_notification_endpoints import router as webhook_notification_router
+from api.developer_portal_endpoints import router as developer_portal_router
 from models.schemas import (
     DocumentResponse, 
     ChatRequest, 
@@ -107,6 +125,26 @@ app.include_router(advanced_router)
 app.include_router(monitoring_router)
 app.include_router(multimodal_router)
 app.include_router(research_router)
+app.include_router(voice_router)
+app.include_router(quiz_router)
+app.include_router(spaced_repetition_router)
+app.include_router(learning_progress_router)
+app.include_router(gamification_router)
+app.include_router(secure_execution_router)
+app.include_router(student_progress_router)
+app.include_router(institutional_role_management_router)
+app.include_router(compliance_router)
+app.include_router(resource_optimization_router)
+app.include_router(funding_matcher_router)
+app.include_router(publication_venue_router)
+app.include_router(grant_application_router)
+
+# Include unified API and GraphQL routers
+app.include_router(unified_api_router)
+app.include_router(graphql_router)
+app.include_router(integration_auth_router)
+app.include_router(webhook_notification_router)
+app.include_router(developer_portal_router)
 
 # Dependency for authentication
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):

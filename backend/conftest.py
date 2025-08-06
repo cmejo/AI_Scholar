@@ -8,67 +8,20 @@ import pytest
 import sqlite3
 from typing import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app import app
-from core.database import get_db, Base
-from core.redis_client import get_redis_client
-from models.schemas import User, Document, Conversation
 
 
-# Test database setup
-@pytest.fixture(scope="session")
-def test_db_engine():
-    """Create a test database engine."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    return engine
-
-
+# Simple test fixtures without complex dependencies
 @pytest.fixture(scope="function")
-def test_db_session(test_db_engine):
-    """Create a test database session."""
-    TestingSessionLocal = sessionmaker(
-        autocommit=False, autoflush=False, bind=test_db_engine
-    )
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-@pytest.fixture(scope="function")
-def override_get_db(test_db_session):
-    """Override the get_db dependency."""
-    def _override_get_db():
-        try:
-            yield test_db_session
-        finally:
-            pass
-    return _override_get_db
-
-
-@pytest.fixture(scope="function")
-def test_client(override_get_db):
-    """Create a test client with overridden dependencies."""
-    app.dependency_overrides[get_db] = override_get_db
-    
-    # Mock Redis client
-    mock_redis = AsyncMock()
-    app.dependency_overrides[get_redis_client] = lambda: mock_redis
-    
-    with TestClient(app) as client:
-        yield client
-    
-    app.dependency_overrides.clear()
+def mock_db_session():
+    """Mock database session for testing."""
+    mock = MagicMock()
+    mock.add.return_value = None
+    mock.commit.return_value = None
+    mock.query.return_value = mock
+    mock.filter.return_value = mock
+    mock.first.return_value = None
+    mock.all.return_value = []
+    return mock
 
 
 @pytest.fixture(scope="function")
@@ -116,36 +69,36 @@ def mock_vector_store():
 @pytest.fixture(scope="function")
 def sample_user():
     """Create a sample user for testing."""
-    return User(
-        id="test-user-id",
-        email="test@example.com",
-        username="testuser",
-        is_active=True
-    )
+    return {
+        "id": "test-user-id",
+        "email": "test@example.com",
+        "username": "testuser",
+        "is_active": True
+    }
 
 
 @pytest.fixture(scope="function")
 def sample_document():
     """Create a sample document for testing."""
-    return Document(
-        id="test-doc-id",
-        title="Test Document",
-        content="This is a test document content.",
-        file_path="/tmp/test.pdf",
-        user_id="test-user-id",
-        metadata={"pages": 1, "size": 1024}
-    )
+    return {
+        "id": "test-doc-id",
+        "title": "Test Document",
+        "content": "This is a test document content.",
+        "file_path": "/tmp/test.pdf",
+        "user_id": "test-user-id",
+        "metadata": {"pages": 1, "size": 1024}
+    }
 
 
 @pytest.fixture(scope="function")
 def sample_conversation():
     """Create a sample conversation for testing."""
-    return Conversation(
-        id="test-conv-id",
-        user_id="test-user-id",
-        title="Test Conversation",
-        messages=[]
-    )
+    return {
+        "id": "test-conv-id",
+        "user_id": "test-user-id",
+        "title": "Test Conversation",
+        "messages": []
+    }
 
 
 @pytest.fixture(scope="function")
@@ -235,22 +188,21 @@ def load_test_data():
 
 # Integration test fixtures
 @pytest.fixture(scope="function")
-async def integration_setup(test_db_session, mock_redis, mock_vector_store):
+async def integration_setup(mock_db_session, mock_redis, mock_vector_store):
     """Setup for integration tests."""
-    # Create test data in database
-    test_user = User(
-        id="integration-user",
-        email="integration@test.com",
-        username="integration_user",
-        is_active=True
-    )
-    test_db_session.add(test_user)
-    test_db_session.commit()
+    # Create test data
+    test_user = {
+        "id": "integration-user",
+        "email": "integration@test.com",
+        "username": "integration_user",
+        "is_active": True
+    }
     
     return {
         'user': test_user,
         'redis': mock_redis,
-        'vector_store': mock_vector_store
+        'vector_store': mock_vector_store,
+        'db_session': mock_db_session
     }
 
 

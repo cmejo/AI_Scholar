@@ -1,17 +1,9 @@
 #!/bin/bash
 
-# Advanced RAG Research Ecosystem - Health Check Script
-# Comprehensive health monitoring for all services
+# Comprehensive health check script for AI Scholar Advanced RAG
+# Monitors all services and provides detailed health status
 
 set -e
-
-# Configuration
-DOMAIN=${DOMAIN:-"localhost"}
-BACKEND_URL="http://backend:8000"
-FRONTEND_URL="http://frontend:3000"
-POSTGRES_HOST=${POSTGRES_HOST:-"postgres"}
-REDIS_HOST=${REDIS_HOST:-"redis"}
-CHROMADB_URL="http://chromadb:8000"
 
 # Colors for output
 RED='\033[0;31m'
@@ -36,300 +28,401 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Configuration
+HEALTH_CHECK_TIMEOUT=30
+DEPLOYMENT_DIR="/opt/ai-scholar"
+
 # Health check functions
-check_backend() {
-    print_status "Checking backend service..."
+check_database() {
+    print_status "Checking database health..."
     
-    if curl -f -s "$BACKEND_URL/health" > /dev/null; then
-        print_success "Backend is healthy"
-        return 0
-    else
-        print_error "Backend health check failed"
-        return 1
+    if docker-compose exec -T postgres pg_isready -U rag_user -d advanced_rag_db > /dev/null 2>&1; then
+        # Check database connectivity and basic query
+        if docker-compose exec -T postgres psql -U rag_user -d advanced_rag_db -c "SELECT 1;" > /dev/null 2>&1; then
+            # Check database size and connections
+            db_info=$(docker-compose exec -T postgres psql -U rag_user -d advanced_rag_db -t -c "
+                SELECT 
+                    pg_size_pretty(pg_database_size('advanced_rag_db')) as db_size,
+                    (SELECT count(*) FROM pg_stat_activity WHERE datname = 'advanced_rag_db') as connections;
+            ")
+            print_success "Database: Healthy - $db_info"
+            return 0
+        fi
     fi
-}
-
-check_frontend() {
-    print_status "Checking frontend service..."
     
-    if curl -f -s "$FRONTEND_URL/health" > /dev/null; then
-        print_success "Frontend is healthy"
-        return 0
-    else
-        print_error "Frontend health check failed"
-        return 1
-    fi
-}
-
-check_postgres() {
-    print_status "Checking PostgreSQL database..."
-    
-    if docker-compose exec -T postgres pg_isready -h localhost -U rag_user > /dev/null 2>&1; then
-        print_success "PostgreSQL is healthy"
-        return 0
-    else
-        print_error "PostgreSQL health check failed"
-        return 1
-    fi
+    print_error "Database: Unhealthy"
+    return 1
 }
 
 check_redis() {
-    print_status "Checking Redis cache..."
+    print_status "Checking Redis health..."
     
     if docker-compose exec -T redis redis-cli ping > /dev/null 2>&1; then
-        print_success "Redis is healthy"
+        # Check Redis memory usage
+        memory_info=$(docker-compose exec -T redis redis-cli info memory | grep "used_memory_human" | cut -d: -f2 | tr -d '\r')
+        print_success "Redis: Healthy - Memory used: $memory_info"
         return 0
-    else
-        print_error "Redis health check failed"
-        return 1
     fi
+    
+    print_error "Redis: Unhealthy"
+    return 1
 }
 
 check_chromadb() {
-    print_status "Checking ChromaDB vector database..."
+    print_status "Checking ChromaDB health..."
     
-    if curl -f -s "$CHROMADB_URL/api/v1/heartbeat" > /dev/null; then
-        print_success "ChromaDB is healthy"
+    if curl -f -s --max-time $HEALTH_CHECK_TIMEOUT "http://localhost:8080/api/v1/heartbeat" > /dev/null; then
+        # Check ChromaDB collections
+        collections=$(curl -s "http://localhost:8080/api/v1/collections" | jq -r '.length // 0' 2>/dev/null || echo "0")
+        print_success "ChromaDB: Healthy - Collections: $collections"
         return 0
-    else
-        print_error "ChromaDB health check failed"
-        return 1
     fi
+    
+    print_error "ChromaDB: Unhealthy"
+    return 1
+}
+
+check_backend() {
+    local environment=${1:-}
+    local port=${2:-8000}
+    
+    print_status "Checking backend health (${environment:-default})..."
+    
+    # Basic health check
+    if curl -f -s --max-time $HEALTH_CHECK_TIMEOUT "http://localhost:$port/health" > /dev/null; then
+        # Detailed health check
+        health_data=$(curl -s --max-time $HEALTH_CHECK_TIMEOUT "http://localhost:$port/health" | jq -r '.' 2>/dev/null || echo "{}")
+        
+        # Check API endpoints
+        if curl -f -s --max-time $HEALTH_CHECK_TIMEOUT "http://localhost:$port/api/health" > /dev/null; then
+            print_success "Backend${environment:+ ($environment)}: Healthy"
+            return 0
+        fi
+    fi
+    
+    print_error "Backend${environment:+ ($environment)}: Unhealthy"
+    return 1
+}
+
+check_frontend() {
+    local environment=${1:-}
+    local port=${2:-3000}
+    
+    print_status "Checking frontend health (${environment:-default})..."
+    
+    if curl -f -s --max-time $HEALTH_CHECK_TIMEOUT "http://localhost:$port/health" > /dev/null; then
+        # Check if main page loads
+        if curl -f -s --max-time $HEALTH_CHECK_TIMEOUT "http://localhost:$port/" > /dev/null; then
+            print_success "Frontend${environment:+ ($environment)}: Healthy"
+            return 0
+        fi
+    fi
+    
+    print_error "Frontend${environment:+ ($environment)}: Unhealthy"
+    return 1
 }
 
 check_nginx() {
-    print_status "Checking Nginx reverse proxy..."
+    print_status "Checking Nginx health..."
     
-    if docker-compose exec -T nginx nginx -t > /dev/null 2>&1; then
-        print_success "Nginx configuration is valid"
-        return 0
-    else
-        print_error "Nginx configuration check failed"
-        return 1
+    # Check if nginx is running
+    if docker-compose ps nginx | grep -q "Up"; then
+        # Check nginx configuration
+        if docker-compose exec -T nginx nginx -t > /dev/null 2>&1; then
+            # Check if nginx responds
+            if curl -f -s --max-time $HEALTH_CHECK_TIMEOUT "http://localhost/health" > /dev/null; then
+                print_success "Nginx: Healthy"
+                return 0
+            fi
+        fi
     fi
+    
+    print_error "Nginx: Unhealthy"
+    return 1
+}
+
+check_ssl_certificates() {
+    print_status "Checking SSL certificates..."
+    
+    cert_file="/etc/nginx/ssl/fullchain.pem"
+    
+    if docker-compose exec -T nginx test -f "$cert_file"; then
+        # Check certificate expiration
+        expiry_date=$(docker-compose exec -T nginx openssl x509 -in "$cert_file" -noout -enddate | cut -d= -f2)
+        expiry_timestamp=$(date -d "$expiry_date" +%s 2>/dev/null || echo "0")
+        current_timestamp=$(date +%s)
+        days_until_expiry=$(( (expiry_timestamp - current_timestamp) / 86400 ))
+        
+        if [ $days_until_expiry -gt 30 ]; then
+            print_success "SSL Certificate: Valid (expires in $days_until_expiry days)"
+            return 0
+        elif [ $days_until_expiry -gt 0 ]; then
+            print_warning "SSL Certificate: Expires soon ($days_until_expiry days)"
+            return 0
+        fi
+    fi
+    
+    print_error "SSL Certificate: Invalid or expired"
+    return 1
 }
 
 check_disk_space() {
     print_status "Checking disk space..."
     
-    usage=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
+    # Check available disk space
+    available_space=$(df / | awk 'NR==2 {print $4}')
+    available_gb=$((available_space / 1024 / 1024))
     
-    if [ "$usage" -lt 80 ]; then
-        print_success "Disk space is healthy ($usage% used)"
+    if [ $available_gb -gt 5 ]; then
+        print_success "Disk Space: Sufficient (${available_gb}GB available)"
         return 0
-    elif [ "$usage" -lt 90 ]; then
-        print_warning "Disk space is getting low ($usage% used)"
+    elif [ $available_gb -gt 1 ]; then
+        print_warning "Disk Space: Low (${available_gb}GB available)"
         return 0
-    else
-        print_error "Disk space is critically low ($usage% used)"
-        return 1
     fi
+    
+    print_error "Disk Space: Critical (${available_gb}GB available)"
+    return 1
 }
 
-check_memory() {
+check_memory_usage() {
     print_status "Checking memory usage..."
     
-    usage=$(free | awk 'NR==2{printf "%.0f", $3*100/$2}')
+    # Check system memory
+    memory_info=$(free -h | awk 'NR==2{printf "Used: %s/%s (%.1f%%)", $3, $2, $3/$2*100}')
+    memory_percent=$(free | awk 'NR==2{printf "%.1f", $3/$2*100}')
     
-    if [ "$usage" -lt 80 ]; then
-        print_success "Memory usage is healthy ($usage% used)"
+    if (( $(echo "$memory_percent < 80" | bc -l) )); then
+        print_success "Memory Usage: Normal ($memory_info)"
         return 0
-    elif [ "$usage" -lt 90 ]; then
-        print_warning "Memory usage is high ($usage% used)"
+    elif (( $(echo "$memory_percent < 90" | bc -l) )); then
+        print_warning "Memory Usage: High ($memory_info)"
         return 0
-    else
-        print_error "Memory usage is critically high ($usage% used)"
-        return 1
     fi
+    
+    print_error "Memory Usage: Critical ($memory_info)"
+    return 1
 }
 
-check_docker_containers() {
-    print_status "Checking Docker containers..."
+check_docker_health() {
+    print_status "Checking Docker container health..."
     
-    failed_containers=$(docker-compose ps --services --filter "status=exited")
+    # Check all containers
+    unhealthy_containers=$(docker ps --filter "health=unhealthy" --format "{{.Names}}" | wc -l)
     
-    if [ -z "$failed_containers" ]; then
-        print_success "All Docker containers are running"
+    if [ $unhealthy_containers -eq 0 ]; then
+        running_containers=$(docker ps --format "{{.Names}}" | wc -l)
+        print_success "Docker Containers: All healthy ($running_containers running)"
         return 0
-    else
-        print_error "Some containers have failed: $failed_containers"
-        return 1
     fi
+    
+    print_error "Docker Containers: $unhealthy_containers unhealthy containers found"
+    docker ps --filter "health=unhealthy" --format "table {{.Names}}\t{{.Status}}"
+    return 1
 }
 
-check_ssl_certificate() {
-    if [ "$DOMAIN" != "localhost" ]; then
-        print_status "Checking SSL certificate..."
-        
-        if openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" < /dev/null 2>/dev/null | openssl x509 -noout -dates > /dev/null 2>&1; then
-            expiry=$(openssl s_client -connect "$DOMAIN:443" -servername "$DOMAIN" < /dev/null 2>/dev/null | openssl x509 -noout -enddate | cut -d= -f2)
-            expiry_epoch=$(date -d "$expiry" +%s)
-            current_epoch=$(date +%s)
-            days_until_expiry=$(( (expiry_epoch - current_epoch) / 86400 ))
-            
-            if [ "$days_until_expiry" -gt 30 ]; then
-                print_success "SSL certificate is valid (expires in $days_until_expiry days)"
-                return 0
-            elif [ "$days_until_expiry" -gt 7 ]; then
-                print_warning "SSL certificate expires soon (in $days_until_expiry days)"
-                return 0
-            else
-                print_error "SSL certificate expires very soon (in $days_until_expiry days)"
-                return 1
-            fi
+check_blue_green_environments() {
+    print_status "Checking blue-green deployment environments..."
+    
+    blue_status="down"
+    green_status="down"
+    
+    # Check blue environment
+    if docker-compose -f "$DEPLOYMENT_DIR/docker-compose.blue.yml" ps --services --filter status=running | grep -q "frontend\|backend"; then
+        if check_backend "blue" 8002 && check_frontend "blue" 3002; then
+            blue_status="healthy"
         else
-            print_error "SSL certificate check failed"
-            return 1
+            blue_status="unhealthy"
         fi
-    else
-        print_status "Skipping SSL check for localhost"
-        return 0
     fi
-}
-
-check_api_endpoints() {
-    print_status "Checking critical API endpoints..."
     
-    endpoints=(
-        "/health"
-        "/api/v1/research-memory/health"
-        "/api/v1/personalization/health"
-        "/api/v1/realtime/health"
-    )
-    
-    failed_endpoints=0
-    
-    for endpoint in "${endpoints[@]}"; do
-        if curl -f -s "$BACKEND_URL$endpoint" > /dev/null; then
-            print_success "Endpoint $endpoint is healthy"
+    # Check green environment
+    if docker-compose -f "$DEPLOYMENT_DIR/docker-compose.green.yml" ps --services --filter status=running | grep -q "frontend\|backend"; then
+        if check_backend "green" 8003 && check_frontend "green" 3003; then
+            green_status="healthy"
         else
-            print_error "Endpoint $endpoint failed"
-            ((failed_endpoints++))
+            green_status="unhealthy"
         fi
-    done
-    
-    if [ "$failed_endpoints" -eq 0 ]; then
-        return 0
-    else
-        return 1
     fi
+    
+    print_status "Blue environment: $blue_status"
+    print_status "Green environment: $green_status"
+    
+    if [ "$blue_status" = "healthy" ] || [ "$green_status" = "healthy" ]; then
+        return 0
+    fi
+    
+    return 1
 }
 
-check_database_connections() {
-    print_status "Checking database connection pool..."
+# Comprehensive health check
+comprehensive_health_check() {
+    local failed_checks=0
+    local total_checks=0
     
-    connections=$(docker-compose exec -T postgres psql -U rag_user -d advanced_rag_db -t -c "SELECT count(*) FROM pg_stat_activity WHERE state = 'active';" 2>/dev/null | xargs)
-    
-    if [ "$connections" -lt 50 ]; then
-        print_success "Database connections are healthy ($connections active)"
-        return 0
-    elif [ "$connections" -lt 80 ]; then
-        print_warning "Database connections are high ($connections active)"
-        return 0
-    else
-        print_error "Database connections are critically high ($connections active)"
-        return 1
-    fi
-}
-
-# Main health check function
-main() {
     echo ""
-    echo "🏥 Advanced RAG Research Ecosystem - Health Check"
-    echo "================================================"
-    echo "Timestamp: $(date)"
+    echo "🏥 AI Scholar Advanced RAG - Health Check"
+    echo "========================================"
+    echo "Started: $(date)"
     echo ""
     
-    failed_checks=0
-    total_checks=0
+    # Core infrastructure checks
+    echo "📊 Core Infrastructure"
+    echo "---------------------"
     
-    # Run all health checks
-    checks=(
-        "check_docker_containers"
-        "check_backend"
-        "check_frontend"
-        "check_postgres"
-        "check_redis"
-        "check_chromadb"
-        "check_nginx"
-        "check_disk_space"
-        "check_memory"
-        "check_ssl_certificate"
-        "check_api_endpoints"
-        "check_database_connections"
-    )
+    ((total_checks++))
+    if ! check_database; then ((failed_checks++)); fi
     
-    for check in "${checks[@]}"; do
-        ((total_checks++))
-        if ! $check; then
-            ((failed_checks++))
-        fi
-        echo ""
-    done
+    ((total_checks++))
+    if ! check_redis; then ((failed_checks++)); fi
+    
+    ((total_checks++))
+    if ! check_chromadb; then ((failed_checks++)); fi
+    
+    echo ""
+    
+    # Application checks
+    echo "🚀 Application Services"
+    echo "----------------------"
+    
+    ((total_checks++))
+    if ! check_nginx; then ((failed_checks++)); fi
+    
+    # Check blue-green environments
+    ((total_checks++))
+    if ! check_blue_green_environments; then ((failed_checks++)); fi
+    
+    echo ""
+    
+    # System resource checks
+    echo "💻 System Resources"
+    echo "------------------"
+    
+    ((total_checks++))
+    if ! check_disk_space; then ((failed_checks++)); fi
+    
+    ((total_checks++))
+    if ! check_memory_usage; then ((failed_checks++)); fi
+    
+    ((total_checks++))
+    if ! check_docker_health; then ((failed_checks++)); fi
+    
+    echo ""
+    
+    # Security checks
+    echo "🔒 Security"
+    echo "----------"
+    
+    ((total_checks++))
+    if ! check_ssl_certificates; then ((failed_checks++)); fi
+    
+    echo ""
     
     # Summary
-    echo "📊 Health Check Summary"
+    echo "📋 Health Check Summary"
     echo "======================"
     echo "Total checks: $total_checks"
     echo "Passed: $((total_checks - failed_checks))"
     echo "Failed: $failed_checks"
-    echo ""
     
-    if [ "$failed_checks" -eq 0 ]; then
-        print_success "🎉 All health checks passed! System is healthy."
-        exit 0
-    elif [ "$failed_checks" -lt 3 ]; then
-        print_warning "⚠️  Some health checks failed, but system is mostly healthy."
-        exit 1
+    if [ $failed_checks -eq 0 ]; then
+        print_success "🎉 All health checks passed!"
+        echo "System Status: HEALTHY"
+        return 0
+    elif [ $failed_checks -le 2 ]; then
+        print_warning "⚠️  Some health checks failed"
+        echo "System Status: DEGRADED"
+        return 1
     else
-        print_error "❌ Multiple health checks failed. System needs attention."
-        exit 2
+        print_error "🚨 Multiple health checks failed"
+        echo "System Status: UNHEALTHY"
+        return 2
     fi
 }
 
-# Parse command line arguments
-case "${1:-all}" in
-    "all")
-        main
-        ;;
-    "backend")
-        check_backend
-        ;;
-    "frontend")
-        check_frontend
-        ;;
-    "database")
-        check_postgres
-        ;;
-    "cache")
-        check_redis
-        ;;
-    "vector")
-        check_chromadb
-        ;;
-    "nginx")
-        check_nginx
-        ;;
-    "system")
-        check_disk_space
-        check_memory
-        ;;
-    "ssl")
-        check_ssl_certificate
-        ;;
-    *)
-        echo "Usage: $0 {all|backend|frontend|database|cache|vector|nginx|system|ssl}"
-        echo ""
-        echo "Commands:"
-        echo "  all       - Run all health checks (default)"
-        echo "  backend   - Check backend API service"
-        echo "  frontend  - Check frontend service"
-        echo "  database  - Check PostgreSQL database"
-        echo "  cache     - Check Redis cache"
-        echo "  vector    - Check ChromaDB vector database"
-        echo "  nginx     - Check Nginx configuration"
-        echo "  system    - Check system resources"
-        echo "  ssl       - Check SSL certificate"
-        exit 1
-        ;;
-esac
+# Quick health check
+quick_health_check() {
+    echo "🔍 Quick Health Check"
+    echo "===================="
+    
+    # Check only critical services
+    if check_database && check_redis && check_nginx; then
+        print_success "✅ Critical services are healthy"
+        return 0
+    else
+        print_error "❌ Critical services have issues"
+        return 1
+    fi
+}
+
+# Monitoring endpoint health check
+monitoring_health_check() {
+    print_status "Checking monitoring endpoints..."
+    
+    # Check Prometheus
+    if curl -f -s --max-time $HEALTH_CHECK_TIMEOUT "http://localhost:9090/-/healthy" > /dev/null; then
+        print_success "Prometheus: Healthy"
+    else
+        print_warning "Prometheus: Unavailable"
+    fi
+    
+    # Check Grafana
+    if curl -f -s --max-time $HEALTH_CHECK_TIMEOUT "http://localhost:3001/api/health" > /dev/null; then
+        print_success "Grafana: Healthy"
+    else
+        print_warning "Grafana: Unavailable"
+    fi
+}
+
+# Main function
+main() {
+    local check_type=${1:-comprehensive}
+    
+    case "$check_type" in
+        "comprehensive"|"full")
+            comprehensive_health_check
+            ;;
+        "quick"|"basic")
+            quick_health_check
+            ;;
+        "monitoring")
+            monitoring_health_check
+            ;;
+        "database")
+            check_database
+            ;;
+        "redis")
+            check_redis
+            ;;
+        "backend")
+            check_backend
+            ;;
+        "frontend")
+            check_frontend
+            ;;
+        "nginx")
+            check_nginx
+            ;;
+        "blue-green")
+            check_blue_green_environments
+            ;;
+        *)
+            echo "Usage: $0 {comprehensive|quick|monitoring|database|redis|backend|frontend|nginx|blue-green}"
+            echo ""
+            echo "Health Check Types:"
+            echo "  comprehensive - Full system health check (default)"
+            echo "  quick         - Quick check of critical services"
+            echo "  monitoring    - Check monitoring services"
+            echo "  database      - Check database only"
+            echo "  redis         - Check Redis only"
+            echo "  backend       - Check backend API only"
+            echo "  frontend      - Check frontend only"
+            echo "  nginx         - Check Nginx only"
+            echo "  blue-green    - Check blue-green environments"
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function
+main "$@"

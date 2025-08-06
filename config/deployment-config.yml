@@ -1,0 +1,354 @@
+# AI Scholar Advanced RAG - Deployment Configuration
+# Comprehensive configuration for all deployment scenarios
+
+deployment:
+  # General deployment settings
+  strategy: "blue-green"  # blue-green, rolling, recreate
+  timeout: 1800  # 30 minutes
+  health_check_timeout: 300  # 5 minutes
+  health_check_interval: 30  # 30 seconds
+  
+  # Environment settings
+  environments:
+    production:
+      domain: "aischolar.com"
+      replicas: 3
+      resources:
+        cpu_limit: "2000m"
+        memory_limit: "4Gi"
+        cpu_request: "1000m"
+        memory_request: "2Gi"
+      
+    staging:
+      domain: "staging.aischolar.com"
+      replicas: 2
+      resources:
+        cpu_limit: "1000m"
+        memory_limit: "2Gi"
+        cpu_request: "500m"
+        memory_request: "1Gi"
+
+# Mobile app deployment settings
+mobile:
+  pwa:
+    build_command: "npm run build:pwa"
+    output_directory: "dist"
+    cdn_cache_duration: 31536000  # 1 year for assets
+    html_cache_duration: 0  # No cache for HTML
+    
+  android:
+    package_name: "com.aischolar.advancedrag"
+    build_command: "./gradlew assembleRelease"
+    output_path: "android/app/build/outputs/apk/release/app-release.apk"
+    google_play:
+      track: "production"
+      rollout_percentage: 100
+      
+  ios:
+    bundle_id: "com.aischolar.advancedrag"
+    build_command: "xcodebuild -workspace App.xcworkspace -scheme App -configuration Release"
+    output_path: "ios/App/App.xcarchive"
+    app_store:
+      auto_release: false
+      phased_release: true
+
+# Database migration settings
+database:
+  migration_strategy: "zero-downtime"  # zero-downtime, standard, rollback
+  backup_before_migration: true
+  backup_retention_days: 30
+  migration_timeout: 600  # 10 minutes
+  
+  # Migration phases
+  phases:
+    - name: "mobile_features"
+      description: "Mobile accessibility and PWA features"
+      tables:
+        - "mobile_sessions"
+        - "accessibility_preferences"
+        - "pwa_installations"
+        - "mobile_app_versions"
+        - "mobile_feature_flags"
+        
+    - name: "voice_interface"
+      description: "Voice interface and speech processing"
+      tables:
+        - "voice_sessions"
+        - "voice_commands"
+        - "voice_preferences"
+        
+    - name: "external_integrations"
+      description: "External service integrations"
+      tables:
+        - "external_integrations"
+        - "integration_sync_logs"
+        - "bibliographic_data"
+        
+    - name: "educational_features"
+      description: "Educational and learning features"
+      tables:
+        - "quizzes"
+        - "quiz_attempts"
+        - "spaced_repetition_items"
+        - "learning_progress"
+        
+    - name: "enterprise_features"
+      description: "Enterprise and institutional features"
+      tables:
+        - "institutions"
+        - "institutional_roles"
+        - "compliance_violations"
+        - "resource_usage"
+        
+    - name: "interactive_content"
+      description: "Interactive content and code execution"
+      tables:
+        - "jupyter_notebooks"
+        - "interactive_visualizations"
+        - "code_execution_sessions"
+        
+    - name: "opportunity_matching"
+      description: "Funding and publication matching"
+      tables:
+        - "funding_opportunities"
+        - "publication_venues"
+        - "opportunity_matches"
+
+# Feature flag configuration
+feature_flags:
+  # Default flags for new deployments
+  defaults:
+    maintenance_mode: false
+    new_features_enabled: true
+    mobile_app_enabled: true
+    voice_interface_enabled: true
+    external_integrations_enabled: true
+    educational_features_enabled: true
+    enterprise_features_enabled: true
+    interactive_content_enabled: true
+    opportunity_matching_enabled: true
+    advanced_rag_enabled: true
+    beta_features_enabled: false
+    debug_mode: false
+    rollout_percentage: 100
+    
+  # Rollout configuration
+  rollout:
+    strategy: "gradual"  # gradual, immediate, canary
+    steps: [10, 25, 50, 75, 100]
+    step_duration: 300  # 5 minutes per step
+    rollback_threshold: 3  # consecutive failures before rollback
+    
+  # Critical features that should never be disabled
+  critical_features:
+    - "advanced_rag_enabled"
+    
+  # Features that can be safely disabled during issues
+  non_critical_features:
+    - "beta_features_enabled"
+    - "debug_mode"
+
+# Monitoring configuration
+monitoring:
+  # Health check endpoints
+  health_endpoints:
+    - "/health"
+    - "/api/health"
+    - "/api/monitoring/health"
+    
+  # Performance thresholds
+  thresholds:
+    max_error_rate: 5.0  # percentage
+    max_response_time: 2000  # milliseconds
+    min_success_rate: 95.0  # percentage
+    max_cpu_usage: 80.0  # percentage
+    max_memory_usage: 85.0  # percentage
+    
+  # Monitoring duration during deployment
+  deployment_monitoring_duration: 1800  # 30 minutes
+  monitoring_interval: 30  # 30 seconds
+  
+  # Alerting
+  alerts:
+    slack_webhook: "${SLACK_WEBHOOK_URL}"
+    email_notifications: "${EMAIL_NOTIFICATIONS}"
+    pagerduty_integration: "${PAGERDUTY_INTEGRATION_KEY}"
+
+# Blue-green deployment configuration
+blue_green:
+  # Port mappings
+  blue_ports:
+    frontend: 3002
+    backend: 8002
+    
+  green_ports:
+    frontend: 3003
+    backend: 8003
+    
+  # Load balancer configuration
+  load_balancer:
+    health_check_path: "/health"
+    health_check_interval: 10
+    health_check_timeout: 5
+    healthy_threshold: 2
+    unhealthy_threshold: 3
+    
+  # Traffic switching
+  traffic_switch:
+    strategy: "immediate"  # immediate, gradual
+    verification_delay: 30  # seconds
+    rollback_delay: 60  # seconds
+
+# CI/CD integration
+ci_cd:
+  # GitHub Actions integration
+  github_actions:
+    environments:
+      - "staging"
+      - "production"
+    required_checks:
+      - "test-frontend"
+      - "test-backend"
+      - "security-scan"
+      - "performance-test"
+      
+  # Docker registry
+  docker_registry:
+    url: "ghcr.io"
+    namespace: "ai-scholar/advanced-rag"
+    
+  # Deployment triggers
+  triggers:
+    production:
+      branch: "main"
+      require_approval: true
+      auto_deploy: false
+      
+    staging:
+      branch: "develop"
+      require_approval: false
+      auto_deploy: true
+
+# Security configuration
+security:
+  # Secrets management
+  secrets:
+    encryption_key: "${DEPLOYMENT_ENCRYPTION_KEY}"
+    api_tokens:
+      - "${API_TOKEN}"
+      - "${MONITORING_TOKEN}"
+      
+  # Access control
+  access_control:
+    deployment_roles:
+      - "deployment-admin"
+      - "site-reliability-engineer"
+    approval_required: true
+    
+  # Security scanning
+  security_scanning:
+    enabled: true
+    fail_on_high_severity: true
+    fail_on_critical_severity: true
+
+# Backup and recovery
+backup:
+  # Database backups
+  database:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention_days: 30
+    compression: true
+    
+  # Application backups
+  application:
+    enabled: true
+    include_uploads: true
+    include_logs: false
+    retention_days: 7
+    
+  # Recovery procedures
+  recovery:
+    rto: 3600  # Recovery Time Objective: 1 hour
+    rpo: 900   # Recovery Point Objective: 15 minutes
+
+# Performance optimization
+performance:
+  # Resource limits
+  resources:
+    frontend:
+      cpu_limit: "500m"
+      memory_limit: "1Gi"
+      
+    backend:
+      cpu_limit: "2000m"
+      memory_limit: "4Gi"
+      
+    database:
+      cpu_limit: "2000m"
+      memory_limit: "8Gi"
+      
+  # Scaling configuration
+  scaling:
+    frontend:
+      min_replicas: 2
+      max_replicas: 10
+      target_cpu_utilization: 70
+      
+    backend:
+      min_replicas: 3
+      max_replicas: 20
+      target_cpu_utilization: 70
+      
+  # Caching
+  caching:
+    redis:
+      max_memory: "2gb"
+      eviction_policy: "allkeys-lru"
+      
+    cdn:
+      enabled: true
+      cache_duration: 86400  # 24 hours
+
+# Logging and observability
+logging:
+  # Log levels
+  levels:
+    production: "INFO"
+    staging: "DEBUG"
+    
+  # Log retention
+  retention:
+    application_logs: 30  # days
+    access_logs: 90  # days
+    error_logs: 180  # days
+    
+  # Log aggregation
+  aggregation:
+    enabled: true
+    elasticsearch_url: "${ELASTICSEARCH_URL}"
+    kibana_url: "${KIBANA_URL}"
+
+# Notification configuration
+notifications:
+  # Deployment notifications
+  deployment:
+    channels:
+      - "slack"
+      - "email"
+    events:
+      - "deployment_started"
+      - "deployment_completed"
+      - "deployment_failed"
+      - "rollback_triggered"
+      
+  # Monitoring notifications
+  monitoring:
+    channels:
+      - "slack"
+      - "pagerduty"
+    events:
+      - "health_check_failed"
+      - "performance_degraded"
+      - "error_rate_exceeded"
+      - "service_unavailable"

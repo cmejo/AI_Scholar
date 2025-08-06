@@ -211,6 +211,182 @@ class RedisClient:
         except Exception as e:
             logger.error(f"Error getting Redis list range {key}: {e}")
             return []
+    
+    async def llen(self, key: str) -> int:
+        """Get the length of a list"""
+        if not self.redis_client:
+            return 0
+        
+        try:
+            result = await self.redis_client.llen(key)
+            return result
+        except Exception as e:
+            logger.error(f"Error getting Redis list length {key}: {e}")
+            return 0
+    
+    async def ltrim(self, key: str, start: int, end: int) -> bool:
+        """Trim a list to the specified range"""
+        if not self.redis_client:
+            return False
+        
+        try:
+            result = await self.redis_client.ltrim(key, start, end)
+            return result
+        except Exception as e:
+            logger.error(f"Error trimming Redis list {key}: {e}")
+            return False
+    
+    async def brpop(self, key: str, timeout: int = 0) -> Optional[tuple]:
+        """Block and pop from the right of a list"""
+        if not self.redis_client:
+            return None
+        
+        try:
+            result = await self.redis_client.brpop(key, timeout=timeout)
+            if result:
+                # result is (key, value)
+                key_name, value = result
+                try:
+                    deserialized_value = json.loads(value)
+                except json.JSONDecodeError:
+                    deserialized_value = value
+                return (key_name, deserialized_value)
+            return None
+        except Exception as e:
+            logger.error(f"Error blocking pop from Redis list {key}: {e}")
+            return None
+    
+    async def sadd(self, key: str, *values: Any) -> int:
+        """Add members to a set"""
+        if not self.redis_client:
+            return 0
+        
+        try:
+            # Serialize values that are not strings
+            serialized_values = []
+            for value in values:
+                if isinstance(value, str):
+                    serialized_values.append(value)
+                else:
+                    serialized_values.append(json.dumps(value))
+            
+            result = await self.redis_client.sadd(key, *serialized_values)
+            return result
+        except Exception as e:
+            logger.error(f"Error adding to Redis set {key}: {e}")
+            return 0
+    
+    async def smembers(self, key: str) -> set:
+        """Get all members of a set"""
+        if not self.redis_client:
+            return set()
+        
+        try:
+            result = await self.redis_client.smembers(key)
+            # Try to deserialize JSON values
+            deserialized_result = set()
+            for value in result:
+                try:
+                    deserialized_result.add(json.loads(value))
+                except json.JSONDecodeError:
+                    deserialized_result.add(value)
+            return deserialized_result
+        except Exception as e:
+            logger.error(f"Error getting Redis set members {key}: {e}")
+            return set()
+    
+    async def srem(self, key: str, *values: Any) -> int:
+        """Remove members from a set"""
+        if not self.redis_client:
+            return 0
+        
+        try:
+            # Serialize values that are not strings
+            serialized_values = []
+            for value in values:
+                if isinstance(value, str):
+                    serialized_values.append(value)
+                else:
+                    serialized_values.append(json.dumps(value))
+            
+            result = await self.redis_client.srem(key, *serialized_values)
+            return result
+        except Exception as e:
+            logger.error(f"Error removing from Redis set {key}: {e}")
+            return 0
+    
+    async def keys(self, pattern: str) -> List[str]:
+        """Get keys matching a pattern"""
+        if not self.redis_client:
+            return []
+        
+        try:
+            result = await self.redis_client.keys(pattern)
+            return result
+        except Exception as e:
+            logger.error(f"Error getting Redis keys with pattern {pattern}: {e}")
+            return []
+    
+    async def setex(self, key: str, seconds: int, value: Any) -> bool:
+        """Set key with expiration time"""
+        if not self.redis_client:
+            return False
+        
+        try:
+            serialized_value = json.dumps(value) if not isinstance(value, str) else value
+            result = await self.redis_client.setex(key, seconds, serialized_value)
+            return result
+        except Exception as e:
+            logger.error(f"Error setting Redis key with expiration {key}: {e}")
+            return False
+    
+    async def ping(self) -> bool:
+        """Ping Redis server"""
+        if not self.redis_client:
+            return False
+        
+        try:
+            result = await self.redis_client.ping()
+            return result
+        except Exception as e:
+            logger.error(f"Error pinging Redis: {e}")
+            return False
+    
+    async def publish(self, channel: str, message: Any) -> int:
+        """Publish message to a channel"""
+        if not self.redis_client:
+            return 0
+        
+        try:
+            serialized_message = json.dumps(message) if not isinstance(message, str) else message
+            result = await self.redis_client.publish(channel, serialized_message)
+            return result
+        except Exception as e:
+            logger.error(f"Error publishing to Redis channel {channel}: {e}")
+            return 0
+    
+    def pubsub(self):
+        """Get pubsub instance"""
+        if not self.redis_client:
+            return None
+        
+        try:
+            return self.redis_client.pubsub()
+        except Exception as e:
+            logger.error(f"Error getting Redis pubsub: {e}")
+            return None
+    
+    async def flushdb(self) -> bool:
+        """Flush current database"""
+        if not self.redis_client:
+            return False
+        
+        try:
+            result = await self.redis_client.flushdb()
+            return result
+        except Exception as e:
+            logger.error(f"Error flushing Redis database: {e}")
+            return False
 
 # Global Redis client instance
 redis_client = RedisClient()

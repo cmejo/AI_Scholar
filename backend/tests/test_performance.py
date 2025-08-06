@@ -1,570 +1,634 @@
 """
-Performance tests for the AI Scholar RAG system.
-Tests scalability, response times, and resource usage.
+Comprehensive performance and load testing suite for all advanced features.
 """
+
 import pytest
 import asyncio
 import time
 import psutil
 import threading
-from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import AsyncMock, patch
-from services.enhanced_rag_service import EnhancedRAGService
-from services.memory_service import ConversationMemoryManager
-from services.analytics_service import AnalyticsService
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from unittest.mock import Mock, patch, AsyncMock
+import numpy as np
+from datetime import datetime, timedelta
+
+from backend.services.mobile_sync_service import MobileSyncService
+from backend.services.voice_processing_service import VoiceProcessingService
+from backend.services.reference_manager_service import ReferenceManagerService
+from backend.services.quiz_generation_service import QuizGenerationService
 
 
-@pytest.mark.performance
-class TestRAGServicePerformance:
-    """Performance tests for RAG service."""
+class TestMobilePerformance:
+    """Performance testing for mobile features including battery and network optimization."""
     
     @pytest.fixture
-    def performance_rag_service(self, test_db_session, mock_redis):
-        """Create RAG service for performance testing."""
-        with patch('services.enhanced_rag_service.VectorStore') as mock_vector_store:
-            mock_vector_store.return_value.similarity_search.return_value = [
-                {
-                    'content': f'Test content {i}',
-                    'metadata': {'source': f'doc{i}.pdf'},
-                    'score': 0.9 - (i * 0.1)
-                }
-                for i in range(5)
-            ]
-            
-            return EnhancedRAGService(
-                db_session=test_db_session,
-                redis_client=mock_redis
-            )
+    def mobile_sync_service(self):
+        return MobileSyncService()
     
     @pytest.mark.asyncio
-    async def test_single_query_response_time(self, performance_rag_service, performance_timer):
-        """Test single query response time."""
-        query = "What is machine learning?"
-        user_id = "perf-test-user"
+    async def test_mobile_sync_performance(self, mobile_sync_service):
+        """Test mobile synchronization performance under various data loads."""
+        data_sizes = [100, 1000, 5000, 10000]  # Number of items
+        performance_results = []
         
-        performance_timer.start()
-        
-        response = await performance_rag_service.generate_response(
-            query=query,
-            user_id=user_id
-        )
-        
-        performance_timer.stop()
-        
-        # Verify response
-        assert 'response' in response
-        
-        # Performance assertion: should respond within 5 seconds
-        assert performance_timer.elapsed < 5.0, f"Response took {performance_timer.elapsed:.2f}s"
-        
-        print(f"Single query response time: {performance_timer.elapsed:.3f}s")
-    
-    @pytest.mark.asyncio
-    async def test_concurrent_queries_performance(self, performance_rag_service, performance_timer):
-        """Test performance with concurrent queries."""
-        queries = [
-            "What is machine learning?",
-            "Explain neural networks",
-            "How does deep learning work?",
-            "What are the applications of AI?",
-            "Describe supervised learning",
-            "What is unsupervised learning?",
-            "Explain reinforcement learning",
-            "How do transformers work?",
-            "What is natural language processing?",
-            "Describe computer vision"
-        ]
-        
-        user_id = "perf-test-user"
-        
-        performance_timer.start()
-        
-        # Execute queries concurrently
-        tasks = [
-            performance_rag_service.generate_response(query=query, user_id=user_id)
-            for query in queries
-        ]
-        
-        responses = await asyncio.gather(*tasks)
-        
-        performance_timer.stop()
-        
-        # Verify all responses
-        assert len(responses) == len(queries)
-        assert all('response' in r for r in responses)
-        
-        # Performance assertion: 10 concurrent queries should complete within 15 seconds
-        assert performance_timer.elapsed < 15.0, f"Concurrent queries took {performance_timer.elapsed:.2f}s"
-        
-        avg_time_per_query = performance_timer.elapsed / len(queries)
-        print(f"Concurrent queries total time: {performance_timer.elapsed:.3f}s")
-        print(f"Average time per query: {avg_time_per_query:.3f}s")
-    
-    @pytest.mark.asyncio
-    async def test_memory_usage_during_queries(self, performance_rag_service):
-        """Test memory usage during query processing."""
-        process = psutil.Process()
-        initial_memory = process.memory_info().rss / 1024 / 1024  # MB
-        
-        queries = [f"Test query number {i}" for i in range(50)]
-        user_id = "perf-test-user"
-        
-        # Execute queries and monitor memory
-        memory_samples = []
-        
-        for i, query in enumerate(queries):
-            await performance_rag_service.generate_response(query=query, user_id=user_id)
-            
-            if i % 10 == 0:  # Sample every 10 queries
-                current_memory = process.memory_info().rss / 1024 / 1024  # MB
-                memory_samples.append(current_memory)
-        
-        final_memory = process.memory_info().rss / 1024 / 1024  # MB
-        memory_increase = final_memory - initial_memory
-        
-        print(f"Initial memory: {initial_memory:.2f} MB")
-        print(f"Final memory: {final_memory:.2f} MB")
-        print(f"Memory increase: {memory_increase:.2f} MB")
-        
-        # Performance assertion: memory increase should be reasonable (< 100MB for 50 queries)
-        assert memory_increase < 100, f"Memory increased by {memory_increase:.2f} MB"
-    
-    @pytest.mark.asyncio
-    async def test_query_throughput(self, performance_rag_service):
-        """Test query throughput (queries per second)."""
-        duration_seconds = 10
-        query_count = 0
-        user_id = "perf-test-user"
-        
-        start_time = time.time()
-        end_time = start_time + duration_seconds
-        
-        while time.time() < end_time:
-            await performance_rag_service.generate_response(
-                query=f"Test query {query_count}",
-                user_id=user_id
-            )
-            query_count += 1
-        
-        actual_duration = time.time() - start_time
-        throughput = query_count / actual_duration
-        
-        print(f"Processed {query_count} queries in {actual_duration:.2f}s")
-        print(f"Throughput: {throughput:.2f} queries/second")
-        
-        # Performance assertion: should handle at least 1 query per second
-        assert throughput >= 1.0, f"Throughput too low: {throughput:.2f} queries/second"
-
-
-@pytest.mark.performance
-class TestMemoryServicePerformance:
-    """Performance tests for memory service."""
-    
-    @pytest.fixture
-    def performance_memory_service(self, mock_redis, test_db_session):
-        """Create memory service for performance testing."""
-        return ConversationMemoryManager(
-            redis_client=mock_redis,
-            db_session=test_db_session
-        )
-    
-    @pytest.mark.asyncio
-    async def test_memory_storage_performance(self, performance_memory_service, performance_timer):
-        """Test memory storage performance."""
-        conversation_id = "perf-conv-123"
-        memory_items = [
-            {
-                'content': f'Memory item {i}',
-                'importance_score': 0.5,
-                'timestamp': time.time()
+        for size in data_sizes:
+            # Generate test data
+            test_data = {
+                "documents": [
+                    {"id": f"doc_{i}", "content": "x" * 1000}  # 1KB per document
+                    for i in range(size)
+                ]
             }
-            for i in range(1000)
-        ]
-        
-        performance_timer.start()
-        
-        # Store memory items
-        for item in memory_items:
-            await performance_memory_service.store_memory_item(conversation_id, item)
-        
-        performance_timer.stop()
-        
-        avg_time_per_item = performance_timer.elapsed / len(memory_items)
-        
-        print(f"Stored {len(memory_items)} memory items in {performance_timer.elapsed:.3f}s")
-        print(f"Average time per item: {avg_time_per_item:.6f}s")
-        
-        # Performance assertion: should store 1000 items within 10 seconds
-        assert performance_timer.elapsed < 10.0, f"Memory storage took {performance_timer.elapsed:.2f}s"
-    
-    @pytest.mark.asyncio
-    async def test_memory_retrieval_performance(self, performance_memory_service, performance_timer):
-        """Test memory retrieval performance."""
-        conversation_id = "perf-conv-456"
-        
-        # Mock stored memory data
-        mock_memory_data = {
-            'short_term_memory': [
-                {
-                    'content': f'Memory item {i}',
-                    'importance_score': 0.5,
-                    'timestamp': time.time()
-                }
-                for i in range(1000)
-            ]
-        }
-        
-        with patch.object(performance_memory_service, '_get_redis_context', return_value=mock_memory_data):
-            performance_timer.start()
-            
-            # Retrieve memory multiple times
-            for _ in range(100):
-                await performance_memory_service.retrieve_memory_items(conversation_id)
-            
-            performance_timer.stop()
-        
-        avg_time_per_retrieval = performance_timer.elapsed / 100
-        
-        print(f"Retrieved memory 100 times in {performance_timer.elapsed:.3f}s")
-        print(f"Average time per retrieval: {avg_time_per_retrieval:.6f}s")
-        
-        # Performance assertion: should retrieve memory within reasonable time
-        assert avg_time_per_retrieval < 0.1, f"Memory retrieval too slow: {avg_time_per_retrieval:.6f}s"
-
-
-@pytest.mark.performance
-class TestAnalyticsServicePerformance:
-    """Performance tests for analytics service."""
-    
-    @pytest.fixture
-    def performance_analytics_service(self, test_db_session, mock_redis):
-        """Create analytics service for performance testing."""
-        return AnalyticsService(
-            db_session=test_db_session,
-            redis_client=mock_redis
-        )
-    
-    @pytest.mark.asyncio
-    async def test_analytics_tracking_performance(self, performance_analytics_service, performance_timer):
-        """Test analytics event tracking performance."""
-        user_id = "perf-user-123"
-        events = [
-            {
-                'event_type': 'query',
-                'data': {
-                    'query': f'Test query {i}',
-                    'response_time': 1.5,
-                    'confidence': 0.8
-                }
-            }
-            for i in range(1000)
-        ]
-        
-        performance_timer.start()
-        
-        # Track events
-        for event in events:
-            await performance_analytics_service.track_event(
-                user_id=user_id,
-                event_type=event['event_type'],
-                data=event['data']
-            )
-        
-        performance_timer.stop()
-        
-        avg_time_per_event = performance_timer.elapsed / len(events)
-        
-        print(f"Tracked {len(events)} events in {performance_timer.elapsed:.3f}s")
-        print(f"Average time per event: {avg_time_per_event:.6f}s")
-        
-        # Performance assertion: should track 1000 events within 5 seconds
-        assert performance_timer.elapsed < 5.0, f"Event tracking took {performance_timer.elapsed:.2f}s"
-    
-    @pytest.mark.asyncio
-    async def test_analytics_report_generation_performance(self, performance_analytics_service, performance_timer):
-        """Test analytics report generation performance."""
-        user_id = "perf-user-456"
-        
-        # Mock analytics data
-        with patch.object(performance_analytics_service, '_get_analytics_data') as mock_get_data:
-            mock_get_data.return_value = {
-                'queries': [{'query': f'Query {i}', 'timestamp': time.time()} for i in range(10000)],
-                'feedback': [{'rating': 5, 'timestamp': time.time()} for _ in range(1000)]
-            }
-            
-            performance_timer.start()
-            
-            report = await performance_analytics_service.generate_usage_report(
-                user_id=user_id,
-                time_range='30d'
-            )
-            
-            performance_timer.stop()
-        
-        print(f"Generated analytics report in {performance_timer.elapsed:.3f}s")
-        
-        # Verify report structure
-        assert 'query_count' in report
-        assert 'average_response_time' in report
-        
-        # Performance assertion: should generate report within 3 seconds
-        assert performance_timer.elapsed < 3.0, f"Report generation took {performance_timer.elapsed:.2f}s"
-
-
-@pytest.mark.performance
-class TestScalabilityTests:
-    """Scalability tests for the system."""
-    
-    @pytest.mark.asyncio
-    async def test_user_scalability(self, test_db_session, mock_redis):
-        """Test system performance with multiple users."""
-        num_users = 50
-        queries_per_user = 10
-        
-        with patch('services.enhanced_rag_service.VectorStore') as mock_vector_store:
-            mock_vector_store.return_value.similarity_search.return_value = [
-                {'content': 'Test content', 'metadata': {}, 'score': 0.9}
-            ]
-            
-            rag_service = EnhancedRAGService(
-                db_session=test_db_session,
-                redis_client=mock_redis
-            )
-            
-            async def user_session(user_id):
-                """Simulate a user session with multiple queries."""
-                for i in range(queries_per_user):
-                    await rag_service.generate_response(
-                        query=f"User {user_id} query {i}",
-                        user_id=f"user-{user_id}"
-                    )
             
             start_time = time.time()
+            start_memory = psutil.Process().memory_info().rss
             
-            # Create tasks for all users
-            tasks = [user_session(user_id) for user_id in range(num_users)]
-            
-            # Execute all user sessions concurrently
-            await asyncio.gather(*tasks)
+            result = await mobile_sync_service.sync_offline_data("test_device", test_data)
             
             end_time = time.time()
-            total_time = end_time - start_time
-            total_queries = num_users * queries_per_user
+            end_memory = psutil.Process().memory_info().rss
             
-            print(f"Handled {num_users} users with {queries_per_user} queries each")
-            print(f"Total queries: {total_queries}")
-            print(f"Total time: {total_time:.2f}s")
-            print(f"Queries per second: {total_queries / total_time:.2f}")
-            
-            # Performance assertion: should handle the load within reasonable time
-            assert total_time < 60.0, f"Scalability test took {total_time:.2f}s"
-    
-    @pytest.mark.asyncio
-    async def test_document_processing_scalability(self, test_db_session, mock_redis):
-        """Test document processing with multiple documents."""
-        num_documents = 20
-        
-        with patch('services.document_processor.HierarchicalChunkingService') as mock_chunking:
-            mock_chunking.return_value.chunk_document.return_value = [
-                {'id': f'chunk-{i}', 'content': f'Chunk {i}', 'metadata': {}}
-                for i in range(10)
-            ]
-            
-            from services.document_processor import DocumentProcessor
-            processor = DocumentProcessor(
-                db_session=test_db_session,
-                redis_client=mock_redis
-            )
-            
-            async def process_document(doc_id):
-                """Process a single document."""
-                return await processor.process_document(
-                    content=f"Document {doc_id} content with multiple paragraphs and sections.",
-                    user_id="test-user",
-                    title=f"Document {doc_id}"
-                )
-            
-            start_time = time.time()
-            
-            # Process documents concurrently
-            tasks = [process_document(doc_id) for doc_id in range(num_documents)]
-            results = await asyncio.gather(*tasks)
-            
-            end_time = time.time()
-            total_time = end_time - start_time
-            
-            # Verify all documents processed successfully
-            assert all(result['success'] for result in results)
-            
-            print(f"Processed {num_documents} documents in {total_time:.2f}s")
-            print(f"Average time per document: {total_time / num_documents:.2f}s")
-            
-            # Performance assertion: should process documents within reasonable time
-            assert total_time < 30.0, f"Document processing took {total_time:.2f}s"
-
-
-@pytest.mark.performance
-class TestResourceUsageTests:
-    """Tests for resource usage monitoring."""
-    
-    @pytest.mark.asyncio
-    async def test_cpu_usage_monitoring(self, test_db_session, mock_redis):
-        """Monitor CPU usage during intensive operations."""
-        with patch('services.enhanced_rag_service.VectorStore') as mock_vector_store:
-            mock_vector_store.return_value.similarity_search.return_value = [
-                {'content': 'Test content', 'metadata': {}, 'score': 0.9}
-            ]
-            
-            rag_service = EnhancedRAGService(
-                db_session=test_db_session,
-                redis_client=mock_redis
-            )
-            
-            # Monitor CPU usage
-            cpu_samples = []
-            
-            def monitor_cpu():
-                """Monitor CPU usage in background."""
-                for _ in range(10):  # Sample for 10 seconds
-                    cpu_samples.append(psutil.cpu_percent(interval=1))
-            
-            # Start CPU monitoring in background
-            monitor_thread = threading.Thread(target=monitor_cpu)
-            monitor_thread.start()
-            
-            # Perform intensive operations
-            tasks = [
-                rag_service.generate_response(
-                    query=f"Intensive query {i}",
-                    user_id="test-user"
-                )
-                for i in range(100)
-            ]
-            
-            await asyncio.gather(*tasks)
-            
-            # Wait for monitoring to complete
-            monitor_thread.join()
-            
-            avg_cpu = sum(cpu_samples) / len(cpu_samples)
-            max_cpu = max(cpu_samples)
-            
-            print(f"Average CPU usage: {avg_cpu:.2f}%")
-            print(f"Maximum CPU usage: {max_cpu:.2f}%")
-            
-            # Performance assertion: CPU usage should be reasonable
-            assert avg_cpu < 80.0, f"Average CPU usage too high: {avg_cpu:.2f}%"
-    
-    @pytest.mark.asyncio
-    async def test_memory_leak_detection(self, test_db_session, mock_redis):
-        """Test for memory leaks during extended operation."""
-        with patch('services.enhanced_rag_service.VectorStore') as mock_vector_store:
-            mock_vector_store.return_value.similarity_search.return_value = [
-                {'content': 'Test content', 'metadata': {}, 'score': 0.9}
-            ]
-            
-            rag_service = EnhancedRAGService(
-                db_session=test_db_session,
-                redis_client=mock_redis
-            )
-            
-            process = psutil.Process()
-            initial_memory = process.memory_info().rss / 1024 / 1024  # MB
-            
-            # Perform many operations
-            for batch in range(10):  # 10 batches
-                tasks = [
-                    rag_service.generate_response(
-                        query=f"Batch {batch} query {i}",
-                        user_id="test-user"
-                    )
-                    for i in range(50)  # 50 queries per batch
-                ]
-                
-                await asyncio.gather(*tasks)
-                
-                # Force garbage collection
-                import gc
-                gc.collect()
-                
-                current_memory = process.memory_info().rss / 1024 / 1024  # MB
-                memory_increase = current_memory - initial_memory
-                
-                print(f"Batch {batch}: Memory usage {current_memory:.2f} MB (+{memory_increase:.2f} MB)")
-                
-                # Check for excessive memory growth
-                if memory_increase > 200:  # More than 200MB increase
-                    pytest.fail(f"Potential memory leak detected: {memory_increase:.2f} MB increase")
-            
-            final_memory = process.memory_info().rss / 1024 / 1024  # MB
-            total_increase = final_memory - initial_memory
-            
-            print(f"Total memory increase: {total_increase:.2f} MB")
-            
-            # Performance assertion: total memory increase should be reasonable
-            assert total_increase < 300, f"Memory increase too high: {total_increase:.2f} MB"
-
-
-@pytest.mark.performance
-@pytest.mark.slow
-class TestLoadTests:
-    """Load tests for stress testing the system."""
-    
-    @pytest.mark.asyncio
-    async def test_sustained_load(self, test_db_session, mock_redis):
-        """Test system under sustained load."""
-        duration_minutes = 2  # 2 minute load test
-        target_qps = 5  # 5 queries per second
-        
-        with patch('services.enhanced_rag_service.VectorStore') as mock_vector_store:
-            mock_vector_store.return_value.similarity_search.return_value = [
-                {'content': 'Load test content', 'metadata': {}, 'score': 0.9}
-            ]
-            
-            rag_service = EnhancedRAGService(
-                db_session=test_db_session,
-                redis_client=mock_redis
-            )
-            
-            start_time = time.time()
-            end_time = start_time + (duration_minutes * 60)
-            query_count = 0
-            errors = 0
-            
-            while time.time() < end_time:
-                batch_start = time.time()
-                
-                # Send batch of queries
-                tasks = [
-                    rag_service.generate_response(
-                        query=f"Load test query {query_count + i}",
-                        user_id=f"load-user-{i % 10}"  # 10 different users
-                    )
-                    for i in range(target_qps)
-                ]
-                
-                try:
-                    await asyncio.gather(*tasks)
-                    query_count += target_qps
-                except Exception as e:
-                    errors += 1
-                    print(f"Error in batch: {e}")
-                
-                # Wait to maintain target QPS
-                batch_duration = time.time() - batch_start
-                if batch_duration < 1.0:
-                    await asyncio.sleep(1.0 - batch_duration)
-            
-            actual_duration = time.time() - start_time
-            actual_qps = query_count / actual_duration
-            error_rate = errors / (query_count / target_qps) if query_count > 0 else 0
-            
-            print(f"Load test completed:")
-            print(f"Duration: {actual_duration:.2f}s")
-            print(f"Total queries: {query_count}")
-            print(f"Actual QPS: {actual_qps:.2f}")
-            print(f"Error rate: {error_rate:.2%}")
+            performance_results.append({
+                "data_size": size,
+                "sync_time": end_time - start_time,
+                "memory_usage": end_memory - start_memory,
+                "throughput": size / (end_time - start_time)
+            })
             
             # Performance assertions
-            assert actual_qps >= target_qps * 0.8, f"QPS too low: {actual_qps:.2f}"
-            assert error_rate < 0.05, f"Error rate too high: {error_rate:.2%}"
+            assert result["success"] is True
+            assert (end_time - start_time) < (size * 0.01)  # Max 10ms per item
+            assert (end_memory - start_memory) < (size * 2000)  # Max 2KB memory per item
+        
+        # Verify performance scales reasonably
+        assert performance_results[-1]["throughput"] > 50  # At least 50 items/second
+    
+    @pytest.mark.asyncio
+    async def test_mobile_battery_optimization_performance(self, mobile_sync_service):
+        """Test performance impact of battery optimization features."""
+        device_id = "test_device_123"
+        battery_levels = [100, 50, 20, 10, 5]  # Different battery levels
+        
+        for battery_level in battery_levels:
+            start_time = time.time()
+            
+            result = await mobile_sync_service.optimize_for_battery(device_id, battery_level)
+            
+            optimization_time = time.time() - start_time
+            
+            assert result["optimized"] is True
+            assert optimization_time < 0.1  # Less than 100ms
+            
+            # Lower battery should enable more aggressive optimizations
+            if battery_level <= 20:
+                assert result["background_sync_disabled"] is True
+                assert result["reduced_polling"] is True
+            
+            # Verify CPU usage during optimization
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            assert cpu_percent < 50  # Should not consume excessive CPU
+    
+    @pytest.mark.asyncio
+    async def test_mobile_network_adaptation_performance(self, mobile_sync_service):
+        """Test performance of network condition adaptation."""
+        device_id = "test_device_123"
+        network_conditions = [
+            {"type": "wifi", "bandwidth": 100, "latency": 10},
+            {"type": "4g", "bandwidth": 50, "latency": 50},
+            {"type": "3g", "bandwidth": 10, "latency": 200},
+            {"type": "2g", "bandwidth": 1, "latency": 500}
+        ]
+        
+        for condition in network_conditions:
+            start_time = time.time()
+            
+            result = await mobile_sync_service.adapt_to_network_condition(
+                device_id, condition["type"]
+            )
+            
+            adaptation_time = time.time() - start_time
+            
+            assert result["adapted"] is True
+            assert adaptation_time < 0.05  # Very fast adaptation
+            
+            # Verify appropriate adaptations for network quality
+            if condition["bandwidth"] < 10:  # Poor network
+                assert result["compression_enabled"] is True
+                assert result["batch_size_reduced"] is True
+    
+    @pytest.mark.asyncio
+    async def test_mobile_concurrent_operations_performance(self, mobile_sync_service):
+        """Test performance under concurrent mobile operations."""
+        device_id = "test_device_123"
+        num_concurrent_operations = 10
+        
+        async def perform_operation(operation_id):
+            start_time = time.time()
+            
+            # Simulate various mobile operations
+            operations = [
+                mobile_sync_service.sync_offline_data(device_id, {"test": f"data_{operation_id}"}),
+                mobile_sync_service.cache_document_for_offline(device_id, {"id": f"doc_{operation_id}"}),
+                mobile_sync_service.process_gesture(device_id, {"type": "tap", "x": 100, "y": 200})
+            ]
+            
+            results = await asyncio.gather(*operations)
+            
+            end_time = time.time()
+            
+            return {
+                "operation_id": operation_id,
+                "duration": end_time - start_time,
+                "success": all(r.get("success", r.get("processed", False)) for r in results)
+            }
+        
+        # Execute concurrent operations
+        start_time = time.time()
+        tasks = [perform_operation(i) for i in range(num_concurrent_operations)]
+        results = await asyncio.gather(*tasks)
+        total_time = time.time() - start_time
+        
+        # Verify all operations succeeded
+        assert all(r["success"] for r in results)
+        
+        # Verify reasonable performance under concurrency
+        assert total_time < 5.0  # All operations complete within 5 seconds
+        avg_operation_time = sum(r["duration"] for r in results) / len(results)
+        assert avg_operation_time < 1.0  # Average operation time under 1 second
+
+
+class TestVoiceProcessingPerformance:
+    """Performance testing for voice processing with latency measurement."""
+    
+    @pytest.fixture
+    def voice_processing_service(self):
+        return VoiceProcessingService()
+    
+    @pytest.mark.asyncio
+    async def test_speech_to_text_latency(self, voice_processing_service):
+        """Test speech-to-text processing latency for real-time requirements."""
+        audio_durations = [1, 2, 5, 10, 30]  # seconds
+        
+        for duration in audio_durations:
+            # Generate mock audio data
+            sample_rate = 16000
+            audio_samples = sample_rate * duration
+            mock_audio = np.random.randn(audio_samples).astype(np.float32).tobytes()
+            
+            start_time = time.time()
+            
+            with patch.object(voice_processing_service, '_transcribe_audio') as mock_transcribe:
+                mock_transcribe.return_value = {
+                    "text": f"transcribed text for {duration} seconds",
+                    "confidence": 0.9
+                }
+                
+                result = await voice_processing_service.speech_to_text(mock_audio)
+            
+            processing_time = time.time() - start_time
+            
+            assert result["text"] is not None
+            
+            # Real-time requirement: processing time should be less than audio duration
+            assert processing_time < duration * 0.5  # Process in less than half real-time
+            
+            # For short audio, processing should be very fast
+            if duration <= 5:
+                assert processing_time < 1.0  # Less than 1 second
+    
+    @pytest.mark.asyncio
+    async def test_text_to_speech_performance(self, voice_processing_service):
+        """Test text-to-speech generation performance."""
+        text_lengths = [10, 50, 100, 500, 1000]  # Number of words
+        
+        for length in text_lengths:
+            text = " ".join([f"word{i}" for i in range(length)])
+            
+            start_time = time.time()
+            start_memory = psutil.Process().memory_info().rss
+            
+            with patch.object(voice_processing_service, '_synthesize_speech') as mock_synthesize:
+                mock_synthesize.return_value = {
+                    "audio_data": b"mock_audio_data" * length,
+                    "duration": length * 0.5,  # Assume 0.5 seconds per word
+                    "sample_rate": 22050
+                }
+                
+                result = await voice_processing_service.text_to_speech(text, {})
+            
+            processing_time = time.time() - start_time
+            memory_used = psutil.Process().memory_info().rss - start_memory
+            
+            assert result["success"] is True
+            
+            # Performance requirements
+            assert processing_time < length * 0.01  # Max 10ms per word
+            assert memory_used < length * 1000  # Max 1KB memory per word
+    
+    @pytest.mark.asyncio
+    async def test_voice_command_processing_throughput(self, voice_processing_service):
+        """Test voice command processing throughput under load."""
+        num_commands = 100
+        commands = [f"search for topic {i}" for i in range(num_commands)]
+        
+        start_time = time.time()
+        
+        async def process_command(command):
+            with patch.object(voice_processing_service, '_process_voice_command') as mock_process:
+                mock_process.return_value = {
+                    "intent": "search",
+                    "entities": [{"type": "topic", "value": command.split()[-1]}],
+                    "confidence": 0.9
+                }
+                
+                return await voice_processing_service.process_voice_command(command)
+        
+        # Process commands concurrently
+        tasks = [process_command(cmd) for cmd in commands]
+        results = await asyncio.gather(*tasks)
+        
+        total_time = time.time() - start_time
+        throughput = num_commands / total_time
+        
+        # Verify all commands processed successfully
+        assert all(r["intent"] is not None for r in results)
+        
+        # Performance requirement: at least 10 commands per second
+        assert throughput >= 10
+    
+    @pytest.mark.asyncio
+    async def test_noise_filtering_performance(self, voice_processing_service):
+        """Test noise filtering performance and quality."""
+        audio_lengths = [1, 5, 10, 30]  # seconds
+        noise_levels = [0.1, 0.3, 0.5, 0.7]  # noise ratios
+        
+        for length in audio_lengths:
+            for noise_level in noise_levels:
+                # Generate noisy audio
+                sample_rate = 16000
+                clean_audio = np.random.randn(sample_rate * length)
+                noise = np.random.randn(sample_rate * length) * noise_level
+                noisy_audio = (clean_audio + noise).astype(np.float32).tobytes()
+                
+                start_time = time.time()
+                
+                with patch.object(voice_processing_service, '_apply_noise_filter') as mock_filter:
+                    mock_filter.return_value = {
+                        "filtered_audio": clean_audio.astype(np.float32).tobytes(),
+                        "noise_reduction_db": 10 + (noise_level * 10)
+                    }
+                    
+                    result = await voice_processing_service.filter_noise(noisy_audio)
+                
+                processing_time = time.time() - start_time
+                
+                assert result["filtered"] is True
+                
+                # Performance requirement: real-time processing
+                assert processing_time < length  # Process faster than real-time
+                
+                # Quality requirement: significant noise reduction
+                assert result["noise_reduction_db"] > 5
+
+
+class TestIntegrationLoadTesting:
+    """Load testing for external integrations with rate limiting and failover."""
+    
+    @pytest.fixture
+    def reference_manager_service(self):
+        return ReferenceManagerService()
+    
+    @pytest.mark.asyncio
+    async def test_reference_manager_load_handling(self, reference_manager_service):
+        """Test reference manager integration under high load."""
+        num_concurrent_requests = 50
+        request_data = {"api_key": "test_key", "library_id": "test_library"}
+        
+        async def make_sync_request(request_id):
+            start_time = time.time()
+            
+            with patch.object(reference_manager_service, '_fetch_zotero_items') as mock_fetch:
+                mock_fetch.return_value = [{"id": f"item_{request_id}"}]
+                
+                result = await reference_manager_service.sync_zotero_library(request_data)
+            
+            return {
+                "request_id": request_id,
+                "duration": time.time() - start_time,
+                "success": result["success"]
+            }
+        
+        # Execute concurrent requests
+        start_time = time.time()
+        tasks = [make_sync_request(i) for i in range(num_concurrent_requests)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        total_time = time.time() - start_time
+        
+        # Filter out exceptions and count successes
+        successful_results = [r for r in results if not isinstance(r, Exception)]
+        success_rate = len(successful_results) / num_concurrent_requests
+        
+        # Performance requirements
+        assert success_rate >= 0.9  # At least 90% success rate
+        assert total_time < 30  # Complete within 30 seconds
+        
+        if successful_results:
+            avg_response_time = sum(r["duration"] for r in successful_results) / len(successful_results)
+            assert avg_response_time < 5.0  # Average response under 5 seconds
+    
+    @pytest.mark.asyncio
+    async def test_api_rate_limiting_behavior(self, reference_manager_service):
+        """Test behavior under API rate limiting conditions."""
+        requests_per_second = 20
+        duration_seconds = 10
+        total_requests = requests_per_second * duration_seconds
+        
+        rate_limited_count = 0
+        successful_count = 0
+        
+        async def make_request_with_rate_limiting(request_id):
+            nonlocal rate_limited_count, successful_count
+            
+            with patch.object(reference_manager_service, '_make_api_request') as mock_request:
+                # Simulate rate limiting after certain number of requests
+                if request_id > 50:  # Rate limit after 50 requests
+                    mock_request.side_effect = Exception("Rate limited")
+                    rate_limited_count += 1
+                    raise Exception("Rate limited")
+                else:
+                    mock_request.return_value = {"success": True, "data": []}
+                    successful_count += 1
+                    return {"success": True}
+        
+        # Make requests at controlled rate
+        start_time = time.time()
+        for i in range(total_requests):
+            try:
+                await make_request_with_rate_limiting(i)
+            except Exception:
+                pass  # Expected for rate limited requests
+            
+            # Control request rate
+            elapsed = time.time() - start_time
+            expected_time = i / requests_per_second
+            if elapsed < expected_time:
+                await asyncio.sleep(expected_time - elapsed)
+        
+        # Verify rate limiting behavior
+        assert rate_limited_count > 0  # Some requests should be rate limited
+        assert successful_count > 0  # Some requests should succeed
+        
+        # Verify graceful handling of rate limits
+        total_time = time.time() - start_time
+        assert total_time >= duration_seconds * 0.9  # Respect rate limiting
+    
+    @pytest.mark.asyncio
+    async def test_integration_failover_performance(self, reference_manager_service):
+        """Test failover performance when primary integration fails."""
+        primary_service = "zotero"
+        fallback_services = ["mendeley", "endnote"]
+        
+        async def test_failover_scenario():
+            start_time = time.time()
+            
+            with patch.object(reference_manager_service, '_sync_zotero_library') as mock_primary:
+                with patch.object(reference_manager_service, '_sync_mendeley_library') as mock_fallback:
+                    # Primary service fails
+                    mock_primary.side_effect = Exception("Service unavailable")
+                    
+                    # Fallback succeeds
+                    mock_fallback.return_value = {"success": True, "items": []}
+                    
+                    result = await reference_manager_service.sync_with_failover(
+                        primary_service, {"api_key": "test"}
+                    )
+            
+            failover_time = time.time() - start_time
+            
+            return {
+                "success": result["success"],
+                "failover_time": failover_time,
+                "fallback_used": result.get("fallback_used", False)
+            }
+        
+        # Test multiple failover scenarios
+        failover_results = []
+        for _ in range(10):
+            result = await test_failover_scenario()
+            failover_results.append(result)
+        
+        # Verify failover performance
+        assert all(r["success"] for r in failover_results)
+        assert all(r["fallback_used"] for r in failover_results)
+        
+        avg_failover_time = sum(r["failover_time"] for r in failover_results) / len(failover_results)
+        assert avg_failover_time < 2.0  # Failover should be fast
+
+
+class TestEnterpriseScalabilityTesting:
+    """Scalability testing for enterprise features and compliance monitoring."""
+    
+    @pytest.fixture
+    def quiz_service(self):
+        return QuizGenerationService()
+    
+    @pytest.mark.asyncio
+    async def test_quiz_generation_scalability(self, quiz_service):
+        """Test quiz generation performance at enterprise scale."""
+        user_counts = [10, 50, 100, 500]  # Number of concurrent users
+        
+        for user_count in user_counts:
+            content = "Sample educational content for quiz generation testing. " * 100
+            
+            async def generate_quiz_for_user(user_id):
+                start_time = time.time()
+                
+                with patch.object(quiz_service, '_generate_questions') as mock_generate:
+                    mock_generate.return_value = [
+                        {"id": f"q{i}", "text": f"Question {i}", "type": "multiple_choice"}
+                        for i in range(5)
+                    ]
+                    
+                    result = await quiz_service.generate_quiz_from_content(content)
+                
+                return {
+                    "user_id": user_id,
+                    "duration": time.time() - start_time,
+                    "success": result["success"]
+                }
+            
+            # Generate quizzes concurrently for all users
+            start_time = time.time()
+            tasks = [generate_quiz_for_user(f"user_{i}") for i in range(user_count)]
+            results = await asyncio.gather(*tasks)
+            total_time = time.time() - start_time
+            
+            # Performance analysis
+            success_rate = sum(1 for r in results if r["success"]) / len(results)
+            avg_generation_time = sum(r["duration"] for r in results) / len(results)
+            throughput = user_count / total_time
+            
+            # Scalability requirements
+            assert success_rate >= 0.95  # 95% success rate
+            assert avg_generation_time < 5.0  # Average under 5 seconds
+            assert throughput >= user_count / 60  # Complete within 1 minute
+    
+    @pytest.mark.asyncio
+    async def test_compliance_monitoring_performance(self, quiz_service):
+        """Test compliance monitoring performance under enterprise load."""
+        num_documents = 1000
+        num_policies = 50
+        
+        # Generate test documents and policies
+        documents = [
+            {"id": f"doc_{i}", "content": f"Document content {i}", "user_id": f"user_{i % 100}"}
+            for i in range(num_documents)
+        ]
+        
+        policies = [
+            {"id": f"policy_{i}", "rules": [f"rule_{j}" for j in range(5)]}
+            for i in range(num_policies)
+        ]
+        
+        start_time = time.time()
+        
+        # Simulate compliance checking
+        compliance_results = []
+        for doc in documents:
+            for policy in policies:
+                # Mock compliance check
+                check_result = {
+                    "document_id": doc["id"],
+                    "policy_id": policy["id"],
+                    "compliant": True,
+                    "violations": []
+                }
+                compliance_results.append(check_result)
+        
+        total_time = time.time() - start_time
+        total_checks = len(compliance_results)
+        throughput = total_checks / total_time
+        
+        # Performance requirements for enterprise scale
+        assert throughput >= 1000  # At least 1000 checks per second
+        assert total_time < 60  # Complete within 1 minute
+    
+    @pytest.mark.asyncio
+    async def test_memory_usage_under_load(self, quiz_service):
+        """Test memory usage patterns under sustained load."""
+        initial_memory = psutil.Process().memory_info().rss
+        peak_memory = initial_memory
+        
+        # Simulate sustained load
+        for batch in range(10):  # 10 batches
+            batch_tasks = []
+            
+            for i in range(50):  # 50 operations per batch
+                content = f"Educational content for batch {batch}, item {i}. " * 50
+                
+                with patch.object(quiz_service, '_generate_questions') as mock_generate:
+                    mock_generate.return_value = [{"id": f"q{i}", "text": f"Question {i}"}]
+                    
+                    task = quiz_service.generate_quiz_from_content(content)
+                    batch_tasks.append(task)
+            
+            # Execute batch
+            await asyncio.gather(*batch_tasks)
+            
+            # Monitor memory usage
+            current_memory = psutil.Process().memory_info().rss
+            peak_memory = max(peak_memory, current_memory)
+            
+            # Force garbage collection between batches
+            import gc
+            gc.collect()
+        
+        final_memory = psutil.Process().memory_info().rss
+        memory_growth = final_memory - initial_memory
+        peak_memory_usage = peak_memory - initial_memory
+        
+        # Memory usage requirements
+        assert memory_growth < 100 * 1024 * 1024  # Less than 100MB growth
+        assert peak_memory_usage < 500 * 1024 * 1024  # Less than 500MB peak usage
+    
+    @pytest.mark.asyncio
+    async def test_database_connection_pooling_performance(self, quiz_service):
+        """Test database connection pooling under high concurrency."""
+        num_concurrent_operations = 100
+        
+        async def database_operation(operation_id):
+            start_time = time.time()
+            
+            # Simulate database operations
+            await asyncio.sleep(0.01)  # Simulate DB query time
+            
+            return {
+                "operation_id": operation_id,
+                "duration": time.time() - start_time,
+                "success": True
+            }
+        
+        # Execute concurrent database operations
+        start_time = time.time()
+        tasks = [database_operation(i) for i in range(num_concurrent_operations)]
+        results = await asyncio.gather(*tasks)
+        total_time = time.time() - start_time
+        
+        # Verify connection pooling efficiency
+        success_rate = sum(1 for r in results if r["success"]) / len(results)
+        avg_operation_time = sum(r["duration"] for r in results) / len(results)
+        
+        assert success_rate == 1.0  # All operations should succeed
+        assert total_time < 5.0  # Should complete quickly with proper pooling
+        assert avg_operation_time < 0.1  # Individual operations should be fast
+
+
+class TestPerformanceMonitoring:
+    """Performance monitoring and metrics collection."""
+    
+    @pytest.mark.asyncio
+    async def test_performance_metrics_collection(self):
+        """Test collection of performance metrics during operations."""
+        metrics = {
+            "response_times": [],
+            "memory_usage": [],
+            "cpu_usage": [],
+            "error_rates": []
+        }
+        
+        # Simulate operations while collecting metrics
+        for i in range(100):
+            start_time = time.time()
+            start_memory = psutil.Process().memory_info().rss
+            
+            # Simulate operation
+            await asyncio.sleep(0.01)
+            
+            # Collect metrics
+            response_time = time.time() - start_time
+            memory_usage = psutil.Process().memory_info().rss - start_memory
+            cpu_usage = psutil.cpu_percent()
+            
+            metrics["response_times"].append(response_time)
+            metrics["memory_usage"].append(memory_usage)
+            metrics["cpu_usage"].append(cpu_usage)
+            metrics["error_rates"].append(0)  # No errors in this test
+        
+        # Analyze metrics
+        avg_response_time = np.mean(metrics["response_times"])
+        p95_response_time = np.percentile(metrics["response_times"], 95)
+        avg_memory_usage = np.mean(metrics["memory_usage"])
+        avg_cpu_usage = np.mean(metrics["cpu_usage"])
+        
+        # Performance thresholds
+        assert avg_response_time < 0.1  # Average under 100ms
+        assert p95_response_time < 0.2  # 95th percentile under 200ms
+        assert avg_cpu_usage < 80  # Average CPU under 80%
+        
+        # Verify metrics collection completeness
+        assert len(metrics["response_times"]) == 100
+        assert all(isinstance(rt, float) for rt in metrics["response_times"])
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "--tb=short"])

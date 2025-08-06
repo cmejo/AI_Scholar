@@ -32,6 +32,20 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    # OAuth 2.0 Settings
+    OAUTH_JWT_SECRET: str = "your-oauth-jwt-secret-change-in-production"
+    OAUTH_ACCESS_TOKEN_EXPIRE_HOURS: int = 1
+    OAUTH_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    OAUTH_AUTH_CODE_EXPIRE_MINUTES: int = 10
+    
+    # Integration Authentication
+    API_KEY_DEFAULT_RATE_LIMIT: int = 1000
+    API_KEY_MAX_RATE_LIMIT: int = 10000
+    INTEGRATION_AUTH_ENABLED: bool = True
+    
+    # Base URL for OAuth redirects
+    BASE_URL: str = "http://localhost:8000"
+    
     # File Upload
     MAX_FILE_SIZE: int = 50 * 1024 * 1024  # 50MB
     UPLOAD_DIR: str = "./uploads"

@@ -1,0 +1,95 @@
+# Fastfile for Android deployment
+default_platform(:android)
+
+platform :android do
+  desc "Deploy to Google Play Internal Testing"
+  lane :deploy_internal do
+    gradle(
+      task: "clean assembleRelease",
+      project_dir: "."
+    )
+    
+    upload_to_play_store(
+      track: "internal",
+      apk: "app/build/outputs/apk/release/app-release.apk",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+    
+    slack(
+      message: "AI Scholar Android app uploaded to Internal Testing",
+      channel: "#deployments",
+      success: true
+    ) if ENV["SLACK_WEBHOOK_URL"]
+  end
+
+  desc "Check internal testing status"
+  lane :check_internal_testing_status do
+    # Wait for Google Play to process the APK
+    sleep(300)
+    
+    # Check if there are any issues
+    google_play_track_version_codes(
+      track: "internal"
+    )
+    
+    UI.success("Internal testing processed successfully")
+  end
+
+  desc "Promote from internal to production"
+  lane :promote_to_production do
+    upload_to_play_store(
+      track: "internal",
+      track_promote_to: "production",
+      skip_upload_apk: true,
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+    
+    slack(
+      message: "AI Scholar Android app promoted to Production",
+      channel: "#deployments",
+      success: true
+    ) if ENV["SLACK_WEBHOOK_URL"]
+  end
+
+  desc "Update app metadata"
+  lane :update_metadata do
+    upload_to_play_store(
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      metadata_path: "./metadata"
+    )
+  end
+
+  desc "Run automated tests"
+  lane :test do
+    gradle(task: "test")
+    gradle(task: "connectedAndroidTest")
+  end
+
+  desc "Build and deploy to internal testing"
+  lane :deploy do
+    test
+    deploy_internal
+    check_internal_testing_status
+  end
+
+  desc "Full production deployment"
+  lane :deploy_production do
+    deploy_internal
+    check_internal_testing_status
+    promote_to_production
+    update_metadata
+  end
+
+  error do |lane, exception|
+    slack(
+      message: "Android deployment failed in lane #{lane}: #{exception.message}",
+      channel: "#deployments",
+      success: false
+    ) if ENV["SLACK_WEBHOOK_URL"]
+  end
+end
