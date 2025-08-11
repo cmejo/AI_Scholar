@@ -1,17 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useMobileDetection } from '../../hooks/useMobileDetection';
+import { MobileLayoutProps } from '../../types/ui';
+import { MobileGestureHandler } from './MobileGestureHandler';
 import { MobileHeader } from './MobileHeader';
 import { MobileNavigation } from './MobileNavigation';
-import { MobileGestureHandler } from './MobileGestureHandler';
-import { useMobileDetection } from '../../hooks/useMobileDetection';
 
-interface MobileLayoutProps {
-  children: React.ReactNode;
-  currentView: string;
-  onViewChange: (view: string) => void;
-  user?: any;
-  voiceEnabled: boolean;
-  onToggleVoice: (enabled: boolean) => void;
-}
+// MobileLayoutProps is now imported from types/ui.ts
 
 export const MobileLayout: React.FC<MobileLayoutProps> = ({
   children,
@@ -39,7 +33,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
 
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', handleResize);
-      return () => window.visualViewport.removeEventListener('resize', handleResize);
+      return () => window.visualViewport?.removeEventListener('resize', handleResize);
     } else {
       window.addEventListener('resize', handleResize);
       return () => window.removeEventListener('resize', handleResize);

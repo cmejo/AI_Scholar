@@ -66,7 +66,7 @@ export class PluginService {
         output: null,
         executionTime: Date.now() - startTime,
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       };
     }
 
@@ -190,7 +190,7 @@ export class PluginService {
         } catch (error) {
           return {
             output: null,
-            error: error.message,
+            error: error instanceof Error ? error.message : String(error),
             success: false
           };
         }
@@ -272,10 +272,12 @@ export class PluginService {
     const { source, style } = input;
     
     // Mock citation generation
-    const citations = {
+    const citations: Record<string, string> = {
       apa: `${source.authors?.[0] || 'Unknown'} (${source.year || 'n.d.'}). ${source.title}. ${source.journal || 'Unknown Journal'}.`,
       mla: `${source.authors?.[0] || 'Unknown'}. "${source.title}." ${source.journal || 'Unknown Journal'}, ${source.year || 'n.d.'}.`,
-      chicago: `${source.authors?.[0] || 'Unknown'}. "${source.title}." ${source.journal || 'Unknown Journal'} (${source.year || 'n.d.'}).`
+      chicago: `${source.authors?.[0] || 'Unknown'}. "${source.title}." ${source.journal || 'Unknown Journal'} (${source.year || 'n.d.'}).`,
+      ieee: `[1] ${source.authors?.[0] || 'Unknown'}, "${source.title}," ${source.journal || 'Unknown Journal'}, ${source.year || 'n.d.'}.`,
+      harvard: `${source.authors?.[0] || 'Unknown'} ${source.year || 'n.d.'}, '${source.title}', ${source.journal || 'Unknown Journal'}.`
     };
     
     return {

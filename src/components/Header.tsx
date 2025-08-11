@@ -1,13 +1,10 @@
+import { BarChart3, Bell, Eye, FileText, Globe, Menu, MessageCircle, Settings, Shield, User, Workflow } from 'lucide-react';
 import React, { useState } from 'react';
-import { Menu, MessageCircle, FileText, BarChart3, Shield, Workflow, Globe, Settings, Bell, User, Eye } from 'lucide-react';
-import { AccessibilitySettings } from './AccessibilitySettings';
 import { accessibilityService } from '../services/accessibilityService';
+import { HeaderProps } from '../types/ui';
+import { AccessibilitySettings } from './AccessibilitySettings';
 
-interface HeaderProps {
-  onToggleSidebar: () => void;
-  currentView: string;
-  user?: any;
-}
+// HeaderProps is now imported from types/ui.ts
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, currentView, user }) => {
   const [showAccessibilitySettings, setShowAccessibilitySettings] = useState(false);

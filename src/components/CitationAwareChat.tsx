@@ -1,12 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, FileText, Loader2, ExternalLink, Eye, Quote } from 'lucide-react';
-import { citationAwareRetriever, CitationAwareResult, ExpandableCitation } from '../utils/citationAwareRetrieval';
+import { ExternalLink, Eye, FileText, Loader2, Quote, Send, User } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { DocumentSource } from '../types/ui';
+import { citationAwareRetriever, ExpandableCitation } from '../utils/citationAwareRetrieval';
 import { PDFPreviewOverlay } from './PDFPreviewOverlay';
 
 export const CitationAwareChat: React.FC = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [selectedCitation, setSelectedCitation] = useState<ExpandableCitation | null>(null);
   const [showPDFPreview, setShowPDFPreview] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<any>(null);
@@ -69,7 +70,7 @@ export const CitationAwareChat: React.FC = () => {
     setSelectedCitation(citation);
   };
 
-  const handleViewInPDF = (source: any) => {
+  const handleViewInPDF = (source: DocumentSource) => {
     setPreviewDocument({
       id: source.id,
       name: source.documentName,
@@ -208,7 +209,7 @@ export const CitationAwareChat: React.FC = () => {
                               <FileText size={12} />
                               <span>Source References:</span>
                             </div>
-                            {message.sources.map((source: any, idx: number) => (
+                            {message.sources.map((source: DocumentSource, idx: number) => (
                               <div key={idx} className="text-xs text-gray-300 mb-2 flex items-center justify-between">
                                 <div className="flex-1">
                                   <span className="font-medium">📄 {source.documentName}</span>

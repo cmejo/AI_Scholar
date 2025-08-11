@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import voiceNavigationService, { VoiceShortcut, AccessibilityFeature } from '../services/voiceNavigationService';
+import React, { useEffect, useState } from 'react';
+import type { AccessibilityFeature, VoiceShortcut } from '../services/voiceNavigationService';
+import voiceNavigationService from '../services/voiceNavigationService';
 
 interface VoiceNavigationPanelProps {
   isOpen: boolean;
@@ -24,27 +25,27 @@ const VoiceNavigationPanel: React.FC<VoiceNavigationPanelProps> = ({
     }
   }, [isOpen]);
 
-  const loadShortcuts = () => {
+  const loadShortcuts = (): void => {
     const availableShortcuts = voiceNavigationService.getAvailableShortcuts();
     setShortcuts(availableShortcuts);
   };
 
-  const loadAccessibilityFeatures = () => {
+  const loadAccessibilityFeatures = (): void => {
     const features = voiceNavigationService.getAccessibilityFeatures();
     setAccessibilityFeatures(features);
   };
 
-  const handleShortcutToggle = (shortcutId: string, enabled: boolean) => {
+  const handleShortcutToggle = (shortcutId: string, enabled: boolean): void => {
     voiceNavigationService.setShortcutEnabled(shortcutId, enabled);
     loadShortcuts();
   };
 
-  const handleAccessibilityToggle = (featureId: string, enabled: boolean) => {
+  const handleAccessibilityToggle = (featureId: string, enabled: boolean): void => {
     voiceNavigationService.setAccessibilityFeatureEnabled(featureId, enabled);
     loadAccessibilityFeatures();
   };
 
-  const handleAccessibilitySettingChange = (featureId: string, setting: string, value: any) => {
+  const handleAccessibilitySettingChange = (featureId: string, setting: string, value: unknown): void => {
     voiceNavigationService.updateAccessibilityFeatureSettings(featureId, { [setting]: value });
     loadAccessibilityFeatures();
   };

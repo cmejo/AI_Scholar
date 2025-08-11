@@ -1,5 +1,5 @@
 // User Profile and Session Persistence Service
-import { User, ConversationHistory, UserPreferences } from '../types';
+import { User, ConversationMemory, UserPreferences } from '../types';
 
 export interface UserSession {
   id: string;

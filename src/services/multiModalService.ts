@@ -24,12 +24,14 @@ export class MultiModalService {
         tables: [],
         code: [],
         metadata: {
-          size: file.size,
-          lastModified: new Date(file.lastModified),
-          mimeType: file.type,
-          language: 'en',
+          title: file.name,
           author: '',
-          title: file.name
+          createdAt: new Date(file.lastModified),
+          modifiedAt: new Date(file.lastModified),
+          tags: [],
+          language: 'en',
+          wordCount: 0,
+          pageCount: 1
         }
       },
       processing: {
@@ -152,9 +154,8 @@ export class MultiModalService {
         ],
         structure: {
           hasHeaders: true,
-          rowCount: 2,
-          columnCount: 3,
-          merged_cells: []
+          columnTypes: ['string', 'string', 'string'],
+          relationships: []
         }
       }
     ];
@@ -193,6 +194,34 @@ export class MultiModalService {
         type: 'bar_chart',
         data: { labels: ['A', 'B', 'C'], values: [10, 20, 15] },
         confidence: 0.87
+      }
+    ];
+  }
+
+  private async extractImages(imageUrl: string, page: number): Promise<ImageContent[]> {
+    // Mock image extraction - in production, use image processing API
+    const ocrResult = await this.performOCR(imageUrl);
+    const objects = await this.detectObjects(imageUrl);
+    const charts = await this.extractCharts(imageUrl);
+
+    return [
+      {
+        id: `img_${page}_${Date.now()}`,
+        url: imageUrl,
+        caption: `Image from page ${page}`,
+        extractedText: ocrResult.text,
+        objects: objects.map((obj, idx) => ({
+          id: `obj_${idx}`,
+          type: obj.type || 'unknown',
+          confidence: obj.confidence || 0.8,
+          boundingBox: obj.boundingBox || { x: 0, y: 0, width: 100, height: 100 },
+          label: obj.label || 'Unknown object'
+        })),
+        charts: charts.map(chart => ({
+          type: chart.type === 'bar_chart' ? 'bar' as const : 'line' as const,
+          data: chart.data,
+          title: 'Extracted Chart'
+        }))
       }
     ];
   }

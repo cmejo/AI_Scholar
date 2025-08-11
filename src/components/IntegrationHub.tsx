@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { MessageSquare, Mail, Users, Webhook, Key, Globe, Calendar, Database, Settings, Plus, Check, X } from 'lucide-react';
+import { Calendar, Check, Database, Globe, Key, Mail, MessageSquare, Plus, Settings, Users, Webhook, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { integrationService } from '../services/integrationService';
-import { Integration } from '../types';
+import type { Integration } from '../types';
 
 export const IntegrationHub: React.FC = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [selectedIntegrationType, setSelectedIntegrationType] = useState<string>('');
-  const [setupConfig, setSetupConfig] = useState<any>({});
+  const [setupConfig, setSetupConfig] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     loadIntegrations();
   }, []);
 
-  const loadIntegrations = () => {
+  const loadIntegrations = (): void => {
     // Mock integrations data
     const mockIntegrations: Integration[] = [
       {
@@ -103,28 +103,28 @@ export const IntegrationHub: React.FC = () => {
     }
   ];
 
-  const setupIntegration = async () => {
+  const setupIntegration = async (): Promise<void> => {
     try {
       let integration: Integration;
       
       switch (selectedIntegrationType) {
         case 'slack':
-          integration = await integrationService.setupSlackIntegration(setupConfig);
+          integration = await integrationService.setupSlackIntegration(setupConfig as { botToken: string; signingSecret: string; channels: string[]; });
           break;
         case 'teams':
-          integration = await integrationService.setupTeamsIntegration(setupConfig);
+          integration = await integrationService.setupTeamsIntegration(setupConfig as { appId: string; appPassword: string; tenantId: string; });
           break;
         case 'email':
-          integration = await integrationService.setupEmailIntegration(setupConfig);
+          integration = await integrationService.setupEmailIntegration(setupConfig as { smtpHost: string; smtpPort: number; username: string; password: string; fromAddress: string; });
           break;
         case 'sso':
-          integration = await integrationService.setupSSOIntegration(setupConfig);
+          integration = await integrationService.setupSSOIntegration(setupConfig as { provider: "saml" | "oauth" | "oidc"; entityId: string; ssoUrl: string; certificate: string; });
           break;
         case 'webhook':
-          integration = await integrationService.setupWebhook(setupConfig);
+          integration = await integrationService.setupWebhook(setupConfig as { url: string; events: string[]; secret?: string; });
           break;
         case 'api':
-          integration = await integrationService.setupAPIIntegration(setupConfig);
+          integration = await integrationService.setupAPIIntegration(setupConfig as { baseUrl: string; apiKey: string; endpoints: Record<string, string>; });
           break;
         default:
           throw new Error('Unknown integration type');
@@ -134,11 +134,11 @@ export const IntegrationHub: React.FC = () => {
       setShowSetupModal(false);
       setSetupConfig({});
     } catch (error) {
-      console.error('Failed to setup integration:', error);
+      console.error('Failed to setup integration:', error instanceof Error ? error.message : String(error));
     }
   };
 
-  const toggleIntegration = (integrationId: string) => {
+  const toggleIntegration = (integrationId: string): void => {
     setIntegrations(prev => prev.map(integration =>
       integration.id === integrationId
         ? { ...integration, status: integration.status === 'active' ? 'inactive' : 'active' }
@@ -146,7 +146,7 @@ export const IntegrationHub: React.FC = () => {
     ));
   };
 
-  const removeIntegration = (integrationId: string) => {
+  const removeIntegration = (integrationId: string): void => {
     setIntegrations(prev => prev.filter(integration => integration.id !== integrationId));
   };
 
@@ -159,7 +159,7 @@ export const IntegrationHub: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-1">Bot Token</label>
               <input
                 type="password"
-                value={setupConfig.botToken || ''}
+                value={(setupConfig.botToken as string) ?? ''}
                 onChange={(e) => setSetupConfig({ ...setupConfig, botToken: e.target.value })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 placeholder="xoxb-..."
@@ -169,7 +169,7 @@ export const IntegrationHub: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-1">Signing Secret</label>
               <input
                 type="password"
-                value={setupConfig.signingSecret || ''}
+                value={(setupConfig.signingSecret as string) ?? ''}
                 onChange={(e) => setSetupConfig({ ...setupConfig, signingSecret: e.target.value })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 placeholder="Signing secret..."
@@ -179,7 +179,7 @@ export const IntegrationHub: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-1">Channels (comma-separated)</label>
               <input
                 type="text"
-                value={setupConfig.channels || ''}
+                value={(setupConfig.channels as string) ?? ''}
                 onChange={(e) => setSetupConfig({ ...setupConfig, channels: e.target.value.split(',').map(c => c.trim()) })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 placeholder="#general, #support"
@@ -195,7 +195,7 @@ export const IntegrationHub: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-1">SMTP Host</label>
               <input
                 type="text"
-                value={setupConfig.smtpHost || ''}
+                value={(setupConfig.smtpHost as string) ?? ''}
                 onChange={(e) => setSetupConfig({ ...setupConfig, smtpHost: e.target.value })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 placeholder="smtp.gmail.com"
@@ -205,7 +205,7 @@ export const IntegrationHub: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-1">SMTP Port</label>
               <input
                 type="number"
-                value={setupConfig.smtpPort || ''}
+                value={(setupConfig.smtpPort as number) ?? ''}
                 onChange={(e) => setSetupConfig({ ...setupConfig, smtpPort: parseInt(e.target.value) })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 placeholder="587"
@@ -215,7 +215,7 @@ export const IntegrationHub: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-1">Username</label>
               <input
                 type="text"
-                value={setupConfig.username || ''}
+                value={(setupConfig.username as string) ?? ''}
                 onChange={(e) => setSetupConfig({ ...setupConfig, username: e.target.value })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 placeholder="your-email@domain.com"
@@ -225,7 +225,7 @@ export const IntegrationHub: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-1">Password</label>
               <input
                 type="password"
-                value={setupConfig.password || ''}
+                value={(setupConfig.password as string) ?? ''}
                 onChange={(e) => setSetupConfig({ ...setupConfig, password: e.target.value })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 placeholder="App password or OAuth token"
@@ -240,7 +240,7 @@ export const IntegrationHub: React.FC = () => {
             <div>
               <label className="block text-sm text-gray-400 mb-1">Provider</label>
               <select
-                value={setupConfig.provider || ''}
+                value={(setupConfig.provider as string) ?? ''}
                 onChange={(e) => setSetupConfig({ ...setupConfig, provider: e.target.value })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
               >
@@ -254,7 +254,7 @@ export const IntegrationHub: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-1">Entity ID</label>
               <input
                 type="text"
-                value={setupConfig.entityId || ''}
+                value={(setupConfig.entityId as string) ?? ''}
                 onChange={(e) => setSetupConfig({ ...setupConfig, entityId: e.target.value })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 placeholder="https://your-app.com/saml/metadata"
@@ -264,7 +264,7 @@ export const IntegrationHub: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-1">SSO URL</label>
               <input
                 type="url"
-                value={setupConfig.ssoUrl || ''}
+                value={(setupConfig.ssoUrl as string) ?? ''}
                 onChange={(e) => setSetupConfig({ ...setupConfig, ssoUrl: e.target.value })}
                 className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 placeholder="https://idp.example.com/sso"
@@ -380,7 +380,7 @@ export const IntegrationHub: React.FC = () => {
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">
-                Setup {selectedIntegrationType ? availableIntegrations.find(i => i.type === selectedIntegrationType)?.name : 'Integration'}
+                Setup {selectedIntegrationType.length > 0 ? availableIntegrations.find(i => i.type === selectedIntegrationType)?.name : 'Integration'}
               </h3>
               <button
                 onClick={() => {
@@ -394,7 +394,7 @@ export const IntegrationHub: React.FC = () => {
               </button>
             </div>
             
-            {!selectedIntegrationType ? (
+            {selectedIntegrationType.length === 0 ? (
               <div className="space-y-2">
                 <p className="text-gray-400 mb-4">Select an integration type:</p>
                 {availableIntegrations.map((integration) => (
@@ -428,7 +428,7 @@ export const IntegrationHub: React.FC = () => {
                     Back
                   </button>
                   <button
-                    onClick={setupIntegration}
+                    onClick={() => void setupIntegration()}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
                   >
                     Setup Integration
@@ -454,7 +454,7 @@ const IntegrationCard: React.FC<IntegrationCardProps> = ({
   onToggle,
   onRemove
 }) => {
-  const getIntegrationIcon = (type: string) => {
+  const getIntegrationIcon = (type: string): JSX.Element => {
     switch (type) {
       case 'slack': return <MessageSquare className="text-purple-400" size={20} />;
       case 'teams': return <Users className="text-blue-400" size={20} />;

@@ -12,6 +12,21 @@ export interface ReasoningStep {
   timestamp: Date;
 }
 
+export interface ContextItem {
+  id: string;
+  content: string;
+  source: string;
+  relevance: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface RetrievalResult {
+  items: ContextItem[];
+  totalFound: number;
+  query: string;
+  executionTime: number;
+}
+
 export interface ChainOfThoughtResponse {
   originalQuery: string;
   finalAnswer: string;
@@ -49,8 +64,8 @@ export class ChainOfThoughtReasoner {
    */
   async processQuery(
     query: string,
-    context: any[],
-    retrievalFunction: (q: string) => Promise<any>
+    context: ContextItem[],
+    retrievalFunction: (q: string) => Promise<RetrievalResult>
   ): Promise<ChainOfThoughtResponse> {
     const startTime = Date.now();
     const reasoningChain: ReasoningStep[] = [];
@@ -106,7 +121,7 @@ export class ChainOfThoughtReasoner {
   /**
    * Generate step-by-step thought process
    */
-  async generateThoughtProcess(query: string, context: any[]): Promise<ThoughtProcess[]> {
+  async generateThoughtProcess(query: string, context: ContextItem[]): Promise<ThoughtProcess[]> {
     const thoughts: ThoughtProcess[] = [];
     let currentStep = 1;
 
@@ -283,7 +298,7 @@ export class ChainOfThoughtReasoner {
     originalQuery: string,
     decompositionStep: ReasoningStep,
     strategyStep: ReasoningStep,
-    retrievalFunction: (q: string) => Promise<any>
+    retrievalFunction: (q: string) => Promise<RetrievalResult>
   ): Promise<ReasoningStep[]> {
     const subQuestions = JSON.parse(decompositionStep.output);
     const strategy = JSON.parse(strategyStep.output);
@@ -368,7 +383,7 @@ export class ChainOfThoughtReasoner {
   /**
    * Validate and refine answer
    */
-  private async validateAnswer(originalQuery: string, synthesisStep: ReasoningStep, context: any[]): Promise<ReasoningStep> {
+  private async validateAnswer(originalQuery: string, synthesisStep: ReasoningStep, context: ContextItem[]): Promise<ReasoningStep> {
     const synthesis = JSON.parse(synthesisStep.output);
     
     const validation = {
@@ -489,14 +504,14 @@ export class ChainOfThoughtReasoner {
     return 'informational';
   }
 
-  private assessRetrievalConfidence(results: any[]): number {
+  private assessRetrievalConfidence(results: ContextItem[]): number {
     if (!results || results.length === 0) return 0.1;
     if (results.length >= 3) return 0.9;
     if (results.length >= 2) return 0.7;
     return 0.5;
   }
 
-  private analyzeRetrievedInfo(question: string, results: any[]): any {
+  private analyzeRetrievedInfo(question: string, results: ContextItem[]): { summary: string; confidence: number } {
     return {
       summary: `Found ${results.length} relevant sources for: ${question}`,
       confidence: this.assessRetrievalConfidence(results),
@@ -505,7 +520,7 @@ export class ChainOfThoughtReasoner {
     };
   }
 
-  private generateMainAnswer(query: string, insights: any[]): string {
+  private generateMainAnswer(query: string, insights: ReasoningStep[]): string {
     return `Based on the step-by-step analysis of "${query}", here is the comprehensive answer derived from ${insights.length} reasoning steps...`;
   }
 
@@ -513,16 +528,16 @@ export class ChainOfThoughtReasoner {
     return retrievalSteps.map(step => `Evidence from ${step.description}: ${step.reasoning}`);
   }
 
-  private calculateSynthesisConfidence(insights: any[]): number {
+  private calculateSynthesisConfidence(insights: ReasoningStep[]): number {
     const avgConfidence = insights.reduce((sum, insight) => sum + (insight.confidence || 0.5), 0) / insights.length;
     return Math.min(avgConfidence, 0.95);
   }
 
-  private generateSynthesisReasoning(insights: any[]): string {
+  private generateSynthesisReasoning(insights: ReasoningStep[]): string {
     return `Synthesized from ${insights.length} analytical insights with cross-validation and consistency checking`;
   }
 
-  private identifyKnowledgeGaps(query: string, insights: any[]): string[] {
+  private identifyKnowledgeGaps(query: string, insights: ReasoningStep[]): string[] {
     return ['Potential gap 1: Limited temporal data', 'Potential gap 2: Missing comparative analysis'];
   }
 
@@ -533,12 +548,12 @@ export class ChainOfThoughtReasoner {
     return Math.min(coverage + 0.3, 1.0);
   }
 
-  private checkFactualConsistency(synthesis: any, context: any[]): number {
+  private checkFactualConsistency(synthesis: { mainAnswer: string; confidence: number }, context: ContextItem[]): number {
     // Simplified consistency check
     return context.length > 0 ? 0.85 : 0.5;
   }
 
-  private assessSourceReliability(context: any[]): number {
+  private assessSourceReliability(context: ContextItem[]): number {
     return context.length > 2 ? 0.9 : 0.7;
   }
 
@@ -546,7 +561,7 @@ export class ChainOfThoughtReasoner {
     return reasoning.length > 50 ? 0.85 : 0.7;
   }
 
-  private generateRecommendations(synthesis: any): string[] {
+  private generateRecommendations(synthesis: { mainAnswer: string; confidence: number }): string[] {
     return [
       'Consider seeking additional sources for verification',
       'Cross-reference with domain experts if available',

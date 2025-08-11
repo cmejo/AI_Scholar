@@ -19,7 +19,6 @@ numpy==1.24.3
 
 # Database
 sqlalchemy==2.0.23
-sqlite3
 
 # LLM integration
 ollama==0.1.7
@@ -56,7 +55,6 @@ scikit-learn==1.3.2
 
 # Performance monitoring and testing
 psutil==5.9.6
-aiohttp==3.9.1
 
 # Testing
 pytest==7.4.3
@@ -86,7 +84,6 @@ aiohttp==3.9.1
 xmltodict==0.13.0
 
 # Note-taking app integrations
-aiofiles==23.2.1
 PyYAML==6.0.1
 
 # Jupyter notebook support
@@ -102,8 +99,9 @@ ipywidgets==8.1.1
 # torchvision==0.16.0
 # pdf2image==1.16.3
 # camelot-py[cv]==0.11.0
-# tabula-py==2.9.0# 
-GraphQL support
+# tabula-py==2.9.0
+
+# GraphQL support
 strawberry-graphql==0.215.1
 
 # Push notifications

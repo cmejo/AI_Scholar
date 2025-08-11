@@ -7,10 +7,10 @@
 
 // Types
 export interface VisualizationData {
-  data: Record<string, any>;
-  layout: Record<string, any>;
-  config: Record<string, any>;
-  traces?: Array<Record<string, any>>;
+  data: Record<string, unknown>;
+  layout: Record<string, unknown>;
+  config: Record<string, unknown>;
+  traces?: Array<Record<string, unknown>>;
 }
 
 export interface Annotation {

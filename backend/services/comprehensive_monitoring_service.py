@@ -1057,8 +1057,6 @@ class ComprehensiveMonitoringService:
 
 # Global service instance
 monitoring_service = ComprehensiveMonitoringService()
-        if self.tags is None:
-            self.tags = {}
 
 @dataclass
 class AlertRule:

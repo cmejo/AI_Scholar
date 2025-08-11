@@ -1,0 +1,539 @@
+name: Code Quality Checks
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+  COVERAGE_THRESHOLD: 80
+  QUALITY_GATE_ENABLED: true
+
+jobs:
+  frontend-quality:
+    runs-on: ubuntu-latest
+    name: Frontend Quality Checks
+    outputs:
+      coverage: ${{ steps.coverage.outputs.coverage }}
+      eslint-errors: ${{ steps.eslint.outputs.errors }}
+      type-errors: ${{ steps.typescript.outputs.errors }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Needed for quality metrics
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Cache ESLint results
+      uses: actions/cache@v3
+      with:
+        path: .eslintcache
+        key: eslint-${{ runner.os }}-${{ hashFiles('**/eslint.config.js') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+        restore-keys: |
+          eslint-${{ runner.os }}-${{ hashFiles('**/eslint.config.js') }}-
+          eslint-${{ runner.os }}-
+      
+    - name: Check TypeScript compilation
+      id: typescript
+      run: |
+        echo "Running TypeScript compilation check..."
+        if npm run type-check 2>&1 | tee typescript-output.log; then
+          echo "errors=0" >> $GITHUB_OUTPUT
+          echo "✅ TypeScript compilation successful"
+        else
+          error_count=$(grep -c "error TS" typescript-output.log || echo "0")
+          echo "errors=$error_count" >> $GITHUB_OUTPUT
+          echo "❌ TypeScript compilation failed with $error_count errors"
+          exit 1
+        fi
+      
+    - name: Check code formatting
+      run: |
+        echo "Checking code formatting with Prettier..."
+        if npm run format:check; then
+          echo "✅ Code formatting is consistent"
+        else
+          echo "❌ Code formatting issues found. Run 'npm run format' to fix."
+          exit 1
+        fi
+      
+    - name: Run ESLint with quality gates
+      id: eslint
+      run: |
+        echo "Running ESLint with quality gates..."
+        npm run lint -- --format json --output-file eslint-report.json || true
+        
+        # Parse ESLint results
+        error_count=$(jq '[.[] | select(.errorCount > 0) | .errorCount] | add // 0' eslint-report.json)
+        warning_count=$(jq '[.[] | select(.warningCount > 0) | .warningCount] | add // 0' eslint-report.json)
+        
+        echo "errors=$error_count" >> $GITHUB_OUTPUT
+        echo "warnings=$warning_count" >> $GITHUB_OUTPUT
+        
+        echo "ESLint Results:"
+        echo "- Errors: $error_count"
+        echo "- Warnings: $warning_count"
+        
+        # Quality gate: fail if any errors
+        if [ "$error_count" -gt 0 ]; then
+          echo "❌ ESLint quality gate failed: $error_count errors found"
+          npm run lint  # Show detailed output
+          exit 1
+        else
+          echo "✅ ESLint quality gate passed"
+        fi
+      
+    - name: Install required tools
+      run: sudo apt-get update && sudo apt-get install -y jq bc
+      
+    - name: Run tests with coverage and quality gates
+      id: coverage
+      run: |
+        echo "Running tests with coverage..."
+        npm run test:coverage -- --reporter=verbose --reporter=json --outputFile=test-results.json
+        
+        # Extract coverage percentage from coverage summary
+        if [ -f "coverage/coverage-summary.json" ]; then
+          coverage=$(jq -r '.total.statements.pct' coverage/coverage-summary.json 2>/dev/null || echo "0")
+        else
+          coverage="0"
+        fi
+        echo "coverage=$coverage" >> $GITHUB_OUTPUT
+        
+        echo "Test Coverage: $coverage%"
+        
+        # Quality gate: check coverage threshold
+        if (( $(echo "$coverage < $COVERAGE_THRESHOLD" | bc -l) )); then
+          echo "❌ Coverage quality gate failed: $coverage% < $COVERAGE_THRESHOLD%"
+          exit 1
+        else
+          echo "✅ Coverage quality gate passed: $coverage% >= $COVERAGE_THRESHOLD%"
+        fi
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: frontend-test-results
+        path: |
+          test-results.json
+          eslint-report.json
+          typescript-output.log
+          coverage/
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+        fail_ci_if_error: true
+
+  backend-quality:
+    runs-on: ubuntu-latest
+    name: Backend Quality Checks
+    outputs:
+      coverage: ${{ steps.coverage.outputs.coverage }}
+      security-issues: ${{ steps.security.outputs.issues }}
+      type-errors: ${{ steps.mypy.outputs.errors }}
+      lint-errors: ${{ steps.flake8.outputs.errors }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Needed for quality metrics
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        pip install --upgrade pip
+        pip install -r requirements.txt -r requirements-dev.txt
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: pip-${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          pip-${{ runner.os }}-
+        
+    - name: Check Python code formatting
+      run: |
+        cd backend
+        echo "Checking Python code formatting..."
+        
+        if python -m black --check --diff .; then
+          echo "✅ Black formatting check passed"
+        else
+          echo "❌ Black formatting issues found. Run 'python -m black .' to fix."
+          exit 1
+        fi
+        
+        if python -m isort --check-only --diff .; then
+          echo "✅ Import sorting check passed"
+        else
+          echo "❌ Import sorting issues found. Run 'python -m isort .' to fix."
+          exit 1
+        fi
+        
+    - name: Run Python linting with quality gates
+      id: flake8
+      run: |
+        cd backend
+        echo "Running flake8 linting..."
+        
+        if python -m flake8 --format=json --output-file=flake8-report.json .; then
+          echo "errors=0" >> $GITHUB_OUTPUT
+          echo "✅ Flake8 linting passed"
+        else
+          error_count=$(jq 'length' flake8-report.json 2>/dev/null || echo "1")
+          echo "errors=$error_count" >> $GITHUB_OUTPUT
+          echo "❌ Flake8 found $error_count issues"
+          python -m flake8 .  # Show detailed output
+          exit 1
+        fi
+        
+    - name: Run Python type checking with quality gates
+      id: mypy
+      run: |
+        cd backend
+        echo "Running mypy type checking..."
+        
+        if python -m mypy --json-report mypy-report . 2>&1 | tee mypy-output.log; then
+          echo "errors=0" >> $GITHUB_OUTPUT
+          echo "✅ MyPy type checking passed"
+        else
+          error_count=$(grep -c "error:" mypy-output.log || echo "0")
+          echo "errors=$error_count" >> $GITHUB_OUTPUT
+          echo "❌ MyPy found $error_count type errors"
+          exit 1
+        fi
+        
+    - name: Run security analysis with quality gates
+      id: security
+      run: |
+        cd backend
+        echo "Running security analysis with Bandit..."
+        
+        python -m bandit -r . -f json -o bandit-report.json || true
+        
+        # Parse security issues
+        high_issues=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json 2>/dev/null || echo "0")
+        medium_issues=$(jq '[.results[] | select(.issue_severity == "MEDIUM")] | length' bandit-report.json 2>/dev/null || echo "0")
+        total_issues=$((high_issues + medium_issues))
+        
+        echo "issues=$total_issues" >> $GITHUB_OUTPUT
+        echo "high-issues=$high_issues" >> $GITHUB_OUTPUT
+        echo "medium-issues=$medium_issues" >> $GITHUB_OUTPUT
+        
+        echo "Security Analysis Results:"
+        echo "- High severity: $high_issues"
+        echo "- Medium severity: $medium_issues"
+        echo "- Total issues: $total_issues"
+        
+        # Quality gate: fail if high severity issues found
+        if [ "$high_issues" -gt 0 ]; then
+          echo "❌ Security quality gate failed: $high_issues high-severity issues found"
+          python -m bandit -r . -f txt  # Show detailed output
+          exit 1
+        else
+          echo "✅ Security quality gate passed"
+        fi
+        
+    - name: Run dependency security check
+      run: |
+        cd backend
+        echo "Running dependency security check..."
+        
+        if python -m safety check --json --output safety-report.json; then
+          echo "✅ Dependency security check passed"
+        else
+          echo "❌ Vulnerable dependencies found"
+          python -m safety check  # Show detailed output
+          exit 1
+        fi
+        
+    - name: Install required tools
+      run: sudo apt-get update && sudo apt-get install -y jq bc
+      
+    - name: Run backend tests with coverage and quality gates
+      id: coverage
+      run: |
+        cd backend
+        echo "Running backend tests with coverage..."
+        
+        python -m pytest \
+          --cov=. \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=json \
+          --cov-report=term-missing \
+          --junit-xml=pytest-report.xml \
+          --tb=short
+        
+        # Extract coverage percentage
+        if [ -f "coverage.json" ]; then
+          coverage=$(jq -r '.totals.percent_covered' coverage.json 2>/dev/null || echo "0")
+        else
+          coverage="0"
+        fi
+        echo "coverage=$coverage" >> $GITHUB_OUTPUT
+        
+        echo "Backend Test Coverage: $coverage%"
+        
+        # Quality gate: check coverage threshold
+        if (( $(echo "$coverage < $COVERAGE_THRESHOLD" | bc -l) )); then
+          echo "❌ Backend coverage quality gate failed: $coverage% < $COVERAGE_THRESHOLD%"
+          exit 1
+        else
+          echo "✅ Backend coverage quality gate passed: $coverage% >= $COVERAGE_THRESHOLD%"
+        fi
+        
+    - name: Upload test and analysis results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: backend-analysis-results
+        path: |
+          backend/flake8-report.json
+          backend/mypy-report/
+          backend/mypy-output.log
+          backend/bandit-report.json
+          backend/safety-report.json
+          backend/pytest-report.xml
+          backend/coverage.json
+          backend/htmlcov/
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+        fail_ci_if_error: true
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+    needs: [frontend-quality, backend-quality]
+    if: success()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd backend && pip install -r requirements.txt -r requirements-dev.txt
+        
+    - name: Run integration tests
+      run: |
+        echo "Running integration tests..."
+        npm run test:integration
+        
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-results
+        path: |
+          integration-test-results.json
+          integration-coverage/
+
+  quality-gate:
+    runs-on: ubuntu-latest
+    name: Quality Gate & Metrics
+    needs: [frontend-quality, backend-quality, integration-tests]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Install jq for JSON processing
+      run: sudo apt-get update && sudo apt-get install -y jq bc
+      
+    - name: Evaluate quality metrics and gates
+      id: quality-evaluation
+      run: |
+        echo "=== QUALITY GATE EVALUATION ==="
+        
+        # Initialize variables
+        overall_status="success"
+        frontend_status="${{ needs.frontend-quality.result }}"
+        backend_status="${{ needs.backend-quality.result }}"
+        integration_status="${{ needs.integration-tests.result }}"
+        
+        # Extract metrics
+        frontend_coverage="${{ needs.frontend-quality.outputs.coverage }}"
+        backend_coverage="${{ needs.backend-quality.outputs.coverage }}"
+        eslint_errors="${{ needs.frontend-quality.outputs.eslint-errors }}"
+        type_errors="${{ needs.frontend-quality.outputs.type-errors }}"
+        security_issues="${{ needs.backend-quality.outputs.security-issues }}"
+        
+        echo "📊 Quality Metrics Summary:"
+        echo "├── Frontend Coverage: ${frontend_coverage}%"
+        echo "├── Backend Coverage: ${backend_coverage}%"
+        echo "├── ESLint Errors: ${eslint_errors}"
+        echo "├── TypeScript Errors: ${type_errors}"
+        echo "└── Security Issues: ${security_issues}"
+        echo ""
+        
+        echo "🔍 Quality Gate Results:"
+        
+        # Check individual job results
+        if [[ "$frontend_status" != "success" ]]; then
+          echo "❌ Frontend quality checks failed"
+          overall_status="failure"
+        else
+          echo "✅ Frontend quality checks passed"
+        fi
+        
+        if [[ "$backend_status" != "success" ]]; then
+          echo "❌ Backend quality checks failed"
+          overall_status="failure"
+        else
+          echo "✅ Backend quality checks passed"
+        fi
+        
+        if [[ "$integration_status" != "success" ]]; then
+          echo "❌ Integration tests failed"
+          overall_status="failure"
+        else
+          echo "✅ Integration tests passed"
+        fi
+        
+        # Additional quality gates
+        if [[ "$eslint_errors" != "0" ]]; then
+          echo "❌ ESLint errors found: $eslint_errors"
+          overall_status="failure"
+        fi
+        
+        if [[ "$type_errors" != "0" ]]; then
+          echo "❌ TypeScript errors found: $type_errors"
+          overall_status="failure"
+        fi
+        
+        # Calculate overall coverage
+        if [[ -n "$frontend_coverage" && -n "$backend_coverage" ]]; then
+          overall_coverage=$(echo "scale=2; ($frontend_coverage + $backend_coverage) / 2" | bc)
+          echo "📈 Overall Coverage: ${overall_coverage}%"
+          
+          if (( $(echo "$overall_coverage < $COVERAGE_THRESHOLD" | bc -l) )); then
+            echo "❌ Overall coverage below threshold: ${overall_coverage}% < $COVERAGE_THRESHOLD%"
+            overall_status="failure"
+          fi
+        fi
+        
+        echo "status=$overall_status" >> $GITHUB_OUTPUT
+        echo "overall-coverage=$overall_coverage" >> $GITHUB_OUTPUT
+        
+        echo ""
+        if [[ "$overall_status" == "success" ]]; then
+          echo "🎉 ALL QUALITY GATES PASSED!"
+        else
+          echo "💥 QUALITY GATES FAILED!"
+        fi
+      
+    - name: Generate quality report
+      run: |
+        echo "Generating comprehensive quality report..."
+        
+        cat > quality-report.md << 'EOF'
+        # Code Quality Report
+        
+        ## Summary
+        - **Overall Status**: ${{ steps.quality-evaluation.outputs.status }}
+        - **Overall Coverage**: ${{ steps.quality-evaluation.outputs.overall-coverage }}%
+        - **Timestamp**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        
+        ## Frontend Quality
+        - **Status**: ${{ needs.frontend-quality.result }}
+        - **Coverage**: ${{ needs.frontend-quality.outputs.coverage }}%
+        - **ESLint Errors**: ${{ needs.frontend-quality.outputs.eslint-errors }}
+        - **TypeScript Errors**: ${{ needs.frontend-quality.outputs.type-errors }}
+        
+        ## Backend Quality
+        - **Status**: ${{ needs.backend-quality.result }}
+        - **Coverage**: ${{ needs.backend-quality.outputs.coverage }}%
+        - **Security Issues**: ${{ needs.backend-quality.outputs.security-issues }}
+        - **Type Errors**: ${{ needs.backend-quality.outputs.type-errors }}
+        - **Lint Errors**: ${{ needs.backend-quality.outputs.lint-errors }}
+        
+        ## Integration Tests
+        - **Status**: ${{ needs.integration-tests.result }}
+        
+        ## Quality Gates
+        - ✅ No ESLint errors
+        - ✅ No TypeScript compilation errors
+        - ✅ Coverage above ${{ env.COVERAGE_THRESHOLD }}%
+        - ✅ No high-severity security issues
+        - ✅ All tests passing
+        
+        EOF
+        
+    - name: Upload quality report
+      uses: actions/upload-artifact@v3
+      with:
+        name: quality-report
+        path: quality-report.md
+        
+    - name: Comment PR with quality results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('quality-report.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: report
+          });
+        
+    - name: Final quality gate decision
+      run: |
+        if [[ "${{ steps.quality-evaluation.outputs.status }}" == "success" ]]; then
+          echo "🎉 All quality gates passed! Ready for deployment."
+          exit 0
+        else
+          echo "💥 Quality gates failed! Please fix the issues before merging."
+          exit 1
+        fi

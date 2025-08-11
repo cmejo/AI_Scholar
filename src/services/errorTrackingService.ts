@@ -3,6 +3,14 @@
  * Provides client-side error tracking and reporting capabilities
  */
 
+import {
+    AnalyticsMetrics,
+    Incident,
+    IncidentTimeline,
+    SystemHealth
+} from '../types/api';
+import { FeedbackSubmission } from '../types/ui';
+
 interface ErrorContext {
   user_id?: string;
   session_id?: string;
@@ -261,7 +269,7 @@ class ErrorTrackingService {
     resolved?: boolean;
     days?: number;
     limit?: number;
-  }): Promise<any[]> {
+  }): Promise<ErrorEvent[]> {
     try {
       const params = new URLSearchParams();
       if (filters) {
@@ -291,7 +299,7 @@ class ErrorTrackingService {
     assigned_to?: string;
     days?: number;
     limit?: number;
-  }): Promise<any[]> {
+  }): Promise<Incident[]> {
     try {
       const params = new URLSearchParams();
       if (filters) {
@@ -321,7 +329,7 @@ class ErrorTrackingService {
     status?: string;
     days?: number;
     limit?: number;
-  }): Promise<any[]> {
+  }): Promise<FeedbackSubmission[]> {
     try {
       const params = new URLSearchParams();
       if (filters) {
@@ -346,7 +354,7 @@ class ErrorTrackingService {
     }
   }
 
-  async getSystemHealth(): Promise<any> {
+  async getSystemHealth(): Promise<SystemHealth> {
     try {
       const response = await fetch(`${this.baseUrl}/health`);
       if (response.ok) {
@@ -361,7 +369,7 @@ class ErrorTrackingService {
     }
   }
 
-  async getAnalytics(days: number = 7): Promise<any> {
+  async getAnalytics(days: number = 7): Promise<AnalyticsMetrics> {
     try {
       const response = await fetch(`${this.baseUrl}/analytics?days=${days}`);
       if (response.ok) {
@@ -409,7 +417,7 @@ class ErrorTrackingService {
     }
   }
 
-  async getIncidentTimeline(incidentId: string): Promise<any[]> {
+  async getIncidentTimeline(incidentId: string): Promise<IncidentTimeline[]> {
     try {
       const response = await fetch(`${this.baseUrl}/incidents/${incidentId}/timeline`);
       if (response.ok) {

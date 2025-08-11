@@ -32,7 +32,8 @@ export class IntegrationService {
       type: 'slack',
       name: 'Slack Bot',
       config: config as IntegrationConfig,
-      status: 'active'
+      status: 'active',
+      lastSync: new Date()
     });
 
     // Setup Slack bot handlers
@@ -53,7 +54,8 @@ export class IntegrationService {
       type: 'teams',
       name: 'Teams Bot',
       config: config as IntegrationConfig,
-      status: 'active'
+      status: 'active',
+      lastSync: new Date()
     });
 
     this.setupTeamsHandlers(integration);
@@ -75,7 +77,8 @@ export class IntegrationService {
       type: 'email',
       name: 'Email Service',
       config: config as IntegrationConfig,
-      status: 'active'
+      status: 'active',
+      lastSync: new Date()
     });
 
     this.setupEmailHandlers(integration);
@@ -96,7 +99,8 @@ export class IntegrationService {
       type: 'sso',
       name: 'SSO Provider',
       config: config as IntegrationConfig,
-      status: 'active'
+      status: 'active',
+      lastSync: new Date()
     });
 
     this.setupSSOHandlers(integration);
@@ -116,7 +120,8 @@ export class IntegrationService {
       type: 'webhook',
       name: 'Webhook Endpoint',
       config: config as IntegrationConfig,
-      status: 'active'
+      status: 'active',
+      lastSync: new Date()
     });
 
     this.setupWebhookHandlers(integration);
@@ -136,7 +141,8 @@ export class IntegrationService {
       type: 'api',
       name: 'External API',
       config: config as IntegrationConfig,
-      status: 'active'
+      status: 'active',
+      lastSync: new Date()
     });
 
     return integration;
@@ -240,7 +246,8 @@ export class IntegrationService {
       type: 'api',
       name: `${config.type.toUpperCase()} CRM`,
       config: config as IntegrationConfig,
-      status: 'active'
+      status: 'active',
+      lastSync: new Date()
     });
 
     // Setup CRM-specific handlers
@@ -260,7 +267,8 @@ export class IntegrationService {
       type: 'api',
       name: 'Calendar Integration',
       config: config as IntegrationConfig,
-      status: 'active'
+      status: 'active',
+      lastSync: new Date()
     });
 
     this.setupCalendarHandlers(integration);

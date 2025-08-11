@@ -29,6 +29,16 @@ export interface SourceReference {
   relevanceScore: number;
 }
 
+export interface CitationDocument {
+  id: string;
+  content: string;
+  name: string;
+  authors?: string[];
+  year?: number;
+  abstract?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface ExpandableCitation {
   id: string;
   inlineText: string;
@@ -43,13 +53,13 @@ export interface ExpandableCitation {
 }
 
 export class CitationAwareRetriever {
-  private documents: Map<string, any> = new Map();
+  private documents: Map<string, CitationDocument> = new Map();
   private phraseIndex: Map<string, string[]> = new Map(); // phrase -> document IDs
 
   /**
    * Add documents with phrase-level indexing
    */
-  addDocuments(documents: any[]): void {
+  addDocuments(documents: CitationDocument[]): void {
     documents.forEach(doc => {
       this.documents.set(doc.id, doc);
       this.indexPhrases(doc);
@@ -86,7 +96,7 @@ export class CitationAwareRetriever {
   /**
    * Index phrases for precise matching
    */
-  private indexPhrases(document: any): void {
+  private indexPhrases(document: CitationDocument): void {
     const sentences = document.content.split(/[.!?]+/);
     
     sentences.forEach((sentence: string, index: number) => {
@@ -124,7 +134,7 @@ export class CitationAwareRetriever {
   /**
    * Find documents relevant to query
    */
-  private async findRelevantDocuments(query: string): Promise<any[]> {
+  private async findRelevantDocuments(query: string): Promise<CitationDocument[]> {
     const queryPhrases = this.extractPhrases(query);
     const documentScores: Map<string, number> = new Map();
     
@@ -146,7 +156,7 @@ export class CitationAwareRetriever {
   /**
    * Extract citation spans with precise phrase matching
    */
-  private extractCitationSpans(query: string, documents: any[]): CitationSpan[] {
+  private extractCitationSpans(query: string, documents: CitationDocument[]): CitationSpan[] {
     const spans: CitationSpan[] = [];
     
     documents.forEach((doc, docIndex) => {

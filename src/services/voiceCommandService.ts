@@ -77,9 +77,13 @@ class VoiceCommandService {
   private activeExecutions: Map<string, CommandExecution> = new Map();
   private eventListeners: Map<string, Set<Function>> = new Map();
   private sessionId: string;
+  private intentClassifier: Map<string, Function> = new Map();
+  private entityExtractors: Map<string, Function> = new Map();
+  private commandHandlers: Map<string, Function> = new Map();
+  private commandPatterns: Map<string, RegExp[]> = new Map();
 
   constructor() {
-    this.baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     this.sessionId = this.generateSessionId();
     this.initializeEventListeners();
   }

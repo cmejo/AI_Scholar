@@ -1,16 +1,32 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  BarChart3, TrendingUp, Users, FileText, Clock, AlertTriangle, 
-  CheckCircle, Activity, Network, Filter, Download, RefreshCw,
-  Eye, MessageSquare, Search, Settings, Maximize2, PieChart,
-  LineChart, Target, Zap, Brain, Database
+import {
+    Activity,
+    AlertTriangle,
+    BarChart3,
+    Brain,
+    CheckCircle,
+    Clock,
+    Database,
+    Download,
+    Eye,
+    FileText,
+    MessageSquare,
+    Network,
+    RefreshCw,
+    Search,
+    Target,
+    TrendingUp, Users,
+    Zap
 } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { analyticsService } from '../services/analyticsService';
+import {
+    ExportData
+} from '../types/ui';
 
 interface AnalyticsDashboardProps {
   userId?: string;
   timeRange?: { start: Date; end: Date };
-  onExport?: (data: any) => void;
+  onExport?: (data: ExportData) => void;
 }
 
 interface ChartData {
@@ -26,7 +42,7 @@ interface ChartData {
 
 export const EnhancedAnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   userId,
-  timeRange: initialTimeRange,
+  timeRange: _initialTimeRange,
   onExport
 }) => {
   const [analyticsData, setAnalyticsData] = useState<any>(null);
@@ -35,7 +51,7 @@ export const EnhancedAnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   const [realTimeMetrics, setRealTimeMetrics] = useState<any>({});
   const [selectedMetric, setSelectedMetric] = useState<string>('overview');
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
+  const [refreshInterval] = useState(30000); // 30 seconds
   const intervalRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
@@ -44,22 +60,39 @@ export const EnhancedAnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       startAutoRefresh();
     }
     return () => stopAutoRefresh();
-  }, [timeRange, userId, autoRefresh]);
+  }, [timeRange, userId, autoRefresh, loadAnalytics, startAutoRefresh, stopAutoRefresh]);
 
-  const startAutoRefresh = () => {
+  const loadRealTimeMetrics = useCallback(async () => {
+    try {
+      // Simulate real-time metrics API call
+      const metrics = {
+        activeUsers: Math.floor(Math.random() * 50) + 10,
+        queriesPerMinute: Math.floor(Math.random() * 20) + 5,
+        avgResponseTime: Math.random() * 2000 + 500,
+        systemLoad: Math.random() * 100,
+        errorRate: Math.random() * 5,
+        cacheHitRate: Math.random() * 30 + 70
+      };
+      setRealTimeMetrics(metrics);
+    } catch (error) {
+      console.error('Failed to load real-time metrics:', error);
+    }
+  }, []);
+
+  const stopAutoRefresh = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+  }, []);
+
+  const startAutoRefresh = useCallback(() => {
     stopAutoRefresh();
     intervalRef.current = setInterval(() => {
       loadRealTimeMetrics();
     }, refreshInterval);
-  };
+  }, [refreshInterval, loadRealTimeMetrics, stopAutoRefresh]);
 
-  const stopAutoRefresh = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-  };
-
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     setLoading(true);
     try {
       const endDate = new Date();
@@ -92,24 +125,9 @@ export const EnhancedAnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange, loadRealTimeMetrics]);
 
-  const loadRealTimeMetrics = async () => {
-    try {
-      // Simulate real-time metrics API call
-      const metrics = {
-        activeUsers: Math.floor(Math.random() * 50) + 10,
-        queriesPerMinute: Math.floor(Math.random() * 20) + 5,
-        avgResponseTime: Math.random() * 2000 + 500,
-        systemLoad: Math.random() * 100,
-        errorRate: Math.random() * 5,
-        cacheHitRate: Math.random() * 30 + 70
-      };
-      setRealTimeMetrics(metrics);
-    } catch (error) {
-      console.error('Failed to load real-time metrics:', error);
-    }
-  };
+
 
   const exportData = () => {
     const exportData = {
@@ -328,11 +346,24 @@ const RealTimeMetric: React.FC<RealTimeMetricProps> = ({ label, value, icon, col
 
 // Overview Dashboard Component
 interface OverviewDashboardProps {
-  analyticsData: any;
-  queryInsights: any;
-  documentInsights: any;
-  userInsights: any;
-  knowledgeGaps: any;
+  analyticsData: AnalyticsDashboardData;
+  queryInsights: {
+    mostCommonQueries: QueryAnalytics[];
+    averageResponseTime: number;
+    totalQueries: number;
+  };
+  documentInsights: {
+    mostReferencedDocuments: DocumentAnalytics[];
+    totalDocuments: number;
+  };
+  userInsights: {
+    activeUsers: UserAnalytics[];
+    totalUsers: number;
+  };
+  knowledgeGaps: {
+    unansweredQueries: { query: string; frequency: number }[];
+    lowConfidenceAreas: string[];
+  };
 }
 
 const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
@@ -409,7 +440,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           Most Referenced Documents
         </h3>
         <div className="space-y-3">
-          {(documentInsights?.mostReferencedDocuments || []).slice(0, 5).map((doc: any, index: number) => (
+          {(documentInsights?.mostReferencedDocuments || []).slice(0, 5).map((doc: DocumentAnalytics, index: number) => (
             <div key={index} className="flex items-center justify-between">
               <span className="text-gray-300 truncate flex-1">{doc.documentId}</span>
               <span className="text-emerald-400 font-medium ml-2">{doc.references}</span>
@@ -425,7 +456,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           Knowledge Gaps
         </h3>
         <div className="space-y-3">
-          {(knowledgeGaps?.unansweredQueries || []).slice(0, 5).map((query: any, index: number) => (
+          {(knowledgeGaps?.unansweredQueries || []).slice(0, 5).map((query: { query: string; frequency: number }, index: number) => (
             <div key={index} className="flex items-center justify-between">
               <span className="text-gray-300 truncate flex-1">{query.query}</span>
               <span className="text-yellow-400 font-medium ml-2">{query.frequency}</span>
@@ -439,8 +470,13 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
 
 // Query Analytics Dashboard
 interface QueryAnalyticsDashboardProps {
-  queryInsights: any;
-  analyticsData: any;
+  queryInsights: {
+    mostCommonQueries: QueryAnalytics[];
+    averageResponseTime: number;
+    totalQueries: number;
+    successRate: number;
+  };
+  analyticsData: AnalyticsDashboardData;
 }
 
 const QueryAnalyticsDashboard: React.FC<QueryAnalyticsDashboardProps> = ({
@@ -507,7 +543,7 @@ const QueryAnalyticsDashboard: React.FC<QueryAnalyticsDashboardProps> = ({
             </tr>
           </thead>
           <tbody>
-            {queryInsights.mostCommonQueries.slice(0, 10).map((query: any, index: number) => (
+            {queryInsights.mostCommonQueries.slice(0, 10).map((query: QueryAnalytics, index: number) => (
               <tr key={index} className="border-b border-gray-700">
                 <td className="py-3 text-gray-300 max-w-xs truncate">{query.query}</td>
                 <td className="py-3 text-blue-400">{query.count}</td>
@@ -524,8 +560,12 @@ const QueryAnalyticsDashboard: React.FC<QueryAnalyticsDashboardProps> = ({
 
 // Document Analytics Dashboard
 interface DocumentAnalyticsDashboardProps {
-  documentInsights: any;
-  analyticsData: any;
+  documentInsights: {
+    mostReferencedDocuments: DocumentAnalytics[];
+    totalDocuments: number;
+    averageRelevance: number;
+  };
+  analyticsData: AnalyticsDashboardData;
 }
 
 const DocumentAnalyticsDashboard: React.FC<DocumentAnalyticsDashboardProps> = ({
@@ -593,13 +633,17 @@ const DocumentAnalyticsDashboard: React.FC<DocumentAnalyticsDashboardProps> = ({
 
 // User Analytics Dashboard
 interface UserAnalyticsDashboardProps {
-  userInsights: any;
-  analyticsData: any;
+  userInsights: {
+    activeUsers: UserAnalytics[];
+    totalUsers: number;
+    averageSessionTime: number;
+  };
+  analyticsData: AnalyticsDashboardData;
 }
 
 const UserAnalyticsDashboard: React.FC<UserAnalyticsDashboardProps> = ({
   userInsights,
-  analyticsData
+  analyticsData: _analyticsData
 }) => (
   <div className="space-y-6">
     {/* User Metrics */}
@@ -679,11 +723,11 @@ const UserAnalyticsDashboard: React.FC<UserAnalyticsDashboardProps> = ({
 
 // Knowledge Graph Dashboard
 interface KnowledgeGraphDashboardProps {
-  analyticsData: any;
+  analyticsData: AnalyticsDashboardData;
 }
 
 const KnowledgeGraphDashboard: React.FC<KnowledgeGraphDashboardProps> = ({
-  analyticsData
+  analyticsData: _analyticsData
 }) => (
   <div className="space-y-6">
     {/* Knowledge Graph Metrics */}
@@ -756,12 +800,18 @@ const KnowledgeGraphDashboard: React.FC<KnowledgeGraphDashboardProps> = ({
 
 // Performance Dashboard
 interface PerformanceDashboardProps {
-  analyticsData: any;
-  realTimeMetrics: any;
+  analyticsData: AnalyticsDashboardData;
+  realTimeMetrics: {
+    currentUsers: number;
+    queriesPerMinute: number;
+    averageResponseTime: number;
+    errorRate: number;
+    systemLoad: number;
+  };
 }
 
 const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
-  analyticsData,
+  analyticsData: _analyticsData,
   realTimeMetrics
 }) => (
   <div className="space-y-6">
@@ -982,7 +1032,7 @@ const renderSimpleChart = (
 
 // Document Heatmap Component
 interface DocumentHeatmapProps {
-  documents: any[];
+  documents: DocumentAnalytics[];
 }
 
 const DocumentHeatmap: React.FC<DocumentHeatmapProps> = ({ documents }) => {
@@ -1009,19 +1059,13 @@ const DocumentHeatmap: React.FC<DocumentHeatmapProps> = ({ documents }) => {
 
 // Document Relationship Map Component
 interface DocumentRelationshipMapProps {
-  documents: any[];
+  documents: KnowledgeGraphDocument[];
 }
 
 const DocumentRelationshipMap: React.FC<DocumentRelationshipMapProps> = ({ documents }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   
-  useEffect(() => {
-    if (svgRef.current && documents.length > 0) {
-      renderRelationshipMap();
-    }
-  }, [documents]);
-  
-  const renderRelationshipMap = () => {
+  const renderRelationshipMap = useCallback(() => {
     // Simple network visualization
     const svg = svgRef.current;
     if (!svg) return;
@@ -1031,7 +1075,7 @@ const DocumentRelationshipMap: React.FC<DocumentRelationshipMapProps> = ({ docum
     const height = 300;
     
     // Generate positions for documents
-    const positions = documents.slice(0, 20).map((_, index) => ({
+    const positions = documents.slice(0, 20).map(() => ({
       x: Math.random() * (width - 40) + 20,
       y: Math.random() * (height - 40) + 20
     }));
@@ -1054,7 +1098,7 @@ const DocumentRelationshipMap: React.FC<DocumentRelationshipMapProps> = ({ docum
     }
     
     // Draw nodes
-    positions.forEach((pos, index) => {
+    positions.forEach((pos) => {
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       circle.setAttribute('cx', pos.x.toString());
       circle.setAttribute('cy', pos.y.toString());
@@ -1064,7 +1108,13 @@ const DocumentRelationshipMap: React.FC<DocumentRelationshipMapProps> = ({ docum
       circle.setAttribute('stroke-width', '2');
       svg.appendChild(circle);
     });
-  };
+  }, [documents]);
+
+  useEffect(() => {
+    if (svgRef.current && documents.length > 0) {
+      renderRelationshipMap();
+    }
+  }, [documents, renderRelationshipMap]);
   
   return (
     <div className="bg-gray-900 rounded-lg p-4">
@@ -1086,8 +1136,8 @@ const KnowledgeGraphVisualization: React.FC = () => {
     if (!svg) return;
     
     svg.innerHTML = '';
-    const width = 800;
-    const height = 400;
+    const _width = 800;
+    const _height = 400;
     
     // Generate sample nodes and edges
     const nodes = [
@@ -1162,7 +1212,15 @@ const KnowledgeGraphVisualization: React.FC = () => {
 
 // System Resource Monitor Component
 interface SystemResourceMonitorProps {
-  realTimeMetrics: any;
+  realTimeMetrics: {
+    currentUsers: number;
+    queriesPerMinute: number;
+    averageResponseTime: number;
+    errorRate: number;
+    systemLoad: number;
+    memoryUsage: number;
+    cpuUsage: number;
+  };
 }
 
 const SystemResourceMonitor: React.FC<SystemResourceMonitorProps> = ({ realTimeMetrics }) => {
@@ -1246,7 +1304,7 @@ const generateResponseTimeData = (): ChartData => ({
   }]
 });
 
-const generateIntentDistributionData = (intents: any[]): ChartData => ({
+const generateIntentDistributionData = (intents: { intent: string; count: number }[]): ChartData => ({
   labels: intents.map(i => i.intent),
   datasets: [{
     label: 'Intent Distribution',

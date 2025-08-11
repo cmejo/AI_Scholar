@@ -228,6 +228,10 @@ export class AnalyticsService {
     // Query volume trend
     const dailyQueries = this.groupByDay(queries);
     trends.push({
+      period: 'daily',
+      metric: 'query_volume',
+      value: dailyQueries.reduce((sum, d) => sum + d.value, 0),
+      change: 0, // Calculate change from previous period
       type: 'query_volume',
       data: dailyQueries,
       trend: this.calculateTrendDirection(dailyQueries.map(d => d.value))
@@ -236,6 +240,10 @@ export class AnalyticsService {
     // Response time trend
     const dailyResponseTimes = this.groupByDay(queries, 'responseTime');
     trends.push({
+      period: 'daily',
+      metric: 'response_time',
+      value: dailyResponseTimes.reduce((sum, d) => sum + d.value, 0) / dailyResponseTimes.length,
+      change: 0, // Calculate change from previous period
       type: 'response_time',
       data: dailyResponseTimes,
       trend: this.calculateTrendDirection(dailyResponseTimes.map(d => d.value))
@@ -244,6 +252,10 @@ export class AnalyticsService {
     // Satisfaction trend
     const dailySatisfaction = this.groupByDay(queries, 'satisfaction');
     trends.push({
+      period: 'daily',
+      metric: 'satisfaction',
+      value: dailySatisfaction.reduce((sum, d) => sum + d.value, 0) / dailySatisfaction.length,
+      change: 0, // Calculate change from previous period
       type: 'satisfaction',
       data: dailySatisfaction,
       trend: this.calculateTrendDirection(dailySatisfaction.map(d => d.value))
@@ -307,17 +319,19 @@ export class AnalyticsService {
   private updateUserStats(analytics: QueryAnalytics): void {
     const userId = analytics.userId;
     const current = this.userStats.get(userId) || {
-      userId,
+      id: userId,
+      name: 'Unknown User',
       totalQueries: 0,
-      averageResponseTime: 0,
-      averageSatisfaction: 0,
+      averageSessionTime: 0,
+      lastActive: new Date(),
       topTopics: [],
-      lastActive: new Date()
+      averageResponseTime: 0,
+      averageSatisfaction: 0
     };
 
     current.totalQueries++;
-    current.averageResponseTime = (current.averageResponseTime * (current.totalQueries - 1) + analytics.responseTime) / current.totalQueries;
-    current.averageSatisfaction = (current.averageSatisfaction * (current.totalQueries - 1) + analytics.satisfaction) / current.totalQueries;
+    current.averageResponseTime = ((current.averageResponseTime || 0) * (current.totalQueries - 1) + analytics.responseTime) / current.totalQueries;
+    current.averageSatisfaction = ((current.averageSatisfaction || 0) * (current.totalQueries - 1) + analytics.satisfaction) / current.totalQueries;
     current.lastActive = analytics.timestamp;
 
     this.userStats.set(userId, current);
@@ -329,15 +343,20 @@ export class AnalyticsService {
   private updateDocumentStats(analytics: QueryAnalytics): void {
     analytics.documentsUsed.forEach(docId => {
       const current = this.documentStats.get(docId) || {
-        documentId: docId,
+        id: docId,
+        name: 'Unknown Document',
+        views: 0,
+        queries: 0,
+        lastAccessed: new Date(),
+        averageRelevance: 0,
         totalReferences: 0,
         averageSatisfaction: 0,
         lastUsed: new Date(),
         topQueries: []
       };
 
-      current.totalReferences++;
-      current.averageSatisfaction = (current.averageSatisfaction * (current.totalReferences - 1) + analytics.satisfaction) / current.totalReferences;
+      current.totalReferences = (current.totalReferences || 0) + 1;
+      current.averageSatisfaction = ((current.averageSatisfaction || 0) * (current.totalReferences - 1) + analytics.satisfaction) / current.totalReferences;
       current.lastUsed = analytics.timestamp;
 
       this.documentStats.set(docId, current);
@@ -359,7 +378,9 @@ export class AnalyticsService {
       averageResponseTime: totalResponseTime / totalQueries,
       averageSatisfaction: totalSatisfaction / totalQueries,
       throughput: totalQueries / 24, // queries per hour (assuming 24-hour period)
-      errorRate: (totalQueries - successfulQueries) / totalQueries
+      errorRate: (totalQueries - successfulQueries) / totalQueries,
+      memoryUsage: 0, // Mock value
+      cpuUsage: 0 // Mock value
     };
   }
 

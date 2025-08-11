@@ -315,7 +315,7 @@ export class HierarchicalChunker {
       .filter(word => word.length > 3);
 
     // Simple frequency-based keyword extraction
-    const frequency: { [key: string]: number } = {};
+    const frequency: Record<string, number> = {};
     words.forEach(word => {
       frequency[word] = (frequency[word] || 0) + 1;
     });
@@ -420,7 +420,7 @@ export class HierarchicalChunker {
    * Map node type to semantic type
    */
   private mapTypeToSemantic(type: string): ChunkMetadata['semanticType'] {
-    const mapping: { [key: string]: ChunkMetadata['semanticType'] } = {
+    const mapping: Record<string, ChunkMetadata['semanticType']> = {
       'document': 'title',
       'header': 'header',
       'paragraph': 'paragraph',

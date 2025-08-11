@@ -1942,15 +1942,6 @@ class ErrorTrackingService:
 
 # Create service instance
 error_tracking_service = ErrorTrackingService()
-    """Error context information"""
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
-    request_id: Optional[str] = None
-    feature_name: Optional[str] = None
-    operation: Optional[str] = None
-    user_agent: Optional[str] = None
-    ip_address: Optional[str] = None
-    additional_data: Optional[Dict[str, Any]] = None
 
 @dataclass
 class AlertRule:
@@ -2692,6 +2683,6 @@ def track_errors(feature_name: str = None, operation: str = None,
         
         return async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
     return decorator
-#
- Create service instance
+
+# Create service instance
 error_tracking_service = ErrorTrackingService()

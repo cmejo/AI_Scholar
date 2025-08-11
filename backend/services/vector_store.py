@@ -8,6 +8,7 @@ import logging
 from typing import List, Dict, Any, Optional
 import requests
 import json
+import asyncio
 
 from core.config import settings
 from core.database import get_db, DocumentChunk, DocumentChunkEnhanced

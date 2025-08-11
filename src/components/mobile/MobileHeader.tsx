@@ -1,37 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Menu, 
-  MessageCircle, 
-  FileText, 
-  BarChart3, 
-  Shield, 
-  Workflow, 
-  Globe, 
-  Mic, 
-  MicOff,
-  Bell,
-  User,
-  Search,
-  MoreVertical,
-  Settings,
-  Wifi,
-  WifiOff,
-  RefreshCw
+import {
+    BarChart3,
+    Bell,
+    FileText,
+    Globe,
+    Menu,
+    MessageCircle,
+    Mic,
+    MicOff,
+    MoreVertical,
+    RefreshCw,
+    Search,
+    Settings,
+    Shield,
+    User,
+    Wifi,
+    WifiOff,
+    Workflow
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { mobileSyncService } from '../../services/mobileSyncService';
 import { AccessibilitySettings } from '../AccessibilitySettings';
 import { MobileSyncStatus } from './MobileSyncStatus';
-import { mobileSyncService } from '../../services/mobileSyncService';
 
-interface MobileHeaderProps {
-  currentView: string;
-  user?: any;
-  onToggleNav: () => void;
-  voiceEnabled: boolean;
-  onToggleVoice: (enabled: boolean) => void;
+import { MobileHeaderProps } from '../../types/ui';
+
+interface ExtendedMobileHeaderProps extends MobileHeaderProps {
   isNavOpen: boolean;
 }
 
-export const MobileHeader: React.FC<MobileHeaderProps> = ({
+export const MobileHeader: React.FC<ExtendedMobileHeaderProps> = ({
   currentView,
   user,
   onToggleNav,

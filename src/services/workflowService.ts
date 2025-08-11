@@ -1,9 +1,19 @@
 // Workflow and Automation Service
-import { WorkflowDefinition, WorkflowTrigger, WorkflowAction, WorkflowCondition } from '../types';
+import type { WorkflowAction, WorkflowCondition, WorkflowDefinition, WorkflowTrigger } from '../types';
+import type {
+    DocumentUpload,
+    GeneratedReport,
+    NotificationConfig,
+    NotificationResult,
+    ReportConfig,
+    WorkflowContext,
+    WorkflowExecutionResult,
+    WorkflowJob
+} from '../types/api';
 
 export class WorkflowService {
-  private workflows: Map<string, WorkflowDefinition> = new Map();
-  private activeJobs: Map<string, any> = new Map();
+  private workflows = new Map<string, WorkflowDefinition>();
+  private activeJobs = new Map<string, WorkflowJob>();
 
   constructor() {
     this.initializeDefaultWorkflows();
@@ -26,7 +36,7 @@ export class WorkflowService {
   /**
    * Execute workflow
    */
-  async executeWorkflow(workflowId: string, context: any): Promise<any> {
+  async executeWorkflow(workflowId: string, context: WorkflowContext): Promise<WorkflowExecutionResult> {
     const workflow = this.workflows.get(workflowId);
     if (!workflow || workflow.status !== 'active') {
       throw new Error(`Workflow ${workflowId} not found or inactive`);
@@ -62,7 +72,7 @@ export class WorkflowService {
       this.activeJobs.set(jobId, { 
         workflowId, 
         status: 'failed', 
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         startTime: this.activeJobs.get(jobId)?.startTime,
         endTime: new Date()
       });
@@ -73,7 +83,7 @@ export class WorkflowService {
   /**
    * Process document upload trigger
    */
-  async processDocumentUpload(document: any): Promise<void> {
+  async processDocumentUpload(document: DocumentUpload): Promise<void> {
     const uploadWorkflows = Array.from(this.workflows.values()).filter(
       workflow => workflow.triggers.some(trigger => trigger.type === 'document_upload')
     );
@@ -110,7 +120,7 @@ export class WorkflowService {
   /**
    * Auto-tag documents based on content
    */
-  async autoTagDocument(document: any): Promise<string[]> {
+  async autoTagDocument(document: DocumentUpload): Promise<string[]> {
     const tags: string[] = [];
     const content = document.content.toLowerCase();
 
@@ -141,7 +151,7 @@ export class WorkflowService {
   /**
    * Generate automated reports
    */
-  async generateReport(type: 'daily' | 'weekly' | 'monthly', config: any): Promise<any> {
+  async generateReport(type: 'daily' | 'weekly' | 'monthly', _config: ReportConfig): Promise<GeneratedReport> {
     const report = {
       id: `report_${Date.now()}`,
       type,
@@ -167,9 +177,14 @@ export class WorkflowService {
   /**
    * Monitor document freshness
    */
-  async checkDocumentFreshness(): Promise<any[]> {
+  async checkDocumentFreshness(): Promise<Array<{
+    documentId: string;
+    lastModified: Date;
+    daysSinceUpdate: number;
+    recommendation: string;
+  }>> {
     const staleDocuments = [];
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const _thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     // Mock document freshness check
     // In production, check actual document timestamps
@@ -186,7 +201,7 @@ export class WorkflowService {
   /**
    * Execute workflow action
    */
-  private async executeAction(action: WorkflowAction, context: any): Promise<any> {
+  private async executeAction(action: WorkflowAction, context: WorkflowContext): Promise<unknown> {
     switch (action.type) {
       case 'auto_tag':
         return await this.autoTagDocument(context.document);
@@ -211,7 +226,7 @@ export class WorkflowService {
   /**
    * Evaluate workflow conditions
    */
-  private async evaluateConditions(conditions: WorkflowCondition[], context: any): Promise<boolean> {
+  private async evaluateConditions(conditions: WorkflowCondition[], context: WorkflowContext): Promise<boolean> {
     for (const condition of conditions) {
       const result = await this.evaluateCondition(condition, context);
       if (!result) return false;
@@ -222,7 +237,7 @@ export class WorkflowService {
   /**
    * Evaluate single condition
    */
-  private async evaluateCondition(condition: WorkflowCondition, context: any): Promise<boolean> {
+  private async evaluateCondition(condition: WorkflowCondition, context: WorkflowContext): Promise<boolean> {
     switch (condition.type) {
       case 'document_size':
         return context.document?.size > condition.value;
@@ -245,7 +260,7 @@ export class WorkflowService {
   /**
    * Check if scheduled workflow should run
    */
-  private shouldRunScheduledWorkflow(trigger: WorkflowTrigger): boolean {
+  private shouldRunScheduledWorkflow(_trigger: WorkflowTrigger): boolean {
     // Mock schedule checking
     // In production, implement proper cron-like scheduling
     return Math.random() > 0.8; // 20% chance to simulate scheduled execution
@@ -254,7 +269,7 @@ export class WorkflowService {
   /**
    * Generate AI tags
    */
-  private async generateAITags(content: string): Promise<string[]> {
+  private async generateAITags(_content: string): Promise<string[]> {
     // Mock AI tagging
     const possibleTags = ['important', 'technical', 'business', 'urgent', 'draft'];
     return possibleTags.filter(() => Math.random() > 0.7);
@@ -263,7 +278,7 @@ export class WorkflowService {
   /**
    * Send notification
    */
-  private async sendNotification(config: any, context: any): Promise<any> {
+  private async sendNotification(config: NotificationConfig, _context: WorkflowContext): Promise<NotificationResult> {
     // Mock notification sending
     return {
       sent: true,
@@ -276,7 +291,7 @@ export class WorkflowService {
   /**
    * Generate document summary
    */
-  private async generateSummary(document: any): Promise<string> {
+  private async generateSummary(document: DocumentUpload): Promise<string> {
     // Mock summary generation
     return `Summary of ${document.name}: This document contains important information...`;
   }
@@ -284,7 +299,7 @@ export class WorkflowService {
   /**
    * Update document metadata
    */
-  private async updateMetadata(document: any, config: any): Promise<any> {
+  private async updateMetadata(document: DocumentUpload, config: Record<string, unknown>): Promise<{ documentId: string; updatedFields: string[]; timestamp: Date }> {
     return {
       documentId: document.id,
       updatedFields: config.fields,
@@ -295,7 +310,7 @@ export class WorkflowService {
   /**
    * Create document backup
    */
-  private async createBackup(document: any): Promise<any> {
+  private async createBackup(document: DocumentUpload): Promise<{ backupId: string; location: string; timestamp: Date }> {
     return {
       backupId: `backup_${Date.now()}`,
       documentId: document.id,
@@ -307,7 +322,12 @@ export class WorkflowService {
   /**
    * Generate daily report
    */
-  private async generateDailyReport(): Promise<any> {
+  private async generateDailyReport(): Promise<{
+    documentsProcessed: number;
+    queriesHandled: number;
+    averageResponseTime: number;
+    topQueries: string[];
+  }> {
     return {
       documentsProcessed: 15,
       queriesHandled: 127,
@@ -320,7 +340,13 @@ export class WorkflowService {
   /**
    * Generate weekly report
    */
-  private async generateWeeklyReport(): Promise<any> {
+  private async generateWeeklyReport(): Promise<{
+    documentsProcessed: number;
+    queriesHandled: number;
+    averageResponseTime: number;
+    topQueries: string[];
+    userEngagement: number;
+  }> {
     return {
       documentsProcessed: 89,
       queriesHandled: 756,
@@ -333,7 +359,14 @@ export class WorkflowService {
   /**
    * Generate monthly report
    */
-  private async generateMonthlyReport(): Promise<any> {
+  private async generateMonthlyReport(): Promise<{
+    documentsProcessed: number;
+    queriesHandled: number;
+    averageResponseTime: number;
+    topQueries: string[];
+    userEngagement: number;
+    systemPerformance: number;
+  }> {
     return {
       documentsProcessed: 342,
       queriesHandled: 2847,

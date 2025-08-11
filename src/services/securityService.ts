@@ -1,5 +1,5 @@
 // Enterprise Security and Compliance Service
-import { User, Permission, SecurityAuditLog } from '../types';
+import { Permission, SecurityAuditLog, User } from '../types';
 
 export class SecurityService {
   private auditLogs: SecurityAuditLog[] = [];
@@ -66,7 +66,7 @@ export class SecurityService {
    */
   hasPermission(permissions: Permission[], resource: string, action: string): boolean {
     return permissions.some(permission => 
-      permission.resource === resource && permission.actions.includes(action as any)
+      permission.resource === resource && permission.actions.includes(action as 'read' | 'write' | 'delete' | 'admin')
     );
   }
 
@@ -136,7 +136,7 @@ export class SecurityService {
    */
   encryptData(data: string): string {
     // Mock encryption - in production, use proper encryption
-    return Buffer.from(data).toString('base64');
+    return btoa(data);
   }
 
   /**
@@ -144,7 +144,7 @@ export class SecurityService {
    */
   decryptData(encryptedData: string): string {
     // Mock decryption - in production, use proper decryption
-    return Buffer.from(encryptedData, 'base64').toString();
+    return atob(encryptedData);
   }
 
   /**

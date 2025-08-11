@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, FileText, Loader2, Brain, Network, Target, Lightbulb, Settings, Mic, Quote } from 'lucide-react';
+import { Send, User, FileText, Loader2, Brain, Network, Target, Lightbulb, Settings, Mic, Quote } from 'lucide-react';
 import { useEnhancedChat } from '../contexts/EnhancedChatContext';
 import { useDocument } from '../contexts/DocumentContext';
 import { contextAwareRetriever, ContextualResponse } from '../utils/contextAwareRetrieval';
@@ -134,7 +134,7 @@ export const AdvancedChatInterface: React.FC = () => {
   const handleStandardResponse = async (query: string, retrievalResponse: ContextualResponse) => {
     // Fact check if enabled
     if (factCheckEnabled) {
-      const factCheckResults = await factCheckingService.factCheck(query);
+      await factCheckingService.factCheck(query);
       // Add fact check results to context
     }
 
@@ -158,7 +158,7 @@ export const AdvancedChatInterface: React.FC = () => {
     }
   };
 
-  const handlePluginExecution = async (pluginId: string, input: any) => {
+  const handlePluginExecution = async (pluginId: string, input: Record<string, unknown>) => {
     try {
       const result = await pluginService.executePlugin(pluginId, input);
       console.log('Plugin execution result:', result);

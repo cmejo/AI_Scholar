@@ -17,7 +17,7 @@ export interface VectorDocument {
 export interface SearchOptions {
   limit?: number;
   threshold?: number;
-  filter?: Record<string, any>;
+  filter?: Record<string, unknown>;
 }
 
 export class VectorStore {
@@ -64,11 +64,11 @@ export class VectorStore {
   /**
    * Delete documents by filter
    */
-  async deleteDocuments(filter: Record<string, any>): Promise<void> {
+  async deleteDocuments(filter: Record<string, unknown>): Promise<void> {
     // In production, this would delete from vector database
     this.documents = this.documents.filter(doc => {
       return !Object.entries(filter).every(([key, value]) => 
-        (doc.metadata as any)[key] === value
+        (doc.metadata as Record<string, unknown>)[key] === value
       );
     });
   }

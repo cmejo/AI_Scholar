@@ -202,9 +202,9 @@ class PersonalizationService {
   async submitFeedback(
     userId: string,
     feedbackType: 'rating' | 'correction' | 'preference' | 'relevance',
-    feedbackValue: any,
+    feedbackValue: unknown,
     messageId?: string,
-    context?: any
+    context?: Record<string, unknown>
   ): Promise<void> {
     try {
       const response = await fetch(`${this.baseUrl}/users/${userId}/feedback`, {
@@ -236,7 +236,7 @@ class PersonalizationService {
     userId: string,
     messageId: string,
     isPositive: boolean,
-    context?: any
+    context?: Record<string, unknown>
   ): Promise<void> {
     try {
       const response = await fetch(`${this.baseUrl}/users/${userId}/feedback/thumbs`, {
@@ -269,7 +269,7 @@ class PersonalizationService {
     rating: number,
     aspects?: { [aspect: string]: number },
     comment?: string,
-    context?: any
+    context?: Record<string, unknown>
   ): Promise<void> {
     try {
       const response = await fetch(`${this.baseUrl}/users/${userId}/feedback/detailed`, {
@@ -354,7 +354,7 @@ class PersonalizationService {
   /**
    * Get domain adaptation settings
    */
-  async getDomainAdaptationSettings(userId: string): Promise<any> {
+  async getDomainAdaptationSettings(userId: string): Promise<Record<string, unknown>> {
     try {
       const response = await fetch(`${this.baseUrl}/users/${userId}/domain-adaptation`);
       if (!response.ok) {
@@ -370,7 +370,7 @@ class PersonalizationService {
   /**
    * Update domain adaptation settings
    */
-  async updateDomainAdaptationSettings(userId: string, settings: any): Promise<void> {
+  async updateDomainAdaptationSettings(userId: string, settings: Record<string, unknown>): Promise<void> {
     try {
       const response = await fetch(`${this.baseUrl}/users/${userId}/domain-adaptation`, {
         method: 'PUT',
@@ -392,7 +392,7 @@ class PersonalizationService {
   /**
    * Get adaptive retrieval statistics
    */
-  async getAdaptiveRetrievalStats(userId: string): Promise<any> {
+  async getAdaptiveRetrievalStats(userId: string): Promise<Record<string, unknown>> {
     try {
       const response = await fetch(`${this.baseUrl}/users/${userId}/adaptive-retrieval-stats`);
       if (!response.ok) {
@@ -432,7 +432,7 @@ class PersonalizationService {
   /**
    * Get user behavior analysis
    */
-  async getUserBehaviorAnalysis(userId: string): Promise<any> {
+  async getUserBehaviorAnalysis(userId: string): Promise<Record<string, unknown>> {
     try {
       const response = await fetch(`${this.baseUrl}/users/${userId}/behavior-analysis`);
       if (!response.ok) {

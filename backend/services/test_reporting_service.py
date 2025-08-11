@@ -368,8 +368,8 @@ Test Suites:
         
         except Exception as e:
             logger.error(f"Failed to send Slack notification: {e}")
-class Tes
-tHistoryTracker:
+
+class TestHistoryTracker:
     """Tracks test execution history and trends."""
     
     def __init__(self):

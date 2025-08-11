@@ -6,8 +6,6 @@ import {
   Info, 
   RefreshCw,
   Eye,
-  Keyboard,
-  MousePointer,
   Monitor
 } from 'lucide-react';
 import { accessibilityService } from '../services/accessibilityService';

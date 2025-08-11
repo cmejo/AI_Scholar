@@ -1,11 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, Users, Activity, Lock, Eye, Download, Filter } from 'lucide-react';
+import { Activity, AlertTriangle, Download, Eye, Filter, Lock, Shield, Users } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { securityService } from '../services/securityService';
-import { SecurityAuditLog } from '../types';
+import type { SecurityAuditLog } from '../types';
 
 export const SecurityDashboard: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<SecurityAuditLog[]>([]);
-  const [securityMetrics, setSecurityMetrics] = useState<any>(null);
+  const [securityMetrics, setSecurityMetrics] = useState<{
+    totalEvents: number;
+    failedLogins: number;
+    rateLimitViolations: number;
+    activeSessions: number;
+    recentThreats?: SecurityAuditLog[];
+  } | null>(null);
   const [filters, setFilters] = useState({
     action: '',
     success: '',
@@ -15,27 +21,29 @@ export const SecurityDashboard: React.FC = () => {
   });
   const [showFilters, setShowFilters] = useState(false);
 
-  useEffect(() => {
-    loadSecurityData();
-  }, [filters]);
-
-  const loadSecurityData = () => {
+  const loadSecurityData = useCallback((): void => {
     // Apply filters
-    const filterObj: any = {};
-    if (filters.action) filterObj.action = filters.action;
-    if (filters.success !== '') filterObj.success = filters.success === 'true';
-    if (filters.userId) filterObj.userId = filters.userId;
-    if (filters.startDate) filterObj.startDate = new Date(filters.startDate);
-    if (filters.endDate) filterObj.endDate = new Date(filters.endDate);
+    const filterObj: Record<string, unknown> = {};
+    if (filters.action.length > 0) filterObj.action = filters.action;
+    if (filters.success.length > 0) filterObj.success = filters.success === 'true';
+    if (filters.userId.length > 0) filterObj.userId = filters.userId;
+    if (filters.startDate.length > 0) filterObj.startDate = new Date(filters.startDate);
+    if (filters.endDate.length > 0) filterObj.endDate = new Date(filters.endDate);
 
     const logs = securityService.getAuditLogs(filterObj);
     setAuditLogs(logs);
     
     const metrics = securityService.getSecurityMetrics();
     setSecurityMetrics(metrics);
-  };
+  }, [filters]);
 
-  const exportAuditLogs = () => {
+  useEffect(() => {
+    loadSecurityData();
+  }, [loadSecurityData]);
+
+
+
+  const exportAuditLogs = (): void => {
     const csvContent = [
       ['Timestamp', 'User ID', 'Action', 'Resource', 'Success', 'IP Address', 'User Agent'].join(','),
       ...auditLogs.map(log => [
@@ -89,7 +97,7 @@ export const SecurityDashboard: React.FC = () => {
       </div>
 
       {/* Security Metrics */}
-      {securityMetrics && (
+      {securityMetrics != null && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <SecurityMetricCard
             title="Total Events"
@@ -188,14 +196,14 @@ export const SecurityDashboard: React.FC = () => {
       )}
 
       {/* Recent Threats */}
-      {securityMetrics?.recentThreats?.length > 0 && (
+      {(securityMetrics?.recentThreats?.length ?? 0) > 0 && (
         <div className="bg-gray-800 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
             <AlertTriangle className="text-red-400 mr-2" size={20} />
             Recent Security Threats
           </h3>
           <div className="space-y-3">
-            {securityMetrics.recentThreats.slice(0, 5).map((threat: SecurityAuditLog, index: number) => (
+            {(securityMetrics.recentThreats ?? []).slice(0, 5).map((threat: SecurityAuditLog, index: number) => (
               <div key={index} className="flex items-center justify-between p-3 bg-red-900/20 border border-red-800 rounded-lg">
                 <div className="flex items-center space-x-3">
                   <AlertTriangle className="text-red-400" size={16} />
@@ -261,7 +269,7 @@ export const SecurityDashboard: React.FC = () => {
                     {log.ipAddress}
                   </td>
                   <td className="py-3 px-4 text-gray-300">
-                    {log.details && Object.keys(log.details).length > 0 && (
+                    {(log.details != null && Object.keys(log.details).length > 0) && (
                       <button
                         onClick={() => {
                           // Show details modal
@@ -318,13 +326,7 @@ interface SecurityMetricCardProps {
   trend: 'positive' | 'negative' | 'warning' | 'neutral';
 }
 
-const SecurityMetricCard: React.FC<SecurityMetricCardProps> = ({ title, value, icon, trend }) => {
-  const trendColors = {
-    positive: 'text-emerald-400',
-    negative: 'text-red-400',
-    warning: 'text-yellow-400',
-    neutral: 'text-gray-400'
-  };
+const SecurityMetricCard: React.FC<SecurityMetricCardProps> = ({ title, value, icon }) => {
 
   return (
     <div className="bg-gray-800 rounded-lg p-6">

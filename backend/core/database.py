@@ -648,14 +648,34 @@ class ApplicationCollaborator(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     application_id = Column(String, ForeignKey("grant_applications.id"), nullable=False)
-    collaborator_user_id = Column(String, ForeignKey("users.id"))  # If collaborator is a system user
     collaborator_name = Column(String(255), nullable=False)
     collaborator_email = Column(String(255))
+    role = Column(String(100))  # 'co_investigator', 'consultant', 'student'
     institution = Column(String(255))
-    role = Column(String(100))  # 'co_investigator', 'consultant', 'collaborator'
-    contribution_description = Column(Text)
-    access_level = Column(String(50))  # 'view', 'edit', 'admin'
-    invitation_status = Column(String(50), default='pending')  # 'pending', 'accepted', 'declined'
+    contribution = Column(Text)
+    is_confirmed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+    collaborator_metadata = Column(JSON)
+
+# Database session management
+def get_db():
+    """Get database session"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Create all tables
+def create_tables():
+    """Create all database tables"""
+    Base.metadata.create_all(bind=engine)
+
+# Initialize database
+def init_db():
+    """Initialize database with tables"""
+    create_tables()
+    print("Database initialized successfully")
     invited_at = Column(DateTime, default=func.now())
     responded_at = Column(DateTime)
     created_at = Column(DateTime, default=func.now())

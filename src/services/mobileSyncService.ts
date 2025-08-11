@@ -642,7 +642,7 @@ class MobileSyncService {
     if ('serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.ready;
       if ('sync' in registration) {
-        await registration.sync.register('background-sync');
+        await (registration.sync as any).register('background-sync');
       }
     }
   }

@@ -1,20 +1,20 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { 
-  MessageSquare, 
-  Bug, 
-  Lightbulb, 
-  Send, 
-  CheckCircle, 
-  AlertCircle,
-  X
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    AlertCircle,
+    Bug,
+    CheckCircle,
+    Lightbulb,
+    MessageSquare,
+    Send,
+    X
 } from 'lucide-react';
+import React, { useState } from 'react';
 import { useErrorTracking } from '../hooks/useErrorTracking';
 
 interface UserFeedbackFormProps {
@@ -179,7 +179,7 @@ const UserFeedbackForm: React.FC<UserFeedbackFormProps> = ({
               <Input
                 id="title"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
                 placeholder="Brief description of your feedback"
                 required
               />
@@ -193,7 +193,7 @@ const UserFeedbackForm: React.FC<UserFeedbackFormProps> = ({
               <Textarea
                 id="description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
                 placeholder={
                   feedbackType === 'bug_report'
                     ? 'Please describe the bug, steps to reproduce, and expected vs actual behavior...'
@@ -212,7 +212,7 @@ const UserFeedbackForm: React.FC<UserFeedbackFormProps> = ({
                 <label className="block text-sm font-medium mb-2">
                   Severity
                 </label>
-                <Select value={severity} onValueChange={(value: any) => setSeverity(value)}>
+                <Select value={severity} onValueChange={(value: string) => setSeverity(value as 'low' | 'medium' | 'high')}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -255,7 +255,7 @@ const UserFeedbackForm: React.FC<UserFeedbackFormProps> = ({
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 placeholder="your.email@example.com"
               />
               <p className="text-xs text-gray-500 mt-1">

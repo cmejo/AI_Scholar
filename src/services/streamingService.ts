@@ -129,7 +129,7 @@ export class StreamingService {
       console.error('Streaming error:', error);
       yield {
         id: `error_${Date.now()}`,
-        content: `Error: ${error.message}`,
+        content: `Error: ${error instanceof Error ? error.message : String(error)}`,
         isComplete: true,
         metadata: {
           tokenCount: 0,

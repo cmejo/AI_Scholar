@@ -35,7 +35,11 @@ export class RAGService {
   /**
    * Process a document for RAG
    */
-  async processDocument(content: string, metadata: any): Promise<any> {
+  async processDocument(content: string, metadata: Record<string, unknown>): Promise<{
+    chunks: number;
+    embeddings: number;
+    metadata: Record<string, unknown>;
+  }> {
     // In production, this would:
     // 1. Chunk the document
     // 2. Generate embeddings using Ollama

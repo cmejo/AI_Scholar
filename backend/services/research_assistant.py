@@ -825,15 +825,7 @@ class ResearchAssistant:
             logger.error(f"Error tracking research event: {str(e)}")
 
     # Additional helper methods would continue here...
-    # For brevity, I'll implement the core structure and key methods        
-            "description": "Miscellaneous expenses, contingency"
-                }
-            }
-        }
-        
-        budget["total_estimated"] = sum(cat["amount"] for cat in budget["categories"].values())
-        
-        return budget
+    # For brevity, I'll implement the core structure and key methods
 
     async def _generate_expected_outcomes(self, topic: ResearchTopic) -> List[str]:
         """Generate expected research outcomes"""

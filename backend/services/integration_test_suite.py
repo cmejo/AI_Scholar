@@ -114,7 +114,7 @@ class IntegrationTestSuite:
                 severity=TestSeverity.HIGH
             )    
  
-   async def _test_research_workflow(self) -> TestResult:
+    async def _test_research_workflow(self) -> TestResult:
         """Test research project creation workflow."""
         test_name = "Research Workflow"
         start_time = time.time()

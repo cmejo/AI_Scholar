@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 
 export interface Message {
   role: 'user' | 'assistant';
@@ -120,7 +120,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [currentConversation]);
 
   // Initialize with a default conversation
-  React.useEffect(() => {
+  useEffect(() => {
     if (conversations.length === 0) {
       createNewConversation();
     }

@@ -1,29 +1,23 @@
-import React from 'react';
-import { 
-  X, 
-  MessageCircle, 
-  FileText, 
-  BarChart3, 
-  Shield, 
-  Workflow, 
-  Globe, 
-  Brain, 
-  Network, 
-  Zap, 
-  User, 
-  Settings,
-  HelpCircle,
-  LogOut,
-  ChevronRight
+import {
+    BarChart3,
+    Brain,
+    ChevronRight,
+    Globe,
+    HelpCircle,
+    LogOut,
+    Network,
+    Settings,
+    Shield,
+    User,
+    Workflow,
+    X,
+    Zap
 } from 'lucide-react';
+import React from 'react';
 
-interface MobileNavigationProps {
-  isOpen: boolean;
-  onClose: () => void;
-  currentView: string;
-  onViewChange: (view: string) => void;
-  user?: any;
-}
+import { MobileNavigationProps } from '../../types/ui';
+
+// MobileNavigationProps is now imported from types/ui.ts
 
 export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   isOpen,

@@ -29,6 +29,23 @@ export interface KnowledgeNode {
   importance: number;
 }
 
+interface ChunkMetadata {
+  title?: string;
+  section?: string;
+  page?: number;
+  timestamp?: number;
+  author?: string;
+  tags?: string[];
+  [key: string]: unknown;
+}
+
+interface DocumentChunk {
+  id: string;
+  content: string;
+  documentId: string;
+  metadata: ChunkMetadata;
+}
+
 export class KnowledgeGraph {
   private nodes: Map<string, KnowledgeNode> = new Map();
   private relationships: Map<string, Relationship> = new Map();
@@ -69,12 +86,7 @@ export class KnowledgeGraph {
   /**
    * Build knowledge graph from document chunks
    */
-  async buildGraph(chunks: Array<{
-    id: string;
-    content: string;
-    documentId: string;
-    metadata: any;
-  }>): Promise<void> {
+  async buildGraph(chunks: DocumentChunk[]): Promise<void> {
     // Extract entities from all chunks
     const allEntities: Entity[] = [];
     const chunkEntities: Map<string, Entity[]> = new Map();
@@ -219,7 +231,7 @@ export class KnowledgeGraph {
     return Array.from(merged.values());
   }
 
-  private calculateImportance(entity: Entity, chunks: any[]): number {
+  private calculateImportance(entity: Entity, chunks: DocumentChunk[]): number {
     let importance = entity.confidence;
     
     // Frequency-based importance
@@ -245,7 +257,7 @@ export class KnowledgeGraph {
   }
 
   private createRelationships(
-    chunks: any[], 
+    chunks: DocumentChunk[], 
     chunkEntities: Map<string, Entity[]>
   ): void {
     chunks.forEach(chunk => {

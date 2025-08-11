@@ -1,24 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Eye, 
-  EyeOff, 
   Type, 
   Contrast, 
   Zap, 
   ZapOff, 
   Keyboard, 
   Volume2, 
-  VolumeX,
   Focus,
   Palette,
   Settings,
-  Check,
   X,
-  HelpCircle,
-  Monitor,
-  Smartphone,
-  MousePointer,
-  Navigation
+  HelpCircle
 } from 'lucide-react';
 import { accessibilityService, AccessibilityPreferences } from '../services/accessibilityService';
 
@@ -216,7 +209,7 @@ export const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({
                 </div>
                 <select
                   value={preferences.colorBlindnessSupport}
-                  onChange={(e) => updatePreference('colorBlindnessSupport', e.target.value as any)}
+                  onChange={(e) => updatePreference('colorBlindnessSupport', e.target.value as 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia')}
                   className="w-full bg-gray-600 border border-gray-500 rounded-lg px-3 py-2 text-white"
                   aria-label="Color blindness support type"
                 >

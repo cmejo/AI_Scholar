@@ -559,15 +559,6 @@ class FeatureFlagService:
 
 # Global service instance
 feature_flag_service = FeatureFlagService()
-    """Feature flag configuration"""
-    name: str
-    description: str
-    status: FeatureFlagStatus
-    rules: List[FeatureFlagRule]
-    default_value: bool = False
-    created_by: str = "system"
-    tags: Optional[List[str]] = None
-    metadata: Optional[Dict[str, Any]] = None
 
 class FeatureFlag(Base):
     """Feature flag database model"""

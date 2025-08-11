@@ -151,7 +151,7 @@ export const MemoryAwareChatInterface: React.FC = () => {
       }
 
       // Get user profile for personalization
-      const userProfile = await userProfileService.getUserProfile(currentUserId);
+      const userProfile = await userProfileService.getOrCreateUser('user@example.com', 'Current User');
       
       // Perform contextual retrieval if documents are available
       let retrievalResponse = null;

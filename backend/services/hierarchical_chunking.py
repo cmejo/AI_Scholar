@@ -733,7 +733,12 @@ class HierarchicalChunker:
             chunks.append(chunk)
         
         # Apply overlap management
-        chunks = self.overlap_manager.calculate_overlap_boundaries(chunks, text, self.sentence_processor)
+        if len(chunks) > 1:
+            chunks = self.overlap_manager.calculate_overlap_boundaries(
+                chunks, text, self.sentence_processor
+            )
+        
+        return chunks
         
         return chunks
     
@@ -1237,3 +1242,45 @@ class HierarchicalChunkingService:
                                   context_window: int = 2) -> List[str]:
         """Get contextual chunks around a specific chunk"""
         return self.chunker.get_contextual_chunks(chunk_id, context_window)
+
+
+class HierarchicalChunkingService:
+    """Service class for hierarchical document chunking with enhanced features"""
+    
+    def __init__(self, 
+                 base_chunk_size: int = 512,
+                 overlap_percentage: float = 0.1,
+                 max_levels: int = 3):
+        """Initialize the hierarchical chunking service"""
+        self.chunker = HierarchicalChunker(
+            base_chunk_size=base_chunk_size,
+            overlap_percentage=overlap_percentage,
+            max_levels=max_levels
+        )
+    
+    async def chunk_document_async(self, text: str, strategy: ChunkingStrategy = ChunkingStrategy.HIERARCHICAL) -> List[DocumentChunk]:
+        """Async wrapper for document chunking"""
+        return self.chunker.chunk_document(text, strategy)
+    
+    async def get_chunk_context_async(self, chunk_id: str, context_window: int = 2) -> List[str]:
+        """Async wrapper for getting chunk context"""
+        return self.chunker.get_contextual_chunks(chunk_id, context_window)
+    
+    def update_configuration(self, **kwargs) -> Dict[str, Any]:
+        """Update chunking configuration"""
+        return self.chunker.update_overlap_configuration(**kwargs)
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get chunking statistics"""
+        hierarchy_stats = self.chunker.get_hierarchy_statistics()
+        overlap_stats = self.chunker.overlap_manager.get_overlap_statistics()
+        
+        return {
+            'hierarchy': hierarchy_stats,
+            'overlap': overlap_stats,
+            'configuration': {
+                'base_chunk_size': self.chunker.base_chunk_size,
+                'overlap_percentage': self.chunker.overlap_percentage,
+                'max_levels': self.chunker.max_levels
+            }
+        }

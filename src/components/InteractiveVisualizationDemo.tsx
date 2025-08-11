@@ -6,13 +6,24 @@
  * annotations, and embedding capabilities.
  */
 
-import React, { useState, useEffect } from 'react';
 import {
-  Play, Pause, Users, MessageSquare, Share2, Download,
-  BarChart3, Network, PieChart, TrendingUp, Zap, Eye
+    BarChart3,
+    Download,
+    Eye,
+    MessageSquare,
+    Network,
+    Pause,
+    PieChart,
+    Play,
+    Share2,
+    TrendingUp,
+    Users,
+    Zap
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { VisualizationData } from '../services/interactiveVisualizationService';
+import { VisualizationEvent } from '../types/ui';
 import InteractiveVisualization from './InteractiveVisualization';
-import { interactiveVisualizationService, VisualizationData } from '../services/interactiveVisualizationService';
 
 interface DemoVisualization {
   id: string;
@@ -280,12 +291,12 @@ export const InteractiveVisualizationDemo: React.FC = () => {
     return () => clearInterval(interval);
   }, [isRealTimeEnabled, selectedVisualization]);
 
-  const handleInteraction = (event: any) => {
+  const handleInteraction = (event: VisualizationEvent) => {
     console.log('Visualization interaction:', event);
     // In a real app, this would send the interaction to the backend
   };
 
-  const handleAnnotationAdd = (annotation: any) => {
+  const handleAnnotationAdd = (annotation: { text: string; x: number; y: number; timestamp: Date }) => {
     console.log('New annotation:', annotation);
     // In a real app, this would save the annotation to the backend
   };

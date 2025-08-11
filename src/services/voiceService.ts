@@ -173,14 +173,14 @@ class VoiceService {
         timestamp: result.timestamp || Date.now()
       };
     } catch (error) {
-      throw new Error(`Server-side speech recognition error: ${error.message}`);
+      throw new Error(`Server-side speech recognition error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
    * Convert text to speech
    */
-  async textToSpeech(text: string, config: VoiceConfig = {}): Promise<void> {
+  async textToSpeech(text: string, config: Partial<VoiceConfig> = {}): Promise<void> {
     if (!this.synthesis) {
       // Fallback to server-side TTS
       return this.textToSpeechServerSide(text, config);
@@ -214,7 +214,7 @@ class VoiceService {
   /**
    * Server-side text to speech with enhanced voice options
    */
-  private async textToSpeechServerSide(text: string, config: VoiceConfig): Promise<void> {
+  private async textToSpeechServerSide(text: string, config: Partial<VoiceConfig>): Promise<void> {
     try {
       const response = await fetch('/api/voice/text-to-speech', {
         method: 'POST',
@@ -237,14 +237,20 @@ class VoiceService {
       const audioBlob = await response.blob();
       await this.playAudio(audioBlob);
     } catch (error) {
-      throw new Error(`Server-side TTS error: ${error.message}`);
+      throw new Error(`Server-side TTS error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
    * Get available voice profiles from server
    */
-  async getAvailableVoiceProfiles(language?: string): Promise<any[]> {
+  async getAvailableVoiceProfiles(language?: string): Promise<Array<{
+    name: string;
+    lang: string;
+    voiceURI: string;
+    localService: boolean;
+    default: boolean;
+  }>> {
     try {
       const url = language 
         ? `/api/voice/available-voices?language=${language}`
@@ -284,14 +290,19 @@ class VoiceService {
       const data = await response.json();
       return data.session_id;
     } catch (error) {
-      throw new Error(`Failed to start streaming session: ${error.message}`);
+      throw new Error(`Failed to start streaming session: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
    * Process streaming audio chunk
    */
-  async processStreamingChunk(sessionId: string, audioChunk: Blob): Promise<any> {
+  async processStreamingChunk(sessionId: string, audioChunk: Blob): Promise<{
+    sessionId: string;
+    partialTranscript?: string;
+    confidence?: number;
+    isProcessing: boolean;
+  }> {
     try {
       const formData = new FormData();
       formData.append('session_id', sessionId);
@@ -308,14 +319,19 @@ class VoiceService {
 
       return await response.json();
     } catch (error) {
-      throw new Error(`Failed to process streaming chunk: ${error.message}`);
+      throw new Error(`Failed to process streaming chunk: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
    * Stop streaming session and get final results
    */
-  async stopStreamingSession(sessionId: string): Promise<any> {
+  async stopStreamingSession(sessionId: string): Promise<{
+    sessionId: string;
+    finalTranscript: string;
+    confidence: number;
+    duration: number;
+  }> {
     try {
       const response = await fetch('/api/voice/streaming/stop', {
         method: 'POST',
@@ -331,14 +347,20 @@ class VoiceService {
 
       return await response.json();
     } catch (error) {
-      throw new Error(`Failed to stop streaming session: ${error.message}`);
+      throw new Error(`Failed to stop streaming session: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
    * Get streaming session results
    */
-  async getStreamingResults(sessionId: string): Promise<any> {
+  async getStreamingResults(sessionId: string): Promise<{
+    sessionId: string;
+    transcript: string;
+    confidence: number;
+    status: 'processing' | 'completed' | 'error';
+    error?: string;
+  }> {
     try {
       const response = await fetch(`/api/voice/streaming/results/${sessionId}`);
 
@@ -348,7 +370,7 @@ class VoiceService {
 
       return await response.json();
     } catch (error) {
-      throw new Error(`Failed to get streaming results: ${error.message}`);
+      throw new Error(`Failed to get streaming results: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

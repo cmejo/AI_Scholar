@@ -1,0 +1,39 @@
+# Development dependencies for code quality and testing
+
+# Code formatting and linting
+black>=24.0.0
+isort>=5.13.0
+flake8>=7.0.0
+flake8-docstrings>=1.7.0
+flake8-import-order>=0.18.0
+flake8-bugbear>=24.0.0
+flake8-comprehensions>=3.14.0
+flake8-simplify>=0.21.0
+
+# Type checking
+mypy>=1.8.0
+types-requests>=2.31.0
+types-redis>=4.6.0
+types-PyYAML>=6.0.12
+types-aiofiles>=23.2.0
+
+# Security analysis
+bandit>=1.7.5
+safety>=3.0.0
+
+# Testing enhancements
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+pytest-xdist==3.5.0
+pytest-benchmark==4.0.0
+
+# Documentation
+sphinx==7.2.6
+sphinx-rtd-theme==2.0.0
+
+# Pre-commit hooks (optional, can be managed via npm)
+pre-commit==3.6.0
+
+# Development utilities
+ipython==8.18.1
+jupyter==1.0.0

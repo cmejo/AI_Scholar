@@ -1,5 +1,9 @@
 // Global type definitions for the enterprise RAG system
 
+// Re-export all types from sub-modules
+export * from './api';
+export * from './ui';
+
 export interface User {
   id: string;
   email: string;
@@ -36,7 +40,7 @@ export interface DashboardWidget {
   id: string;
   type: 'analytics' | 'recent_queries' | 'document_stats' | 'knowledge_graph' | 'trends';
   position: { x: number; y: number; width: number; height: number };
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 export interface MultiModalDocument {
@@ -84,7 +88,7 @@ export interface CodeContent {
 
 export interface ExtractedElement {
   type: 'text' | 'image' | 'table' | 'chart' | 'code' | 'formula';
-  content: any;
+  content: unknown;
   position: { page: number; x: number; y: number; width: number; height: number };
   confidence: number;
 }
@@ -138,7 +142,7 @@ export interface SecurityAuditLog {
   ipAddress: string;
   userAgent: string;
   success: boolean;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }
 
 export interface WorkflowDefinition {
@@ -181,4 +185,138 @@ export interface CitationFormat {
   style: 'apa' | 'mla' | 'chicago' | 'ieee' | 'harvard';
   citation: string;
   bibliography: string;
+}
+
+// Missing type definitions
+export interface DocumentMetadata {
+  title: string;
+  author: string;
+  createdAt: Date;
+  modifiedAt: Date;
+  tags: string[];
+  language: string;
+  wordCount: number;
+  pageCount: number;
+}
+
+export interface DetectedObject {
+  id: string;
+  type: string;
+  confidence: number;
+  boundingBox: { x: number; y: number; width: number; height: number };
+  label: string;
+}
+
+export interface ChartData {
+  type: 'bar' | 'line' | 'pie' | 'scatter';
+  data: unknown[];
+  title?: string;
+  axes?: { x: string; y: string };
+}
+
+export interface TableStructure {
+  hasHeaders: boolean;
+  columnTypes: string[];
+  relationships: string[];
+}
+
+export interface FunctionDefinition {
+  name: string;
+  parameters: Parameter[];
+  returnType: string;
+  documentation: string;
+}
+
+export interface Parameter {
+  name: string;
+  type: string;
+  optional: boolean;
+  description: string;
+}
+
+export interface OCRResult {
+  text: string;
+  confidence: number;
+  boundingBox: { x: number; y: number; width: number; height: number };
+}
+
+export interface ConversationPreferences {
+  responseStyle: 'concise' | 'balanced' | 'detailed';
+  topicInterests: TopicInterest[];
+  preferredSources: string[];
+  languageLevel: 'beginner' | 'intermediate' | 'advanced';
+}
+
+export interface TopicInterest {
+  topic: string;
+  interest: number; // 0-1 scale
+}
+
+export interface DocumentAnalytics {
+  id: string;
+  name: string;
+  views: number;
+  queries: number;
+  lastAccessed: Date;
+  averageRelevance: number;
+  totalReferences?: number;
+  averageSatisfaction?: number;
+  lastUsed?: Date;
+  topQueries?: string[];
+}
+
+export interface UserAnalytics {
+  id: string;
+  name: string;
+  totalQueries: number;
+  averageSessionTime: number;
+  lastActive: Date;
+  topTopics: string[];
+  averageResponseTime?: number;
+  averageSatisfaction?: number;
+}
+
+export interface PerformanceMetrics {
+  averageResponseTime: number;
+  successRate: number;
+  errorRate: number;
+  throughput: number;
+  memoryUsage: number;
+  cpuUsage: number;
+  totalQueries?: number;
+  averageSatisfaction?: number;
+}
+
+export interface TrendData {
+  period: string;
+  metric: string;
+  value: number;
+  change: number;
+  type?: string;
+  data?: unknown;
+  trend?: unknown;
+}
+
+export interface WorkflowTrigger {
+  type: 'schedule' | 'event' | 'webhook' | 'document_upload';
+  config: Record<string, unknown>;
+}
+
+export interface WorkflowAction {
+  type: 'email' | 'notification' | 'api_call' | 'data_export' | 'auto_tag' | 'send_notification' | 'generate_summary' | 'update_metadata' | 'create_backup' | 'generate_report' | 'check_freshness';
+  config: Record<string, unknown>;
+}
+
+export interface WorkflowCondition {
+  field: string;
+  operator: 'equals' | 'contains' | 'greater_than' | 'less_than';
+  value: unknown;
+  type?: string;
+}
+
+export interface IntegrationConfig {
+  apiKey?: string;
+  webhookUrl?: string;
+  credentials?: Record<string, string>;
+  settings?: Record<string, unknown>;
 }

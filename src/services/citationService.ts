@@ -122,6 +122,14 @@ export class CitationService {
       chicago: {
         inText: /\([A-Za-z]+\s+\d{4}\)/,
         bibliography: /[A-Za-z]+,\s+[A-Za-z]+\./
+      },
+      ieee: {
+        inText: /\[\d+\]/,
+        bibliography: /\[\d+\]\s+[A-Za-z]+/
+      },
+      harvard: {
+        inText: /\([A-Za-z]+\s+\d{4}\)/,
+        bibliography: /[A-Za-z]+,\s+[A-Z]\.\s+\d{4}/
       }
     };
 

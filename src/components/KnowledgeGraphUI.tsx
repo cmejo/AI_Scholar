@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Network, Search, Filter, Download, Settings, Maximize2 } from 'lucide-react';
+import { Download, Maximize2, Network, Search, Settings } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface Node {
   id: string;
@@ -18,10 +18,10 @@ interface Edge {
   type: 'related' | 'mentions' | 'contains' | 'similar';
 }
 
-interface KnowledgeGraphUIProps {
-  documents: any[];
-  selectedNodes?: string[];
-  onNodeSelect?: (nodeId: string) => void;
+import { KnowledgeGraphProps } from '../types/ui';
+
+// KnowledgeGraphProps is now imported from types/ui.ts
+interface KnowledgeGraphUIProps extends KnowledgeGraphProps {
   onEdgeSelect?: (edgeId: string) => void;
 }
 
@@ -42,18 +42,18 @@ export const KnowledgeGraphUI: React.FC<KnowledgeGraphUIProps> = ({
 
   useEffect(() => {
     generateGraphData();
-  }, [documents]);
+  }, [generateGraphData]);
 
   useEffect(() => {
     renderGraph();
-  }, [nodes, edges, layoutType, filterType]);
+  }, [renderGraph]);
 
-  const generateGraphData = () => {
+  const generateGraphData = useCallback(() => {
     const generatedNodes: Node[] = [];
     const generatedEdges: Edge[] = [];
 
     // Generate nodes from documents
-    documents.forEach((doc, index) => {
+    documents.forEach((doc) => {
       // Document node
       generatedNodes.push({
         id: `doc_${doc.id}`,
@@ -66,7 +66,7 @@ export const KnowledgeGraphUI: React.FC<KnowledgeGraphUIProps> = ({
 
       // Extract concepts (mock implementation)
       const concepts = extractConcepts(doc.content);
-      concepts.forEach((concept, conceptIndex) => {
+      concepts.forEach((concept) => {
         const nodeId = `concept_${concept.toLowerCase().replace(/\s+/g, '_')}`;
         
         if (!generatedNodes.find(n => n.id === nodeId)) {
@@ -92,7 +92,7 @@ export const KnowledgeGraphUI: React.FC<KnowledgeGraphUIProps> = ({
 
       // Extract entities (mock implementation)
       const entities = extractEntities(doc.content);
-      entities.forEach((entity, entityIndex) => {
+      entities.forEach((entity) => {
         const nodeId = `entity_${entity.toLowerCase().replace(/\s+/g, '_')}`;
         
         if (!generatedNodes.find(n => n.id === nodeId)) {
@@ -142,7 +142,7 @@ export const KnowledgeGraphUI: React.FC<KnowledgeGraphUIProps> = ({
 
     setNodes(generatedNodes);
     setEdges(generatedEdges);
-  };
+  }, [documents]);
 
   const extractConcepts = (content: string): string[] => {
     // Mock concept extraction
@@ -169,7 +169,7 @@ export const KnowledgeGraphUI: React.FC<KnowledgeGraphUIProps> = ({
     ).slice(0, 3);
   };
 
-  const renderGraph = () => {
+  const renderGraph = useCallback(() => {
     if (!svgRef.current) return;
 
     const svg = svgRef.current;
@@ -257,7 +257,7 @@ export const KnowledgeGraphUI: React.FC<KnowledgeGraphUIProps> = ({
     });
 
     svg.appendChild(svgElement);
-  };
+  }, [nodes, edges, layoutType, filterType, searchTerm, dimensions]);
 
   const calculateLayout = (
     nodes: Node[], 

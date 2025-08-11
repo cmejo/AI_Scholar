@@ -711,33 +711,26 @@ class DocumentProcessor:
             else:
                 raise ValueError(f"Unsupported file type for reprocessing: {document.content_type}")
             
-            # Update document metadata
+            # Update document status
+            document.status = "completed"
             document.chunks_count = result['chunks_count']
             document.embeddings_count = result['embeddings_count']
-            document.updated_at = datetime.utcnow()
             db.commit()
             
-            # Re-integrate with vector store
-            await self._integrate_with_vector_store({
-                "id": document_id,
-                "name": document.name,
-                "content_type": document.content_type,
-                "chunks_count": result['chunks_count']
-            })
-            
             return {
-                "id": document_id,
-                "name": document.name,
+                "document_id": document_id,
                 "status": "reprocessed",
+                "strategy": strategy.value,
                 "chunks": result['chunks_count'],
                 "embeddings": result['embeddings_count'],
-                "processing_details": result.get('details', {}),
-                "strategy_used": strategy.value
+                "processing_details": result.get('details', {})
             }
             
         except Exception as e:
             logger.error(f"Error reprocessing document {document_id}: {str(e)}")
-            db.rollback()
+            if 'document' in locals():
+                document.status = "failed"
+                db.commit()
             raise e
         finally:
             db.close()

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import voiceService, { VoiceConfig, TranscriptionResult } from '../services/voiceService';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import voiceService, { type TranscriptionResult, type VoiceConfig } from '../services/voiceService';
 
 interface VoiceInterfaceProps {
   onTranscription?: (result: TranscriptionResult) => void;
@@ -44,12 +44,12 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
   });
 
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const transcriptionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const transcriptionTimeoutRef = useRef<number | null>(null);
   const recognitionRef = useRef<boolean>(false);
 
   // Initialize voice service and check support
   useEffect(() => {
-    const initializeVoice = async () => {
+    const initializeVoice = (): void => {
       const isSupported = voiceService.isVoiceSupported();
       setVoiceState(prev => ({ ...prev, isSupported }));
 
@@ -64,21 +64,21 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
 
         // Auto-start if requested
         if (autoStart) {
-          startListening();
+          void startListening();
         }
       }
     };
 
-    initializeVoice();
+    void initializeVoice();
 
     // Cleanup on unmount
-    return () => {
+    return (): void => {
       voiceService.cleanup();
-      if (transcriptionTimeoutRef.current) {
+      if (transcriptionTimeoutRef.current != null) {
         clearTimeout(transcriptionTimeoutRef.current);
       }
     };
-  }, [autoStart]);
+  }, [autoStart, handleSpeechError, handleSpeechResult, startListening]);
 
   // Handle speech recognition results
   const handleSpeechResult = useCallback((result: TranscriptionResult) => {
@@ -90,13 +90,13 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     }));
 
     // Clear previous timeout
-    if (transcriptionTimeoutRef.current) {
+    if (transcriptionTimeoutRef.current != null) {
       clearTimeout(transcriptionTimeoutRef.current);
     }
 
     // Set timeout to finalize transcription
     transcriptionTimeoutRef.current = setTimeout(() => {
-      if (onTranscription) {
+      if (onTranscription != null) {
         onTranscription(result);
       }
     }, 1000); // Wait 1 second for more speech
@@ -112,13 +112,13 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       isProcessing: false
     }));
 
-    if (onError) {
+    if (onError != null) {
       onError(error);
     }
   }, [onError]);
 
   // Start listening for speech
-  const startListening = useCallback(async () => {
+  const startListening = useCallback(async (): Promise<void> => {
     if (!voiceState.isSupported || voiceState.isListening) {
       return;
     }
@@ -142,7 +142,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     } catch (error) {
       handleSpeechError(error instanceof Error ? error.message : 'Failed to start listening');
     }
-  }, [voiceState.isSupported, voiceState.isListening, voiceConfig.language]);
+  }, [voiceState.isSupported, voiceState.isListening, voiceConfig.language, handleSpeechError]);
 
   // Stop listening for speech
   const stopListening = useCallback(() => {
@@ -160,7 +160,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     }));
 
     // Clear transcription timeout
-    if (transcriptionTimeoutRef.current) {
+    if (transcriptionTimeoutRef.current != null) {
       clearTimeout(transcriptionTimeoutRef.current);
       transcriptionTimeoutRef.current = null;
     }
@@ -171,7 +171,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
     if (voiceState.isListening) {
       stopListening();
     } else {
-      startListening();
+      void startListening();
     }
   }, [voiceState.isListening, startListening, stopListening]);
 
@@ -187,11 +187,11 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       await voiceService.textToSpeech(text, voiceConfig);
       
       setVoiceState(prev => ({ ...prev, isSpeaking: false }));
-    } catch (error) {
+    } catch (_error) {
       setVoiceState(prev => ({
         ...prev,
         isSpeaking: false,
-        error: error instanceof Error ? error.message : 'Failed to speak text'
+        error: _error instanceof Error ? _error.message : 'Failed to speak text'
       }));
     }
   }, [voiceState.isSupported, voiceState.isSpeaking, voiceConfig]);
@@ -207,7 +207,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach(track => track.stop());
       return true;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }, []);
@@ -292,7 +292,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       </div>
 
       {/* Current Transcription */}
-      {voiceState.currentTranscription && (
+      {voiceState.currentTranscription.length > 0 && (
         <div className="voice-interface__transcription">
           <div className="voice-interface__transcription-text">
             {voiceState.currentTranscription}
@@ -306,7 +306,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       )}
 
       {/* Error Display */}
-      {voiceState.error && (
+      {(voiceState.error?.length ?? 0) > 0 && (
         <div className="voice-interface__error">
           <div className="voice-interface__error-message">
             {voiceState.error}
@@ -350,7 +350,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
             <label className="voice-interface__config-label">
               Voice:
               <select
-                value={voiceConfig.voice || ''}
+                value={voiceConfig.voice ?? ''}
                 onChange={(e) => updateVoiceConfig({ voice: e.target.value })}
                 className="voice-interface__config-select"
               >
@@ -373,12 +373,12 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
               min="0.5"
               max="2"
               step="0.1"
-              value={voiceConfig.rate || 1}
+              value={voiceConfig.rate ?? 1}
               onChange={(e) => updateVoiceConfig({ rate: parseFloat(e.target.value) })}
               className="voice-interface__config-range"
             />
             <span className="voice-interface__config-value">
-              {voiceConfig.rate?.toFixed(1)}x
+              {(voiceConfig.rate ?? 1).toFixed(1)}x
             </span>
           </label>
         </div>
@@ -391,12 +391,12 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
               min="0"
               max="1"
               step="0.1"
-              value={voiceConfig.volume || 1}
+              value={voiceConfig.volume ?? 1}
               onChange={(e) => updateVoiceConfig({ volume: parseFloat(e.target.value) })}
               className="voice-interface__config-range"
             />
             <span className="voice-interface__config-value">
-              {Math.round((voiceConfig.volume || 1) * 100)}%
+              {Math.round((voiceConfig.volume ?? 1) * 100)}%
             </span>
           </label>
         </div>
@@ -406,7 +406,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
       <div className="voice-interface__actions">
         <button
           className="voice-interface__action-button"
-          onClick={() => requestMicrophonePermission()}
+          onClick={() => void requestMicrophonePermission()}
           disabled={voiceState.isProcessing}
         >
           Test Microphone
@@ -414,7 +414,7 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({
         
         <button
           className="voice-interface__action-button"
-          onClick={() => speakText('Voice interface is working correctly.')}
+          onClick={() => void speakText('Voice interface is working correctly.')}
           disabled={voiceState.isSpeaking || voiceState.isProcessing}
         >
           Test Speaker

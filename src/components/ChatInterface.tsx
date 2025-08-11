@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, FileText, Loader2 } from 'lucide-react';
+import { Bot, FileText, Loader2, Send, User } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useChat } from '../contexts/ChatContext';
 import { useDocument } from '../contexts/DocumentContext';
 
@@ -10,13 +10,13 @@ export const ChatInterface: React.FC = () => {
   const { currentConversation, sendMessage } = useChat();
   const { documents } = useDocument();
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [currentConversation?.messages]);
+  }, [currentConversation?.messages, scrollToBottom]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +157,7 @@ export const ChatInterface: React.FC = () => {
           </>
         )}
         <div ref={messagesEndRef} />
-      </div>
+      </section>
 
       {/* Input Area */}
       <section className="border-t border-gray-700 p-4" role="region" aria-label="Message input">

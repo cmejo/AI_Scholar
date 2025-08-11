@@ -2,12 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { 
   Eye, 
   Keyboard, 
-  Volume2, 
-  Navigation, 
-  Monitor,
-  Smartphone,
-  MousePointer,
-  HelpCircle,
   AlertTriangle,
   CheckCircle,
   Info,
@@ -15,7 +9,6 @@ import {
 } from 'lucide-react';
 import { accessibilityService } from '../services/accessibilityService';
 import ColorBlindnessFilters from './ColorBlindnessFilters';
-import AccessibilityValidator from './AccessibilityValidator';
 
 interface AccessibilityFeaturesProps {
   children: React.ReactNode;
@@ -23,7 +16,6 @@ interface AccessibilityFeaturesProps {
 
 export const AccessibilityFeatures: React.FC<AccessibilityFeaturesProps> = ({ children }) => {
   const [isKeyboardUser, setIsKeyboardUser] = useState(false);
-  const [announcements, setAnnouncements] = useState<string[]>([]);
 
   useEffect(() => {
     // Initialize accessibility features

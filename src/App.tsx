@@ -1,37 +1,44 @@
-import React, { useState, useEffect } from 'react';
-import { AdvancedChatInterface } from './components/AdvancedChatInterface';
-import { MemoryAwareChatInterface } from './components/MemoryAwareChatInterface';
-import { EnhancedDocumentManager } from './components/EnhancedDocumentManager';
-import { EnterpriseAnalyticsDashboard } from './components/EnterpriseAnalyticsDashboard';
-import { SecurityDashboard } from './components/SecurityDashboard';
-import { WorkflowManager } from './components/WorkflowManager';
-import { IntegrationHub } from './components/IntegrationHub';
-import VoiceInterface from './components/VoiceInterface';
-import { Header } from './components/Header';
-import { Sidebar } from './components/Sidebar';
-import { MobileLayout } from './components/mobile/MobileLayout';
+import { useEffect, useState } from 'react';
 import { AccessibilityFeatures } from './components/AccessibilityFeatures';
 import { AccessibilityToolbar } from './components/AccessibilityToolbar';
-import { EnhancedChatProvider } from './contexts/EnhancedChatContext';
+import { AdvancedChatInterface } from './components/AdvancedChatInterface';
+import { EnhancedDocumentManager } from './components/EnhancedDocumentManager';
+import { EnterpriseAnalyticsDashboard } from './components/EnterpriseAnalyticsDashboard';
+import { Header } from './components/Header';
+import { IntegrationHub } from './components/IntegrationHub';
+import { MemoryAwareChatInterface } from './components/MemoryAwareChatInterface';
+import { SecurityDashboard } from './components/SecurityDashboard';
+import { Sidebar } from './components/Sidebar';
+import VoiceInterface from './components/VoiceInterface';
+import { WorkflowManager } from './components/WorkflowManager';
+import { MobileLayout } from './components/mobile/MobileLayout';
 import { DocumentProvider } from './contexts/DocumentContext';
+import { EnhancedChatProvider } from './contexts/EnhancedChatContext';
 import { useMobileDetection } from './hooks/useMobileDetection';
-import { securityService } from './services/securityService';
+import { accessibilityService } from './services/accessibilityService';
 import { analyticsService } from './services/analyticsService';
 import { memoryService } from './services/memoryService';
-import { accessibilityService } from './services/accessibilityService';
+import { securityService } from './services/securityService';
 
 type ViewType = 'chat' | 'documents' | 'analytics' | 'security' | 'workflows' | 'integrations';
 
-function App() {
+function App(): JSX.Element {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentView, setCurrentView] = useState<ViewType>('chat');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(null);
   const { isMobile, isTablet } = useMobileDetection();
 
   useEffect(() => {
+    // Initialize global error handling
+    globalErrorHandler.updateConfig({
+      enableConsoleLogging: process.env.NODE_ENV === 'development',
+      enableErrorReporting: true,
+      enableUserNotification: true,
+    });
+
     // Initialize enterprise features
-    initializeEnterpriseFeatures();
+    void initializeEnterpriseFeatures();
     
     // Initialize accessibility features
     accessibilityService.announce('AI Scholar Enterprise application loaded', 'polite');
@@ -43,7 +50,7 @@ function App() {
         event.preventDefault();
         const views: ViewType[] = ['chat', 'documents', 'analytics', 'security', 'workflows', 'integrations'];
         const viewIndex = parseInt(event.key) - 1;
-        if (views[viewIndex]) {
+        if (views[viewIndex] !== undefined) {
           setCurrentView(views[viewIndex]);
           accessibilityService.announce(`Navigated to ${views[viewIndex]}`, 'polite');
         }
@@ -54,7 +61,7 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const initializeEnterpriseFeatures = async () => {
+  const initializeEnterpriseFeatures = async (): Promise<void> => {
     // Mock user authentication
     const mockUser = {
       id: 'user_admin',
@@ -86,7 +93,7 @@ function App() {
     // This would integrate with your existing chat system
     
     // Log the voice interaction
-    if (user) {
+    if (user !== null) {
       analyticsService.logQuery({
         id: `voice_query_${Date.now()}`,
         query,
@@ -112,7 +119,7 @@ function App() {
     return `I heard you ask: "${query}". This is a mock response from the voice interface. In production, this would be processed through your RAG system.`;
   };
 
-  const renderCurrentView = () => {
+  const renderCurrentView = (): JSX.Element => {
     switch (currentView) {
       case 'chat':
         return (
@@ -147,70 +154,74 @@ function App() {
   // Use mobile layout for mobile and tablet devices
   if (isMobile || isTablet) {
     return (
-      <DocumentProvider>
-        <EnhancedChatProvider>
-          <AccessibilityFeatures>
-            <MobileLayout
-              currentView={currentView}
-              onViewChange={(view) => {
-                setCurrentView(view);
-                accessibilityService.announcePageChange(view);
-              }}
-              user={user}
-              voiceEnabled={voiceEnabled}
-              onToggleVoice={setVoiceEnabled}
-            >
-              {renderCurrentView()}
-            </MobileLayout>
-          </AccessibilityFeatures>
-        </EnhancedChatProvider>
-      </DocumentProvider>
+      <ErrorBoundary>
+        <DocumentProvider>
+          <EnhancedChatProvider>
+            <AccessibilityFeatures>
+              <MobileLayout
+                currentView={currentView}
+                onViewChange={(view) => {
+                  setCurrentView(view);
+                  accessibilityService.announcePageChange(view);
+                }}
+                user={user}
+                voiceEnabled={voiceEnabled}
+                onToggleVoice={setVoiceEnabled}
+              >
+                {renderCurrentView()}
+              </MobileLayout>
+            </AccessibilityFeatures>
+          </EnhancedChatProvider>
+        </DocumentProvider>
+      </ErrorBoundary>
     );
   }
 
   // Desktop layout
   return (
-    <DocumentProvider>
-      <EnhancedChatProvider>
-        <AccessibilityFeatures>
-          <div className="h-screen bg-gray-900 text-white flex overflow-hidden">
-            <Sidebar 
-              isOpen={sidebarOpen} 
-              onClose={() => setSidebarOpen(false)}
-              currentView={currentView}
-              onViewChange={(view) => {
-                setCurrentView(view);
-                accessibilityService.announcePageChange(view);
-              }}
-              user={user}
-              voiceEnabled={voiceEnabled}
-              onToggleVoice={setVoiceEnabled}
-            />
-            
-            <div className="flex-1 flex flex-col">
-              <Header 
-                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+    <ErrorBoundary>
+      <DocumentProvider>
+        <EnhancedChatProvider>
+          <AccessibilityFeatures>
+            <div className="h-screen bg-gray-900 text-white flex overflow-hidden">
+              <Sidebar 
+                isOpen={sidebarOpen} 
+                onClose={() => setSidebarOpen(false)}
                 currentView={currentView}
+                onViewChange={(view) => {
+                  setCurrentView(view);
+                  accessibilityService.announcePageChange(view);
+                }}
                 user={user}
+                voiceEnabled={voiceEnabled}
+                onToggleVoice={setVoiceEnabled}
               />
               
-              <main 
-                id="main-content"
-                className="flex-1 overflow-hidden"
-                role="main"
-                aria-label="Main application content"
-                tabIndex={-1}
-              >
-                {renderCurrentView()}
-              </main>
+              <div className="flex-1 flex flex-col">
+                <Header 
+                  onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                  currentView={currentView}
+                  user={user}
+                />
+                
+                <main 
+                  id="main-content"
+                  className="flex-1 overflow-hidden"
+                  role="main"
+                  aria-label="Main application content"
+                  tabIndex={-1}
+                >
+                  {renderCurrentView()}
+                </main>
+              </div>
+              
+              {/* Accessibility Toolbar */}
+              <AccessibilityToolbar />
             </div>
-            
-            {/* Accessibility Toolbar */}
-            <AccessibilityToolbar />
-          </div>
-        </AccessibilityFeatures>
-      </EnhancedChatProvider>
-    </DocumentProvider>
+          </AccessibilityFeatures>
+        </EnhancedChatProvider>
+      </DocumentProvider>
+    </ErrorBoundary>
   );
 }
 

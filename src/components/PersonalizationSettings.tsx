@@ -1,9 +1,18 @@
-import React, { useState, useEffect } from 'react';
 import {
-  Settings, User, Brain, Target, TrendingUp, BarChart3,
-  Sliders, Eye, MessageSquare, BookOpen, Clock, Star,
-  ChevronDown, ChevronUp, Save, RefreshCw, Info, AlertCircle
+    BarChart3,
+    BookOpen,
+    Brain,
+    ChevronDown, ChevronUp,
+    Clock,
+    MessageSquare,
+    RefreshCw,
+    Save,
+    Settings,
+    Star,
+    Target, TrendingUp,
+    User
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 
 interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
@@ -20,15 +29,13 @@ interface UserPreferences {
   enableAdaptiveRetrieval: boolean;
 }
 
-interface DomainExpertise {
-  [domain: string]: number;
-}
+type DomainExpertise = Record<string, number>;
 
 interface PersonalizationStats {
   totalSearches: number;
   personalizedSearches: number;
   personalizationRate: number;
-  topDomains: { [domain: string]: number };
+  topDomains: Record<string, number>;
   avgResultsPerSearch: number;
   avgSatisfaction: number;
   satisfactionTrend: 'improving' | 'stable' | 'declining';
@@ -48,12 +55,12 @@ interface LearningInsights {
   favoriteTopics: string[];
   averageSessionLength: number;
   preferredResponseStyle: string;
-  learningProgress: Array<{
+  learningProgress: {
     month: string;
     queries: number;
     uniqueTopics: number;
     engagement: number;
-  }>;
+  }[];
 }
 
 interface PersonalizationSettingsProps {
@@ -89,55 +96,56 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
   const [saving, setSaving] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['basic', 'response', 'personalization']));
 
-  useEffect(() => {
-    loadPersonalizationData();
-  }, [userId]);
-
-  const loadPersonalizationData = async () => {
+  const loadPersonalizationData = useCallback(async () => {
     setLoading(true);
     try {
       // Load user preferences
       const preferencesResponse = await fetch(`/api/users/${userId}/preferences`);
       if (preferencesResponse.ok) {
-        const preferencesData = await preferencesResponse.json();
+        const preferencesData = await preferencesResponse.json() as UserPreferences;
         setPreferences(preferencesData);
       }
 
       // Load domain expertise
       const domainResponse = await fetch(`/api/users/${userId}/domain-expertise`);
       if (domainResponse.ok) {
-        const domainData = await domainResponse.json();
+        const domainData = await domainResponse.json() as DomainExpertise;
         setDomainExpertise(domainData);
       }
 
       // Load personalization stats
       const statsResponse = await fetch(`/api/users/${userId}/personalization-stats`);
       if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
+        const statsData = await statsResponse.json() as PersonalizationStats;
         setPersonalizationStats(statsData);
       }
 
       // Load feedback history
       const feedbackResponse = await fetch(`/api/users/${userId}/feedback-history`);
       if (feedbackResponse.ok) {
-        const feedbackData = await feedbackResponse.json();
+        const feedbackData = await feedbackResponse.json() as FeedbackHistory[];
         setFeedbackHistory(feedbackData);
       }
 
       // Load learning insights
       const insightsResponse = await fetch(`/api/users/${userId}/learning-insights`);
       if (insightsResponse.ok) {
-        const insightsData = await insightsResponse.json();
+        const insightsData = await insightsResponse.json() as LearningInsights;
         setLearningInsights(insightsData);
       }
-    } catch (error) {
-      console.error('Error loading personalization data:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error loading personalization data:', errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
-  const savePreferences = async () => {
+  useEffect(() => {
+    loadPersonalizationData();
+  }, [loadPersonalizationData]);
+
+  const savePreferences = async (): Promise<void> => {
     setSaving(true);
     try {
       const response = await fetch(`/api/users/${userId}/preferences`, {
@@ -154,14 +162,15 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
       } else {
         throw new Error('Failed to save preferences');
       }
-    } catch (error) {
-      console.error('Error saving preferences:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error saving preferences:', errorMessage);
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleSection = (section: string) => {
+  const toggleSection = (section: string): void => {
     const newExpanded = new Set(expandedSections);
     if (newExpanded.has(section)) {
       newExpanded.delete(section);
@@ -195,7 +204,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
                 </label>
                 <select
                   value={preferences.theme}
-                  onChange={(e) => setPreferences({...preferences, theme: e.target.value as any})}
+                  onChange={(e) => setPreferences({...preferences, theme: e.target.value as UserPreferences['theme']})}
                   className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 >
                   <option value="light">Light</option>
@@ -243,7 +252,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
                 </label>
                 <select
                   value={preferences.responseLength}
-                  onChange={(e) => setPreferences({...preferences, responseLength: e.target.value as any})}
+                  onChange={(e) => setPreferences({...preferences, responseLength: e.target.value as UserPreferences['responseLength']})}
                   className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 >
                   <option value="concise">Concise</option>
@@ -300,7 +309,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
                 </label>
                 <select
                   value={preferences.responseStyle}
-                  onChange={(e) => setPreferences({...preferences, responseStyle: e.target.value as any})}
+                  onChange={(e) => setPreferences({...preferences, responseStyle: e.target.value as UserPreferences['responseStyle']})}
                   className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 >
                   <option value="balanced">Balanced</option>
@@ -315,7 +324,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
                 </label>
                 <select
                   value={preferences.citationPreference}
-                  onChange={(e) => setPreferences({...preferences, citationPreference: e.target.value as any})}
+                  onChange={(e) => setPreferences({...preferences, citationPreference: e.target.value as UserPreferences['citationPreference']})}
                   className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                 >
                   <option value="inline">Inline</option>
@@ -415,7 +424,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
       {/* Save Button */}
       <div className="flex justify-end space-x-4">
         <button
-          onClick={loadPersonalizationData}
+          onClick={() => { void loadPersonalizationData(); }}
           disabled={loading}
           className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 disabled:opacity-50 flex items-center"
         >
@@ -423,7 +432,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
           Reset
         </button>
         <button
-          onClick={savePreferences}
+          onClick={() => { void savePreferences(); }}
           disabled={saving}
           className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 disabled:opacity-50 flex items-center"
         >
@@ -483,7 +492,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
         )}
       </div>
 
-      {personalizationStats && (
+      {personalizationStats != null && (
         <div className="bg-gray-800 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
             <BarChart3 className="mr-2" size={20} />
@@ -514,7 +523,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
             
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-400">
-                {personalizationStats.avgSatisfaction ? (personalizationStats.avgSatisfaction * 100).toFixed(0) + '%' : 'N/A'}
+                {(personalizationStats.avgSatisfaction ?? 0) > 0 ? (personalizationStats.avgSatisfaction * 100).toFixed(0) + '%' : 'N/A'}
               </div>
               <div className="text-sm text-gray-400">Satisfaction</div>
             </div>
@@ -539,7 +548,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
     </div>
   );
 
-  const renderFeedbackTab = () => (
+  const renderFeedbackTab = (): JSX.Element => (
     <div className="space-y-6">
       <div className="bg-gray-800 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
@@ -564,7 +573,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
                     <span className="text-sm font-medium text-white capitalize">
                       {feedback.feedbackType}
                     </span>
-                    {feedback.rating && (
+                    {(feedback.rating ?? 0) > 0 && (
                       <div className="flex items-center">
                         <Star className="text-yellow-400 mr-1" size={14} />
                         <span className="text-sm text-gray-300">{feedback.rating}/5</span>
@@ -586,7 +595,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
                     )}
                   </div>
                 </div>
-                {feedback.comment && (
+                {(feedback.comment?.length ?? 0) > 0 && (
                   <p className="text-sm text-gray-300">{feedback.comment}</p>
                 )}
               </div>
@@ -597,9 +606,9 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
     </div>
   );
 
-  const renderInsightsTab = () => (
+  const renderInsightsTab = (): JSX.Element => (
     <div className="space-y-6">
-      {learningInsights && (
+      {learningInsights != null && (
         <>
           <div className="bg-gray-800 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
@@ -718,7 +727,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
             <User className="mr-2" size={24} />
             Personalization Settings
           </h2>
-          {onClose && (
+          {onClose != null && (
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-white"
@@ -738,7 +747,7 @@ export const PersonalizationSettings: React.FC<PersonalizationSettingsProps> = (
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
-              onClick={() => setActiveTab(id as any)}
+              onClick={() => setActiveTab(id as typeof activeTab)}
               className={`flex items-center px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === id
                   ? 'border-blue-500 text-blue-400'

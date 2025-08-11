@@ -2,6 +2,8 @@
  * Chart Service for rendering interactive analytics charts
  */
 
+import { ChartInstance, ChartStats } from '../types/api';
+
 export interface ChartDataPoint {
   x: number | string;
   y: number;
@@ -54,7 +56,7 @@ export interface ChartConfiguration {
 
 export class ChartService {
   private static instance: ChartService;
-  private chartInstances: Map<string, any> = new Map();
+  private chartInstances: Map<string, ChartInstance> = new Map();
 
   static getInstance(): ChartService {
     if (!ChartService.instance) {
@@ -483,7 +485,9 @@ export class ChartService {
     const range = max - min || 1;
 
     // Create area path
-    ctx.fillStyle = dataset.backgroundColor || 'rgba(59, 130, 246, 0.2)';
+    ctx.fillStyle = Array.isArray(dataset.backgroundColor) 
+      ? dataset.backgroundColor[0] || 'rgba(59, 130, 246, 0.2)'
+      : dataset.backgroundColor || 'rgba(59, 130, 246, 0.2)';
     ctx.beginPath();
 
     // Start from bottom left
@@ -520,7 +524,7 @@ export class ChartService {
   /**
    * Get chart statistics
    */
-  getChartStats(canvasId: string): any {
+  getChartStats(canvasId: string): ChartStats | null {
     const instance = this.chartInstances.get(canvasId);
     if (instance) {
       const config = instance.config;

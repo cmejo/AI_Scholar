@@ -1,17 +1,10 @@
+import { BarChart3, Brain, Globe, Mic, MicOff, Network, Shield, User, Workflow, X, Zap } from 'lucide-react';
 import React from 'react';
-import { X, MessageCircle, FileText, BarChart3, Shield, Workflow, Globe, Brain, Network, Zap, Mic, MicOff, User, Settings } from 'lucide-react';
 import { useEnhancedChat } from '../contexts/EnhancedChatContext';
 import { accessibilityService } from '../services/accessibilityService';
+import { SidebarProps } from '../types/ui';
 
-interface SidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
-  currentView: string;
-  onViewChange: (view: any) => void;
-  user?: any;
-  voiceEnabled: boolean;
-  onToggleVoice: (enabled: boolean) => void;
-}
+// SidebarProps is now imported from types/ui.ts
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   isOpen, 

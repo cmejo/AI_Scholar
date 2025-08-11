@@ -2,30 +2,10 @@
  * Voice Navigation Service for voice-controlled navigation and research assistance
  */
 
-import voiceCommandService, { VoiceCommand, CommandResult } from './voiceCommandService';
-
-export interface NavigationCommand {
-  destination: string;
-  action: 'navigate' | 'open' | 'show' | 'close' | 'toggle';
-  parameters?: Record<string, any>;
-}
-
-export interface VoiceShortcut {
-  id: string;
-  phrase: string;
-  action: () => void | Promise<void>;
-  description: string;
-  category: 'navigation' | 'research' | 'document' | 'system';
-  enabled: boolean;
-}
-
-export interface AccessibilityFeature {
-  id: string;
-  name: string;
-  description: string;
-  enabled: boolean;
-  settings: Record<string, any>;
-}
+import type {
+    AccessibilityFeature,
+    VoiceShortcut
+} from '../types/voice';
 
 class VoiceNavigationService {
   private shortcuts: Map<string, VoiceShortcut> = new Map();
@@ -260,11 +240,11 @@ class VoiceNavigationService {
    */
   private setupEventListeners(): void {
     // Listen for voice navigation events
-    window.addEventListener('voiceNavigate', this.handleVoiceNavigation.bind(this));
-    window.addEventListener('voiceSearch', this.handleVoiceSearch.bind(this));
-    window.addEventListener('voiceDocumentAction', this.handleVoiceDocumentAction.bind(this));
-    window.addEventListener('voiceOpenSettings', this.handleVoiceOpenSettings.bind(this));
-    window.addEventListener('voiceStop', this.handleVoiceStop.bind(this));
+    window.addEventListener('voiceNavigate', this.handleVoiceNavigation.bind(this) as EventListener);
+    window.addEventListener('voiceSearch', this.handleVoiceSearch.bind(this) as EventListener);
+    window.addEventListener('voiceDocumentAction', this.handleVoiceDocumentAction.bind(this) as EventListener);
+    window.addEventListener('voiceOpenSettings', this.handleVoiceOpenSettings.bind(this) as EventListener);
+    window.addEventListener('voiceStop', this.handleVoiceStop.bind(this) as EventListener);
 
     // Listen for keyboard navigation
     document.addEventListener('keydown', this.handleKeyboardNavigation.bind(this));
@@ -277,7 +257,7 @@ class VoiceNavigationService {
    * Handle voice navigation commands
    */
   private async handleVoiceNavigation(event: CustomEvent): Promise<void> {
-    const { destination, command, context } = event.detail;
+    const { destination, command: _command, context: _context } = event.detail;
 
     try {
       // Find matching shortcut
@@ -826,7 +806,7 @@ class VoiceNavigationService {
   /**
    * Update accessibility feature settings
    */
-  updateAccessibilityFeatureSettings(featureId: string, settings: Record<string, any>): void {
+  updateAccessibilityFeatureSettings(featureId: string, settings: Partial<AccessibilityFeature['settings']>): void {
     const feature = this.accessibilityFeatures.get(featureId);
     if (feature) {
       feature.settings = { ...feature.settings, ...settings };
