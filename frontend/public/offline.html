@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Scholar - Offline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .offline-container {
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .offline-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            font-weight: 300;
+        }
+        
+        p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        
+        .features-list {
+            text-align: left;
+            margin: 30px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .features-list h3 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .features-list ul {
+            list-style: none;
+        }
+        
+        .features-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .features-list li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .retry-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px;
+        }
+        
+        .retry-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .connection-status {
+            margin-top: 30px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .connection-status.offline {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+        }
+        
+        .connection-status.online {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+        
+        @media (max-width: 600px) {
+            .offline-container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .offline-icon {
+                width: 60px;
+                height: 60px;
+                font-size: 30px;
+            }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="offline-icon pulse">
+            📡
+        </div>
+        
+        <h1>You're Offline</h1>
+        
+        <p>
+            Don't worry! AI Scholar works offline too. You can still access your cached documents 
+            and continue your research while we wait for your connection to return.
+        </p>
+        
+        <div class="features-list">
+            <h3>Available Offline:</h3>
+            <ul>
+                <li>View cached documents and research</li>
+                <li>Browse your knowledge graph</li>
+                <li>Access saved conversations</li>
+                <li>Use offline search functionality</li>
+                <li>Continue reading and note-taking</li>
+            </ul>
+        </div>
+        
+        <div class="connection-status offline" id="connectionStatus">
+            🔴 No internet connection detected
+        </div>
+        
+        <div style="margin-top: 30px;">
+            <button class="retry-button" onclick="checkConnection()">
+                Check Connection
+            </button>
+            
+            <a href="/" class="retry-button">
+                Go to Home
+            </a>
+        </div>
+    </div>
+    
+    <script>
+        // Check connection status
+        function updateConnectionStatus() {
+            const statusElement = document.getElementById('connectionStatus');
+            
+            if (navigator.onLine) {
+                statusElement.className = 'connection-status online';
+                statusElement.innerHTML = '🟢 Connection restored! You can now sync your data.';
+                
+                // Show reload option
+                setTimeout(() => {
+                    if (confirm('Connection restored! Would you like to reload the page to sync your data?')) {
+                        window.location.reload();
+                    }
+                }, 1000);
+            } else {
+                statusElement.className = 'connection-status offline';
+                statusElement.innerHTML = '🔴 No internet connection detected';
+            }
+        }
+        
+        function checkConnection() {
+            updateConnectionStatus();
+            
+            // Try to fetch a small resource to verify connection
+            fetch('/api/health', { 
+                method: 'HEAD',
+                cache: 'no-cache'
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = '/';
+                }
+            })
+            .catch(() => {
+                // Still offline
+                updateConnectionStatus();
+            });
+        }
+        
+        // Listen for online/offline events
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // Initial status check
+        updateConnectionStatus();
+        
+        // Periodic connection check
+        setInterval(checkConnection, 30000); // Check every 30 seconds
+        
+        // Service worker registration check
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(registration => {
+                console.log('Service Worker is ready');
+            });
+        }
+        
+        // Handle back button
+        window.addEventListener('popstate', function(event) {
+            // Try to go back to the app
+            window.location.href = '/';
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'r' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                checkConnection();
+            }
+            
+            if (event.key === 'h' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                window.location.href = '/';
+            }
+        });
+    </script>
+</body>
+</html>
