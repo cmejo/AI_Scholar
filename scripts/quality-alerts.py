@@ -195,6 +195,10 @@ class QualityAlertsSystem:
         """Check for alert conditions based on metrics"""
         alerts = []
         overall = metrics.get('overall', {})
+        frontend = metrics.get('frontend', {})
+        backend = metrics.get('backend', {})
+        technical_debt = metrics.get('technicalDebt', {})
+        performance = metrics.get('performance', {})
         
         # Quality score alert
         quality_score = overall.get('qualityScore', 0)
@@ -248,9 +252,78 @@ class QualityAlertsSystem:
                 'recommendation': 'Review and fix security issues identified by Bandit and update vulnerable dependencies'
             })
         
+        # Technical debt alerts
+        debt_hours = technical_debt.get('estimatedHours', 0)
+        if debt_hours > 40:
+            alerts.append({
+                'type': 'technical_debt',
+                'severity': 'warning' if debt_hours < 80 else 'critical',
+                'title': 'High Technical Debt',
+                'message': f"Technical debt estimated at {debt_hours} hours",
+                'current_value': debt_hours,
+                'threshold': 40,
+                'recommendation': 'Prioritize refactoring and addressing TODO/FIXME items'
+            })
+        
+        # Performance alerts
+        build_time = performance.get('buildTime', 0)
+        if build_time > 120:  # 2 minutes
+            alerts.append({
+                'type': 'performance',
+                'severity': 'warning',
+                'title': 'Slow Build Time',
+                'message': f"Build time ({build_time:.1f}s) exceeds recommended threshold",
+                'current_value': build_time,
+                'threshold': 120,
+                'recommendation': 'Optimize build process and consider build caching'
+            })
+        
+        # Bundle size alert
+        bundle_size = frontend.get('bundle', {}).get('totalSize', 0)
+        if bundle_size > 2 * 1024 * 1024:  # 2MB
+            alerts.append({
+                'type': 'bundle_size',
+                'severity': 'warning',
+                'title': 'Large Bundle Size',
+                'message': f"Bundle size ({self._format_bytes(bundle_size)}) exceeds recommended threshold",
+                'current_value': bundle_size,
+                'threshold': 2 * 1024 * 1024,
+                'recommendation': 'Implement code splitting and tree shaking to reduce bundle size'
+            })
+        
+        # Complexity alerts
+        complexity_score = frontend.get('complexity', {}).get('complexityScore', 100)
+        if complexity_score < 70:
+            alerts.append({
+                'type': 'complexity',
+                'severity': 'warning',
+                'title': 'High Code Complexity',
+                'message': f"Code complexity score ({complexity_score}) indicates high complexity",
+                'current_value': complexity_score,
+                'threshold': 70,
+                'recommendation': 'Refactor complex functions and reduce cyclomatic complexity'
+            })
+        
+        # Maintainability alert
+        maintainability = overall.get('maintainabilityIndex', 100)
+        if maintainability < 70:
+            alerts.append({
+                'type': 'maintainability',
+                'severity': 'warning',
+                'title': 'Low Maintainability Index',
+                'message': f"Maintainability index ({maintainability}) is below recommended threshold",
+                'current_value': maintainability,
+                'threshold': 70,
+                'recommendation': 'Improve code structure, reduce complexity, and enhance documentation'
+            })
+        
         # Check for trend-based alerts
         trend_alerts = self._check_trend_alerts(metrics)
         alerts.extend(trend_alerts)
+        
+        # Check for regression alerts
+        regression_alerts = self._check_regression_alerts(metrics)
+        alerts.extend(regression_alerts)
         
         return alerts
     
@@ -293,6 +366,101 @@ class QualityAlertsSystem:
                 })
         
         return alerts
+    
+    def _check_regression_alerts(self, metrics: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Check for regression-based alerts"""
+        alerts = []
+        
+        # Load previous metrics for comparison
+        previous_metrics = self._load_previous_metrics()
+        if not previous_metrics:
+            return alerts
+        
+        current_overall = metrics.get('overall', {})
+        previous_overall = previous_metrics.get('overall', {})
+        
+        # Quality score regression
+        current_quality = current_overall.get('qualityScore', 0)
+        previous_quality = previous_overall.get('qualityScore', 0)
+        quality_regression = previous_quality - current_quality
+        
+        if quality_regression > 15:  # Significant regression
+            alerts.append({
+                'type': 'quality_regression',
+                'severity': 'critical',
+                'title': 'Quality Score Regression',
+                'message': f"Quality score dropped by {quality_regression:.1f} points since last measurement",
+                'current_value': current_quality,
+                'previous_value': previous_quality,
+                'recommendation': 'Investigate recent changes that caused quality degradation'
+            })
+        
+        # Coverage regression
+        current_coverage = current_overall.get('coverage', 0)
+        previous_coverage = previous_overall.get('coverage', 0)
+        coverage_regression = previous_coverage - current_coverage
+        
+        if coverage_regression > 10:  # Significant coverage drop
+            alerts.append({
+                'type': 'coverage_regression',
+                'severity': 'warning',
+                'title': 'Test Coverage Regression',
+                'message': f"Test coverage dropped by {coverage_regression:.1f}% since last measurement",
+                'current_value': current_coverage,
+                'previous_value': previous_coverage,
+                'recommendation': 'Add tests for new code and restore coverage levels'
+            })
+        
+        # Error increase
+        current_errors = current_overall.get('totalErrors', 0)
+        previous_errors = previous_overall.get('totalErrors', 0)
+        error_increase = current_errors - previous_errors
+        
+        if error_increase > 5:  # Significant error increase
+            alerts.append({
+                'type': 'error_increase',
+                'severity': 'critical',
+                'title': 'Error Count Increase',
+                'message': f"Error count increased by {error_increase} since last measurement",
+                'current_value': current_errors,
+                'previous_value': previous_errors,
+                'recommendation': 'Address new errors introduced in recent changes'
+            })
+        
+        return alerts
+    
+    def _load_previous_metrics(self) -> Optional[Dict[str, Any]]:
+        """Load the previous metrics for comparison"""
+        metrics_files = list(self.reports_dir.glob("quality-metrics-*.json"))
+        
+        if len(metrics_files) < 2:
+            return None
+        
+        # Get the second most recent file
+        sorted_files = sorted(metrics_files, key=lambda f: f.stat().st_mtime, reverse=True)
+        previous_file = sorted_files[1]
+        
+        try:
+            with open(previous_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"⚠️ Error loading previous metrics: {e}")
+            return None
+    
+    def _format_bytes(self, bytes_value: int) -> str:
+        """Format bytes to human readable format"""
+        if bytes_value == 0:
+            return "0 B"
+        
+        units = ['B', 'KB', 'MB', 'GB']
+        unit_index = 0
+        size = float(bytes_value)
+        
+        while size >= 1024 and unit_index < len(units) - 1:
+            size /= 1024
+            unit_index += 1
+        
+        return f"{size:.1f} {units[unit_index]}"
     
     def _send_alerts(self, alerts: List[Dict[str, Any]], metrics: Dict[str, Any]) -> None:
         """Send alerts through configured channels"""

@@ -1,6 +1,49 @@
-// Advanced Analytics and Insights Service
-import { AnalyticsData, QueryAnalytics, DocumentAnalytics, UserAnalytics, PerformanceMetrics, TrendData } from '../types';
+/**
+ * @fileoverview Advanced Analytics and Insights Service
+ * Provides comprehensive analytics tracking, reporting, and insights for the AI Scholar RAG chatbot.
+ * Tracks query performance, document usage, user behavior, and system metrics.
+ * 
+ * @author AI Scholar Team
+ * @version 1.0.0
+ * @since 2024-01-01
+ */
 
+import { AnalyticsData, DocumentAnalytics, PerformanceMetrics, QueryAnalytics, TrendData, UserAnalytics } from '../types';
+
+/**
+ * Advanced Analytics and Insights Service
+ * 
+ * This service provides comprehensive analytics capabilities including:
+ * - Query performance tracking and analysis
+ * - Document usage statistics and effectiveness metrics
+ * - User behavior insights and engagement tracking
+ * - System performance monitoring and trend analysis
+ * - Knowledge gap identification and recommendations
+ * 
+ * @class AnalyticsService
+ * @example
+ * ```typescript
+ * import { analyticsService } from './analyticsService';
+ * 
+ * // Log a query for analytics
+ * analyticsService.logQuery({
+ *   query: "What is machine learning?",
+ *   userId: "user123",
+ *   timestamp: new Date(),
+ *   responseTime: 1500,
+ *   success: true,
+ *   satisfaction: 0.85,
+ *   intent: "definition",
+ *   documentsUsed: ["doc1", "doc2"]
+ * });
+ * 
+ * // Get dashboard data
+ * const dashboardData = analyticsService.getDashboardData({
+ *   start: new Date('2024-01-01'),
+ *   end: new Date('2024-01-31')
+ * });
+ * ```
+ */
 export class AnalyticsService {
   private queryLogs: QueryAnalytics[] = [];
   private documentStats: Map<string, DocumentAnalytics> = new Map();
@@ -8,7 +51,37 @@ export class AnalyticsService {
   private performanceMetrics: PerformanceMetrics[] = [];
 
   /**
-   * Log query analytics
+   * Log query analytics data for tracking and analysis
+   * 
+   * Records comprehensive analytics data for each query including performance metrics,
+   * user satisfaction, document usage, and success indicators. This data is used for
+   * generating insights, identifying trends, and improving system performance.
+   * 
+   * @param {QueryAnalytics} analytics - Complete analytics data for the query
+   * @param {string} analytics.query - The user's query text
+   * @param {string} analytics.userId - Unique identifier for the user
+   * @param {Date} analytics.timestamp - When the query was made
+   * @param {number} analytics.responseTime - Response time in milliseconds
+   * @param {boolean} analytics.success - Whether the query was successful
+   * @param {number} analytics.satisfaction - User satisfaction score (0-1)
+   * @param {string} analytics.intent - Classified intent of the query
+   * @param {string[]} analytics.documentsUsed - Array of document IDs referenced
+   * 
+   * @returns {void}
+   * 
+   * @example
+   * ```typescript
+   * analyticsService.logQuery({
+   *   query: "How does neural network training work?",
+   *   userId: "user456",
+   *   timestamp: new Date(),
+   *   responseTime: 2300,
+   *   success: true,
+   *   satisfaction: 0.92,
+   *   intent: "explanation",
+   *   documentsUsed: ["ml_basics.pdf", "neural_networks.pdf"]
+   * });
+   * ```
    */
   logQuery(analytics: QueryAnalytics): void {
     this.queryLogs.push(analytics);
@@ -17,7 +90,33 @@ export class AnalyticsService {
   }
 
   /**
-   * Get comprehensive analytics dashboard data
+   * Get comprehensive analytics dashboard data for a specified time range
+   * 
+   * Retrieves and aggregates all analytics data including queries, documents, users,
+   * performance metrics, and trends for the specified time period. This data is
+   * optimized for dashboard visualization and reporting.
+   * 
+   * @param {Object} timeRange - Time range for analytics data
+   * @param {Date} timeRange.start - Start date for the analytics period
+   * @param {Date} timeRange.end - End date for the analytics period
+   * 
+   * @returns {AnalyticsData} Comprehensive analytics data including:
+   *   - queries: Array of query analytics within the time range
+   *   - documents: Document usage statistics and metrics
+   *   - users: User behavior and engagement metrics
+   *   - performance: System performance metrics
+   *   - trends: Trend analysis and patterns
+   * 
+   * @example
+   * ```typescript
+   * const lastMonth = analyticsService.getDashboardData({
+   *   start: new Date('2024-01-01'),
+   *   end: new Date('2024-01-31')
+   * });
+   * 
+   * console.log(`Total queries: ${lastMonth.queries.length}`);
+   * console.log(`Average response time: ${lastMonth.performance.averageResponseTime}ms`);
+   * ```
    */
   getDashboardData(timeRange: { start: Date; end: Date }): AnalyticsData {
     const filteredQueries = this.queryLogs.filter(

@@ -1,17 +1,10 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { AccessibilityFeatures } from './components/AccessibilityFeatures';
 import { AccessibilityToolbar } from './components/AccessibilityToolbar';
-import { AdvancedChatInterface } from './components/AdvancedChatInterface';
-import { EnhancedDocumentManager } from './components/EnhancedDocumentManager';
-import { EnterpriseAnalyticsDashboard } from './components/EnterpriseAnalyticsDashboard';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Header } from './components/Header';
-import { IntegrationHub } from './components/IntegrationHub';
-import { MemoryAwareChatInterface } from './components/MemoryAwareChatInterface';
-import { SecurityDashboard } from './components/SecurityDashboard';
 import { Sidebar } from './components/Sidebar';
 import VoiceInterface from './components/VoiceInterface';
-import { WorkflowManager } from './components/WorkflowManager';
-import { MobileLayout } from './components/mobile/MobileLayout';
 import { DocumentProvider } from './contexts/DocumentContext';
 import { EnhancedChatProvider } from './contexts/EnhancedChatContext';
 import { useMobileDetection } from './hooks/useMobileDetection';
@@ -19,6 +12,58 @@ import { accessibilityService } from './services/accessibilityService';
 import { analyticsService } from './services/analyticsService';
 import { memoryService } from './services/memoryService';
 import { securityService } from './services/securityService';
+import { globalErrorHandler } from './utils/globalErrorHandler';
+
+// Enhanced lazy loading with performance monitoring
+import PerformanceMonitor from './components/PerformanceMonitor';
+import { createMonitoredLazyComponent } from './utils/codeSplitting';
+
+const AdvancedChatInterface = createMonitoredLazyComponent(
+  () => import('./components/AdvancedChatInterface').then(module => ({ default: module.AdvancedChatInterface })),
+  'AdvancedChatInterface'
+);
+
+const EnhancedDocumentManager = createMonitoredLazyComponent(
+  () => import('./components/EnhancedDocumentManager').then(module => ({ default: module.EnhancedDocumentManager })),
+  'EnhancedDocumentManager'
+);
+
+const EnterpriseAnalyticsDashboard = createMonitoredLazyComponent(
+  () => import('./components/EnterpriseAnalyticsDashboard').then(module => ({ default: module.EnterpriseAnalyticsDashboard })),
+  'EnterpriseAnalyticsDashboard'
+);
+
+const SecurityDashboard = createMonitoredLazyComponent(
+  () => import('./components/SecurityDashboard').then(module => ({ default: module.SecurityDashboard })),
+  'SecurityDashboard'
+);
+
+const WorkflowManager = createMonitoredLazyComponent(
+  () => import('./components/WorkflowManager').then(module => ({ default: module.WorkflowManager })),
+  'WorkflowManager'
+);
+
+const IntegrationHub = createMonitoredLazyComponent(
+  () => import('./components/IntegrationHub').then(module => ({ default: module.IntegrationHub })),
+  'IntegrationHub'
+);
+
+const MemoryAwareChatInterface = createMonitoredLazyComponent(
+  () => import('./components/MemoryAwareChatInterface').then(module => ({ default: module.MemoryAwareChatInterface })),
+  'MemoryAwareChatInterface'
+);
+
+const MobileLayout = createMonitoredLazyComponent(
+  () => import('./components/mobile/MobileLayout').then(module => ({ default: module.MobileLayout })),
+  'MobileLayout'
+);
+
+// Loading component for Suspense fallback
+const ComponentLoader: React.FC = () => (
+  <div className="flex items-center justify-center h-full">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+  </div>
+);
 
 type ViewType = 'chat' | 'documents' | 'analytics' | 'security' | 'workflows' | 'integrations';
 
@@ -61,7 +106,7 @@ function App(): JSX.Element {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const initializeEnterpriseFeatures = async (): Promise<void> => {
+  const initializeEnterpriseFeatures = useCallback(async (): Promise<void> => {
     // Mock user authentication
     const mockUser = {
       id: 'user_admin',
@@ -86,9 +131,9 @@ function App(): JSX.Element {
       documentsUsed: [],
       success: true
     });
-  };
+  }, []);
 
-  const handleVoiceQuery = async (query: string): Promise<string> => {
+  const handleVoiceQuery = useCallback(async (query: string): Promise<string> => {
     // Process voice query through the RAG system
     // This would integrate with your existing chat system
     
@@ -117,14 +162,16 @@ function App(): JSX.Element {
     }
 
     return `I heard you ask: "${query}". This is a mock response from the voice interface. In production, this would be processed through your RAG system.`;
-  };
+  }, [user]);
 
-  const renderCurrentView = (): JSX.Element => {
+  const renderCurrentView = useMemo((): JSX.Element => {
     switch (currentView) {
       case 'chat':
         return (
           <div className="flex flex-col h-full">
-            <MemoryAwareChatInterface />
+            <Suspense fallback={<ComponentLoader />}>
+              <MemoryAwareChatInterface />
+            </Suspense>
             {voiceEnabled && (
               <div className="border-t border-gray-700 p-4">
                 <VoiceInterface
@@ -137,19 +184,49 @@ function App(): JSX.Element {
           </div>
         );
       case 'documents':
-        return <EnhancedDocumentManager />;
+        return (
+          <Suspense fallback={<ComponentLoader />}>
+            <EnhancedDocumentManager />
+          </Suspense>
+        );
       case 'analytics':
-        return <EnterpriseAnalyticsDashboard />;
+        return (
+          <Suspense fallback={<ComponentLoader />}>
+            <EnterpriseAnalyticsDashboard />
+          </Suspense>
+        );
       case 'security':
-        return <SecurityDashboard />;
+        return (
+          <Suspense fallback={<ComponentLoader />}>
+            <SecurityDashboard />
+          </Suspense>
+        );
       case 'workflows':
-        return <WorkflowManager />;
+        return (
+          <Suspense fallback={<ComponentLoader />}>
+            <WorkflowManager />
+          </Suspense>
+        );
       case 'integrations':
-        return <IntegrationHub />;
+        return (
+          <Suspense fallback={<ComponentLoader />}>
+            <IntegrationHub />
+          </Suspense>
+        );
       default:
-        return <AdvancedChatInterface />;
+        return (
+          <Suspense fallback={<ComponentLoader />}>
+            <AdvancedChatInterface />
+          </Suspense>
+        );
     }
-  };
+  }, [currentView, voiceEnabled, handleVoiceQuery]);
+
+  // Memoize view change handler to prevent unnecessary re-renders
+  const handleViewChange = useCallback((view: ViewType) => {
+    setCurrentView(view);
+    accessibilityService.announcePageChange(view);
+  }, []);
 
   // Use mobile layout for mobile and tablet devices
   if (isMobile || isTablet) {
@@ -158,24 +235,27 @@ function App(): JSX.Element {
         <DocumentProvider>
           <EnhancedChatProvider>
             <AccessibilityFeatures>
-              <MobileLayout
-                currentView={currentView}
-                onViewChange={(view) => {
-                  setCurrentView(view);
-                  accessibilityService.announcePageChange(view);
-                }}
-                user={user}
-                voiceEnabled={voiceEnabled}
-                onToggleVoice={setVoiceEnabled}
-              >
-                {renderCurrentView()}
-              </MobileLayout>
+              <Suspense fallback={<ComponentLoader />}>
+                <MobileLayout
+                  currentView={currentView}
+                  onViewChange={handleViewChange}
+                  user={user}
+                  voiceEnabled={voiceEnabled}
+                  onToggleVoice={setVoiceEnabled}
+                >
+                  {renderCurrentView}
+                </MobileLayout>
+              </Suspense>
             </AccessibilityFeatures>
           </EnhancedChatProvider>
         </DocumentProvider>
       </ErrorBoundary>
     );
   }
+
+  // Memoize sidebar handlers to prevent unnecessary re-renders
+  const handleToggleSidebar = useCallback(() => setSidebarOpen(!sidebarOpen), [sidebarOpen]);
+  const handleCloseSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // Desktop layout
   return (
@@ -186,12 +266,9 @@ function App(): JSX.Element {
             <div className="h-screen bg-gray-900 text-white flex overflow-hidden">
               <Sidebar 
                 isOpen={sidebarOpen} 
-                onClose={() => setSidebarOpen(false)}
+                onClose={handleCloseSidebar}
                 currentView={currentView}
-                onViewChange={(view) => {
-                  setCurrentView(view);
-                  accessibilityService.announcePageChange(view);
-                }}
+                onViewChange={handleViewChange}
                 user={user}
                 voiceEnabled={voiceEnabled}
                 onToggleVoice={setVoiceEnabled}
@@ -199,7 +276,7 @@ function App(): JSX.Element {
               
               <div className="flex-1 flex flex-col">
                 <Header 
-                  onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                  onToggleSidebar={handleToggleSidebar}
                   currentView={currentView}
                   user={user}
                 />
@@ -211,12 +288,19 @@ function App(): JSX.Element {
                   aria-label="Main application content"
                   tabIndex={-1}
                 >
-                  {renderCurrentView()}
+                  {renderCurrentView}
                 </main>
               </div>
               
               {/* Accessibility Toolbar */}
               <AccessibilityToolbar />
+              
+              {/* Performance Monitor (development only) */}
+              <PerformanceMonitor 
+                componentName="App"
+                enabled={typeof window !== 'undefined' && window.location.hostname === 'localhost'}
+                threshold={16}
+              />
             </div>
           </AccessibilityFeatures>
         </EnhancedChatProvider>

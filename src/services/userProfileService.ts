@@ -1,6 +1,21 @@
-// User Profile and Session Persistence Service
-import { User, ConversationMemory, UserPreferences } from '../types';
+/**
+ * @fileoverview User Profile and Session Persistence Service
+ * Manages user profiles, session data, and conversation history with comprehensive
+ * persistence and retrieval capabilities for the AI Scholar application.
+ * 
+ * @author AI Scholar Team
+ * @version 1.0.0
+ * @since 2024-01-01
+ */
 
+import { User, UserPreferences } from '../types';
+
+/**
+ * User session interface
+ * Represents an active user session with conversation history and context
+ * 
+ * @interface UserSession
+ */
 export interface UserSession {
   id: string;
   userId: string;

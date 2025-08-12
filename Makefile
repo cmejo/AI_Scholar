@@ -180,6 +180,10 @@ quality-metrics-backend:
 	@echo "🐍 Collecting backend-specific quality metrics..."
 	npm run quality:metrics:backend
 
+quality-metrics-comprehensive:
+	@echo "🎯 Collecting comprehensive quality metrics with trends..."
+	npm run quality:metrics:comprehensive
+
 quality-dashboard:
 	@echo "📊 Generating interactive quality dashboard..."
 	npm run quality:dashboard
@@ -195,6 +199,18 @@ quality-alerts:
 quality-monitor:
 	@echo "👁️ Running complete quality monitoring with alerts..."
 	npm run quality:monitor
+
+quality-trends:
+	@echo "📈 Running quality trends analysis with comprehensive reporting..."
+	npm run quality:trends
+
+quality-config-validate:
+	@echo "🔍 Validating quality configuration..."
+	npm run quality:config:validate
+
+quality-monitor-complete:
+	@echo "🚀 Running complete quality monitoring pipeline..."
+	npm run quality:monitor:complete
 
 # Clean quality reports
 clean-reports:

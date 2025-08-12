@@ -11,6 +11,9 @@ env:
   PYTHON_VERSION: '3.11'
   COVERAGE_THRESHOLD: 80
   QUALITY_GATE_ENABLED: true
+  MAX_ESLINT_WARNINGS: 10
+  MAX_BUNDLE_SIZE_MB: 5
+  MAX_BUILD_TIME_MINUTES: 10
 
 jobs:
   frontend-quality:
@@ -92,7 +95,15 @@ jobs:
           npm run lint  # Show detailed output
           exit 1
         else
-          echo "✅ ESLint quality gate passed"
+          echo "✅ ESLint quality gate passed - no errors"
+        fi
+        
+        # Quality gate: warn if too many warnings
+        if [ "$warning_count" -gt "$MAX_ESLINT_WARNINGS" ]; then
+          echo "⚠️ ESLint warning threshold exceeded: $warning_count > $MAX_ESLINT_WARNINGS"
+          echo "Consider addressing these warnings to improve code quality"
+        else
+          echo "✅ ESLint warnings within acceptable range: $warning_count <= $MAX_ESLINT_WARNINGS"
         fi
       
     - name: Install required tools
@@ -132,6 +143,28 @@ jobs:
           eslint-report.json
           typescript-output.log
           coverage/
+        
+    - name: Check bundle size quality gate
+      run: |
+        echo "Checking bundle size quality gate..."
+        if npm run build 2>/dev/null; then
+          if [ -d "dist" ]; then
+            # Get bundle size in MB
+            bundle_size_bytes=$(du -sb dist | cut -f1)
+            bundle_size_mb=$(echo "scale=2; $bundle_size_bytes / 1024 / 1024" | bc)
+            
+            echo "Bundle size: ${bundle_size_mb}MB"
+            echo "bundle-size-mb=$bundle_size_mb" >> $GITHUB_OUTPUT
+            
+            # Quality gate: check bundle size
+            if (( $(echo "$bundle_size_mb > $MAX_BUNDLE_SIZE_MB" | bc -l) )); then
+              echo "⚠️ Bundle size quality gate warning: ${bundle_size_mb}MB > ${MAX_BUNDLE_SIZE_MB}MB"
+              echo "Consider optimizing bundle size"
+            else
+              echo "✅ Bundle size quality gate passed: ${bundle_size_mb}MB <= ${MAX_BUNDLE_SIZE_MB}MB"
+            fi
+          fi
+        fi
         
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
@@ -403,14 +436,20 @@ jobs:
         frontend_coverage="${{ needs.frontend-quality.outputs.coverage }}"
         backend_coverage="${{ needs.backend-quality.outputs.coverage }}"
         eslint_errors="${{ needs.frontend-quality.outputs.eslint-errors }}"
+        eslint_warnings="${{ needs.frontend-quality.outputs.warnings }}"
         type_errors="${{ needs.frontend-quality.outputs.type-errors }}"
         security_issues="${{ needs.backend-quality.outputs.security-issues }}"
+        backend_lint_errors="${{ needs.backend-quality.outputs.lint-errors }}"
+        backend_type_errors="${{ needs.backend-quality.outputs.type-errors }}"
         
         echo "📊 Quality Metrics Summary:"
         echo "├── Frontend Coverage: ${frontend_coverage}%"
         echo "├── Backend Coverage: ${backend_coverage}%"
         echo "├── ESLint Errors: ${eslint_errors}"
+        echo "├── ESLint Warnings: ${eslint_warnings}"
         echo "├── TypeScript Errors: ${type_errors}"
+        echo "├── Backend Lint Errors: ${backend_lint_errors}"
+        echo "├── Backend Type Errors: ${backend_type_errors}"
         echo "└── Security Issues: ${security_issues}"
         echo ""
         
@@ -447,6 +486,21 @@ jobs:
         if [[ "$type_errors" != "0" ]]; then
           echo "❌ TypeScript errors found: $type_errors"
           overall_status="failure"
+        fi
+        
+        if [[ "$backend_lint_errors" != "0" ]]; then
+          echo "❌ Backend lint errors found: $backend_lint_errors"
+          overall_status="failure"
+        fi
+        
+        if [[ "$backend_type_errors" != "0" ]]; then
+          echo "❌ Backend type errors found: $backend_type_errors"
+          overall_status="failure"
+        fi
+        
+        # Warning thresholds (don't fail build but report)
+        if [[ -n "$eslint_warnings" && "$eslint_warnings" -gt "$MAX_ESLINT_WARNINGS" ]]; then
+          echo "⚠️ ESLint warnings exceed threshold: $eslint_warnings > $MAX_ESLINT_WARNINGS"
         fi
         
         # Calculate overall coverage
@@ -535,5 +589,24 @@ jobs:
           exit 0
         else
           echo "💥 Quality gates failed! Please fix the issues before merging."
+          exit 1
+        fi
+
+  # This job is required for branch protection rules
+  quality-gate-status:
+    runs-on: ubuntu-latest
+    name: Quality Gate Status Check
+    needs: [quality-gate]
+    if: always()
+    
+    steps:
+    - name: Check quality gate status
+      run: |
+        if [[ "${{ needs.quality-gate.result }}" == "success" ]]; then
+          echo "✅ All quality gates passed - ready for merge"
+          exit 0
+        else
+          echo "❌ Quality gates failed - merge blocked"
+          echo "Please fix the quality issues before merging this PR"
           exit 1
         fi

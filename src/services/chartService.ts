@@ -1,63 +1,152 @@
 /**
- * Chart Service for rendering interactive analytics charts
+ * @fileoverview Chart Service for rendering interactive analytics charts
+ * Provides comprehensive charting capabilities using HTML5 Canvas for data visualization.
+ * Supports multiple chart types including line, bar, pie, doughnut, and area charts.
+ * 
+ * @author AI Scholar Team
+ * @version 1.0.0
+ * @since 2024-01-01
  */
 
 import { ChartInstance, ChartStats } from '../types/api';
 
+/**
+ * Represents a single data point in a chart
+ * @interface ChartDataPoint
+ */
 export interface ChartDataPoint {
+  /** X-axis value (numeric or string) */
   x: number | string;
+  /** Y-axis value (numeric) */
   y: number;
+  /** Optional label for the data point */
   label?: string;
 }
 
+/**
+ * Represents a dataset for chart rendering
+ * @interface ChartDataset
+ */
 export interface ChartDataset {
+  /** Display label for the dataset */
   label: string;
+  /** Array of data values or data points */
   data: number[] | ChartDataPoint[];
+  /** Background color(s) for the dataset */
   backgroundColor?: string | string[];
+  /** Border color for the dataset */
   borderColor?: string;
+  /** Border width in pixels */
   borderWidth?: number;
+  /** Whether to fill the area under the line (for line/area charts) */
   fill?: boolean;
 }
 
+/**
+ * Complete configuration object for chart rendering
+ * @interface ChartConfiguration
+ */
 export interface ChartConfiguration {
+  /** Type of chart to render */
   type: 'line' | 'bar' | 'pie' | 'doughnut' | 'area' | 'scatter';
+  /** Chart data including labels and datasets */
   data: {
+    /** Labels for the x-axis or legend */
     labels: string[];
+    /** Array of datasets to render */
     datasets: ChartDataset[];
   };
+  /** Optional chart configuration options */
   options?: {
+    /** Whether the chart should be responsive */
     responsive?: boolean;
+    /** Whether to maintain aspect ratio when resizing */
     maintainAspectRatio?: boolean;
+    /** Whether to animate chart rendering */
     animation?: boolean;
+    /** Legend configuration */
     legend?: {
+      /** Whether to display the legend */
       display: boolean;
+      /** Position of the legend */
       position: 'top' | 'bottom' | 'left' | 'right';
     };
+    /** Tooltip configuration */
     tooltip?: {
+      /** Whether tooltips are enabled */
       enabled: boolean;
+      /** Background color of tooltips */
       backgroundColor?: string;
+      /** Title text color */
       titleColor?: string;
+      /** Body text color */
       bodyColor?: string;
     };
+    /** Axis scaling configuration */
     scales?: {
+      /** X-axis configuration */
       x?: {
+        /** Whether to display the x-axis */
         display: boolean;
+        /** Grid line configuration */
         grid?: { display: boolean; color?: string };
+        /** Tick mark configuration */
         ticks?: { color?: string };
       };
+      /** Y-axis configuration */
       y?: {
+        /** Whether to display the y-axis */
         display: boolean;
+        /** Grid line configuration */
         grid?: { display: boolean; color?: string };
+        /** Tick mark configuration */
         ticks?: { color?: string };
       };
     };
   };
 }
 
+/**
+ * Chart Service for rendering interactive analytics charts
+ * 
+ * Provides comprehensive charting capabilities using HTML5 Canvas API.
+ * Implements singleton pattern to manage chart instances efficiently.
+ * Supports multiple chart types with customizable styling and animations.
+ * 
+ * @class ChartService
+ * @example
+ * ```typescript
+ * import { chartService } from './chartService';
+ * 
+ * // Render a line chart
+ * chartService.renderChart('myChart', {
+ *   type: 'line',
+ *   data: {
+ *     labels: ['Jan', 'Feb', 'Mar'],
+ *     datasets: [{
+ *       label: 'Sales',
+ *       data: [100, 150, 200],
+ *       borderColor: '#3B82F6'
+ *     }]
+ *   }
+ * });
+ * 
+ * // Export chart as image
+ * const imageData = chartService.exportChart('myChart', 'png');
+ * ```
+ */
 export class ChartService {
+  /** Singleton instance */
   private static instance: ChartService;
+  /** Map of active chart instances */
   private chartInstances: Map<string, ChartInstance> = new Map();
 
+  /**
+   * Get singleton instance of ChartService
+   * 
+   * @returns {ChartService} The singleton ChartService instance
+   * @static
+   */
   static getInstance(): ChartService {
     if (!ChartService.instance) {
       ChartService.instance = new ChartService();

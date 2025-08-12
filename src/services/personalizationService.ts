@@ -1,5 +1,19 @@
-// Personalization Service for managing user preferences and personalization data
+/**
+ * @fileoverview Personalization Service for managing user preferences and personalization data
+ * Provides comprehensive user personalization capabilities including preferences management,
+ * domain expertise tracking, and adaptive learning insights.
+ * 
+ * @author AI Scholar Team
+ * @version 1.0.0
+ * @since 2024-01-01
+ */
 
+/**
+ * User preferences configuration interface
+ * Defines all customizable user settings for the application experience
+ * 
+ * @interface UserPreferences
+ */
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'auto';
   language: string;
@@ -15,67 +29,172 @@ export interface UserPreferences {
   enableAdaptiveRetrieval: boolean;
 }
 
+/**
+ * Domain expertise mapping interface
+ * Maps domain names to expertise levels (0-1 scale)
+ * 
+ * @interface DomainExpertise
+ */
 export interface DomainExpertise {
+  /** Domain name mapped to expertise level (0-1) */
   [domain: string]: number;
 }
 
+/**
+ * Personalization statistics interface
+ * Provides comprehensive metrics about personalization effectiveness
+ * 
+ * @interface PersonalizationStats
+ */
 export interface PersonalizationStats {
+  /** Total number of searches performed */
   totalSearches: number;
+  /** Number of searches that used personalization */
   personalizedSearches: number;
+  /** Percentage of searches that were personalized (0-1) */
   personalizationRate: number;
+  /** Top domains by search frequency */
   topDomains: { [domain: string]: number };
+  /** Average number of results returned per search */
   avgResultsPerSearch: number;
+  /** Average user satisfaction score (0-1) */
   avgSatisfaction?: number;
+  /** Trend in user satisfaction over time */
   satisfactionTrend?: 'improving' | 'stable' | 'declining';
+  /** Number of days covered by these statistics */
   periodDays: number;
 }
 
+/**
+ * User feedback history interface
+ * Tracks user feedback for personalization improvement
+ * 
+ * @interface FeedbackHistory
+ */
 export interface FeedbackHistory {
+  /** Unique feedback identifier */
   id: string;
+  /** ISO timestamp when feedback was given */
   timestamp: string;
+  /** Type of feedback (rating, comment, etc.) */
   feedbackType: string;
+  /** Numerical rating (1-5 scale) */
   rating?: number;
+  /** Optional text comment */
   comment?: string;
+  /** Whether feedback has been processed for personalization */
   processed: boolean;
+  /** Associated message ID if applicable */
   messageId?: string;
 }
 
+/**
+ * Learning insights interface
+ * Provides analytics about user learning patterns and progress
+ * 
+ * @interface LearningInsights
+ */
 export interface LearningInsights {
+  /** Total number of queries made by user */
   totalQueries: number;
+  /** List of user's most frequently queried topics */
   favoriteTopics: string[];
+  /** Average session duration in minutes */
   averageSessionLength: number;
+  /** User's preferred response style */
   preferredResponseStyle: string;
+  /** Monthly learning progress data */
   learningProgress: Array<{
+    /** Month identifier (YYYY-MM) */
     month: string;
+    /** Number of queries in that month */
     queries: number;
+    /** Number of unique topics explored */
     uniqueTopics: number;
+    /** Engagement score (0-1) */
     engagement: number;
   }>;
 }
 
+/**
+ * Personalization effectiveness metrics interface
+ * Compares performance before and after personalization implementation
+ * 
+ * @interface PersonalizationEffectiveness
+ */
 export interface PersonalizationEffectiveness {
+  /** Metrics before personalization was enabled */
   beforePersonalization: {
+    /** Average user satisfaction score (0-1) */
     avgSatisfaction: number;
+    /** Average response time in milliseconds */
     avgResponseTime: number;
+    /** Average relevance score (0-1) */
     avgRelevance: number;
   };
+  /** Metrics after personalization was enabled */
   afterPersonalization: {
+    /** Average user satisfaction score (0-1) */
     avgSatisfaction: number;
+    /** Average response time in milliseconds */
     avgResponseTime: number;
+    /** Average relevance score (0-1) */
     avgRelevance: number;
   };
+  /** Calculated improvements */
   improvement: {
+    /** Improvement in satisfaction (percentage) */
     satisfactionImprovement: number;
+    /** Improvement in response time (percentage) */
     responseTimeImprovement: number;
+    /** Improvement in relevance (percentage) */
     relevanceImprovement: number;
   };
 }
 
+/**
+ * Personalization Service
+ * 
+ * Manages user preferences, domain expertise tracking, and adaptive learning.
+ * Provides comprehensive personalization capabilities to enhance user experience
+ * through intelligent adaptation to user behavior and preferences.
+ * 
+ * @class PersonalizationService
+ * @example
+ * ```typescript
+ * import { personalizationService } from './personalizationService';
+ * 
+ * // Get user preferences
+ * const preferences = await personalizationService.getUserPreferences('user123');
+ * 
+ * // Update preferences
+ * await personalizationService.updateUserPreferences('user123', {
+ *   theme: 'dark',
+ *   responseLength: 'detailed'
+ * });
+ * 
+ * // Get personalization stats
+ * const stats = await personalizationService.getPersonalizationStats('user123');
+ * ```
+ */
 class PersonalizationService {
+  /** Base URL for API endpoints */
   private baseUrl = '/api';
 
   /**
    * Get user preferences
+   * 
+   * Retrieves the current preferences for a specific user, including theme,
+   * language, response style, and other customization options.
+   * 
+   * @param {string} userId - Unique identifier for the user
+   * @returns {Promise<UserPreferences>} User's current preferences
+   * 
+   * @example
+   * ```typescript
+   * const preferences = await personalizationService.getUserPreferences('user123');
+   * console.log(preferences.theme); // 'dark' | 'light' | 'auto'
+   * ```
    */
   async getUserPreferences(userId: string): Promise<UserPreferences> {
     try {

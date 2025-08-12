@@ -1,6 +1,11 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+// Import custom matchers
+import './utils/customMatchers';
+
+// Import enhanced test utilities
+
 // Extend global types for test mocks
 declare global {
   interface GlobalThis {
@@ -64,6 +69,8 @@ Object.defineProperty(window, 'sessionStorage', {
   value: sessionStorageMock
 });
 
+// Enhanced test utilities are available for import in individual test files
+
 // Reset all mocks before each test
 import { beforeEach } from 'vitest';
 
@@ -77,6 +84,12 @@ beforeEach(() => {
   sessionStorageMock.setItem.mockClear();
   sessionStorageMock.removeItem.mockClear();
   sessionStorageMock.clear.mockClear();
+  
+  // Reset performance metrics
+  if (typeof performance !== 'undefined' && performance.clearMarks) {
+    performance.clearMarks();
+    performance.clearMeasures();
+  }
 });
 
 // Additional mock for window.matchMedia (duplicate removed)

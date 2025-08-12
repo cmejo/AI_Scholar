@@ -1,0 +1,79 @@
+# Quality Gates Configuration
+# This file defines the quality thresholds and rules for the CI/CD pipeline
+
+quality_gates:
+  # Coverage thresholds
+  coverage:
+    frontend_minimum: 80
+    backend_minimum: 80
+    overall_minimum: 80
+    
+  # Error thresholds (hard limits - build fails if exceeded)
+  errors:
+    eslint_max: 0
+    typescript_max: 0
+    flake8_max: 0
+    mypy_max: 0
+    security_high_max: 0
+    
+  # Warning thresholds (soft limits - build passes but warnings shown)
+  warnings:
+    eslint_max: 10
+    security_medium_max: 5
+    security_low_max: 20
+    
+  # Performance thresholds
+  performance:
+    bundle_size_mb_max: 5
+    build_time_minutes_max: 10
+    test_time_minutes_max: 5
+    
+  # Code quality metrics
+  code_quality:
+    complexity_max: 10
+    duplication_percent_max: 5
+    maintainability_min: 70
+
+# Required status checks for branch protection
+required_checks:
+  - "Quality Gate Status Check"
+  - "Frontend Quality Checks" 
+  - "Backend Quality Checks"
+  - "Integration Tests"
+
+# Notification settings
+notifications:
+  slack_webhook: ""  # Set this to enable Slack notifications
+  email_recipients: []  # List of email addresses for notifications
+  
+# Quality gate enforcement levels
+enforcement:
+  # strict: All quality gates must pass (recommended for production)
+  # moderate: Critical errors block merge, warnings allowed
+  # lenient: Only critical security issues block merge
+  level: "strict"
+  
+  # Allow bypassing quality gates for emergency fixes
+  emergency_bypass: false
+  
+  # Require manual approval for quality gate failures
+  require_manual_approval: true
+
+# Custom rules for specific file patterns
+file_patterns:
+  # More lenient rules for test files
+  "**/*.test.ts":
+    eslint_warnings_max: 20
+    complexity_max: 15
+    
+  # Stricter rules for core business logic
+  "src/core/**/*.ts":
+    eslint_warnings_max: 0
+    complexity_max: 8
+    coverage_min: 90
+    
+  # Legacy code with relaxed rules (temporary)
+  "src/legacy/**/*.ts":
+    eslint_warnings_max: 50
+    complexity_max: 20
+    coverage_min: 60

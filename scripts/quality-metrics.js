@@ -12,9 +12,13 @@
  * - Maintainability metrics
  */
 
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Configuration
 const CONFIG = {
@@ -72,10 +76,13 @@ class QualityMetricsCollector {
             await this.calculateOverallMetrics();
             await this.analyzeQualityTrends();
             await this.generateAlerts();
+            await this.checkQualityThresholds();
             await this.saveMetrics();
             await this.generateReports();
+            await this.updateMetricsTrends();
             
             this.log('✅ Quality metrics collection completed successfully!', 'green');
+            this.displayMetricsSummary();
         } catch (error) {
             this.log(`❌ Error collecting metrics: ${error.message}`, 'red');
             throw error;
@@ -635,11 +642,141 @@ ${this.generateRecommendations()}
 `;
     }
 
+    async checkQualityThresholds() {
+        this.log('🎯 Checking quality thresholds...', 'blue');
+        
+        const { overall, frontend, backend } = this.metrics;
+        const thresholds = CONFIG.thresholds;
+        
+        // Check overall quality score
+        if (overall.qualityScore < thresholds.quality_score.warning) {
+            this.metrics.alerts.push({
+                type: 'quality_score',
+                severity: overall.qualityScore < thresholds.quality_score.critical ? 'critical' : 'warning',
+                message: `Quality score (${overall.qualityScore}) below threshold`,
+                threshold: thresholds.quality_score.warning,
+                recommendation: 'Address errors, improve coverage, and fix security issues'
+            });
+        }
+        
+        // Check coverage thresholds
+        if (overall.coverage < thresholds.coverage.statements) {
+            this.metrics.alerts.push({
+                type: 'coverage',
+                severity: 'warning',
+                message: `Overall coverage (${overall.coverage.toFixed(1)}%) below threshold (${thresholds.coverage.statements}%)`,
+                threshold: thresholds.coverage.statements,
+                recommendation: 'Add more unit tests to improve coverage'
+            });
+        }
+        
+        // Check complexity thresholds
+        if (frontend.complexity?.complexityScore < 70) {
+            this.metrics.alerts.push({
+                type: 'complexity',
+                severity: 'warning',
+                message: `Code complexity score (${frontend.complexity.complexityScore}) indicates high complexity`,
+                threshold: 70,
+                recommendation: 'Refactor complex functions and reduce cyclomatic complexity'
+            });
+        }
+        
+        // Check bundle size threshold
+        if (frontend.bundle?.totalSize > CONFIG.thresholds.performance.max_bundle_size_mb * 1024 * 1024) {
+            this.metrics.alerts.push({
+                type: 'bundle_size',
+                severity: 'warning',
+                message: `Bundle size (${frontend.bundle.totalSizeFormatted}) exceeds threshold (${CONFIG.thresholds.performance.max_bundle_size_mb}MB)`,
+                threshold: CONFIG.thresholds.performance.max_bundle_size_mb,
+                recommendation: 'Optimize bundle size through code splitting and tree shaking'
+            });
+        }
+        
+        this.log(`✅ Quality thresholds checked - ${this.metrics.alerts.length} alerts generated`, 'green');
+    }
+
+    async updateMetricsTrends() {
+        this.log('📈 Updating metrics trends database...', 'blue');
+        
+        const trendsFile = path.join(CONFIG.outputDir, 'quality-trends-detailed.json');
+        let detailedTrends = [];
+        
+        if (fs.existsSync(trendsFile)) {
+            try {
+                detailedTrends = JSON.parse(fs.readFileSync(trendsFile, 'utf8'));
+            } catch (error) {
+                this.log('⚠️ Could not read detailed trends data', 'yellow');
+            }
+        }
+        
+        // Add current detailed metrics to trends
+        const currentTrend = {
+            timestamp: this.metrics.timestamp,
+            overall: this.metrics.overall,
+            frontend: {
+                eslintErrors: this.metrics.frontend.eslint?.errorCount || 0,
+                eslintWarnings: this.metrics.frontend.eslint?.warningCount || 0,
+                typescriptErrors: this.metrics.frontend.typescript?.errors || 0,
+                coverage: this.metrics.frontend.coverage?.statements || 0,
+                bundleSize: this.metrics.frontend.bundle?.totalSize || 0,
+                complexityScore: this.metrics.frontend.complexity?.complexityScore || 0
+            },
+            backend: {
+                flake8Issues: this.metrics.backend.flake8?.totalIssues || 0,
+                mypyErrors: this.metrics.backend.mypy?.errors || 0,
+                coverage: this.metrics.backend.coverage?.statements || 0,
+                securityIssues: this.metrics.backend.security?.totalIssues || 0,
+                highSeverityIssues: this.metrics.backend.security?.highSeverity || 0
+            },
+            alertsCount: this.metrics.alerts.length
+        };
+        
+        detailedTrends.push(currentTrend);
+        
+        // Keep only last 50 entries for detailed trends
+        if (detailedTrends.length > 50) {
+            detailedTrends = detailedTrends.slice(-50);
+        }
+        
+        // Save detailed trends
+        fs.writeFileSync(trendsFile, JSON.stringify(detailedTrends, null, 2));
+        
+        this.log('✅ Metrics trends updated', 'green');
+    }
+
+    displayMetricsSummary() {
+        const { overall, alerts } = this.metrics;
+        
+        console.log('\n' + '='.repeat(60));
+        console.log('📊 QUALITY METRICS SUMMARY');
+        console.log('='.repeat(60));
+        console.log(`🎯 Quality Score: ${overall.qualityScore}/100`);
+        console.log(`🧪 Test Coverage: ${overall.coverage.toFixed(1)}%`);
+        console.log(`🐛 Total Errors: ${overall.totalErrors}`);
+        console.log(`🔒 Security Score: ${overall.securityScore}/100`);
+        console.log(`🔧 Maintainability: ${overall.maintainabilityIndex}/100`);
+        console.log(`🚨 Active Alerts: ${alerts.length}`);
+        console.log('='.repeat(60));
+        
+        if (alerts.length > 0) {
+            console.log('\n🚨 QUALITY ALERTS:');
+            alerts.forEach((alert, index) => {
+                const icon = alert.severity === 'critical' ? '🔴' : alert.severity === 'warning' ? '🟡' : '🔵';
+                console.log(`${icon} ${index + 1}. ${alert.message}`);
+            });
+        } else {
+            console.log('\n✅ No quality alerts - all metrics within thresholds!');
+        }
+        
+        console.log('\n📁 Reports saved to:', CONFIG.outputDir);
+        console.log('');
+    }
+
     generateRecommendations() {
         const recommendations = [];
         const { overall, frontend, backend } = this.metrics;
         
-        if (overall.coverage < CONFIG.thresholds.coverage) {
+        if (overall.coverage < CONFIG.thresholds.coverage.statements) {
             recommendations.push('📝 **Improve Test Coverage:** Add unit tests to reach the target coverage threshold');
         }
         
@@ -653,6 +790,18 @@ ${this.generateRecommendations()}
         
         if (frontend.bundle?.totalSize > 2000000) { // 2MB
             recommendations.push('📦 **Optimize Bundle Size:** Consider code splitting and tree shaking');
+        }
+        
+        if (frontend.complexity?.complexityScore < 70) {
+            recommendations.push('🧠 **Reduce Complexity:** Refactor complex functions and improve code structure');
+        }
+        
+        if (backend.security?.highSeverity > 0) {
+            recommendations.push('🚨 **Critical Security:** Address high-severity security issues immediately');
+        }
+        
+        if (overall.maintainabilityIndex < CONFIG.thresholds.complexity.maintainability_min) {
+            recommendations.push('🔧 **Improve Maintainability:** Refactor code to improve readability and structure');
         }
         
         if (recommendations.length === 0) {
@@ -693,8 +842,8 @@ async function main() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (process.argv[1] && process.argv[1].endsWith('quality-metrics.js')) {
     main();
 }
 
-module.exports = { QualityMetricsCollector, CONFIG };
+export { CONFIG, QualityMetricsCollector };
