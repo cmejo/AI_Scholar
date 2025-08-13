@@ -1,0 +1,286 @@
+# Backup service for AI Scholar application
+FROM python:3.12-bookworm-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    postgresql-client-16 \
+    curl \
+    cron \
+    awscli \
+    rsync \
+    gzip \
+    tar \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Install Python dependencies for backup operations
+RUN pip install --no-cache-dir \
+    boto3==1.34.0 \
+    psycopg2-binary==2.9.9 \
+    python-dotenv==1.0.0 \
+    schedule==1.2.0
+
+# Create backup user
+RUN groupadd -r backup && useradd -r -g backup -d /backup -s /bin/bash backup
+
+# Set working directory
+WORKDIR /backup
+
+# Create backup script
+COPY <<EOF /backup/backup.py
+#!/usr/bin/env python3
+import os
+import sys
+import subprocess
+import datetime
+import logging
+import boto3
+from pathlib import Path
+import schedule
+import time
+import gzip
+import shutil
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('/backup/logs/backup.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+class BackupManager:
+    def __init__(self):
+        self.postgres_host = os.getenv('POSTGRES_HOST', 'postgres')
+        self.postgres_db = os.getenv('POSTGRES_DB', 'ai_scholar_db')
+        self.postgres_user = os.getenv('POSTGRES_USER', 'ai_scholar_user')
+        self.postgres_password = os.getenv('POSTGRES_PASSWORD')
+        self.backup_retention_days = int(os.getenv('BACKUP_RETENTION_DAYS', '30'))
+        self.s3_bucket = os.getenv('S3_BUCKET')
+        self.backup_dir = Path('/backups')
+        self.backup_dir.mkdir(exist_ok=True)
+        
+        # Initialize S3 client if configured
+        self.s3_client = None
+        if self.s3_bucket:
+            try:
+                self.s3_client = boto3.client('s3')
+                logging.info("S3 backup configured")
+            except Exception as e:
+                logging.error(f"Failed to initialize S3 client: {e}")
+
+    def create_postgres_backup(self):
+        """Create PostgreSQL database backup"""
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_file = self.backup_dir / f"postgres_backup_{timestamp}.sql"
+        
+        try:
+            # Set password for pg_dump
+            env = os.environ.copy()
+            env['PGPASSWORD'] = self.postgres_password
+            
+            # Create database backup
+            cmd = [
+                'pg_dump',
+                '-h', self.postgres_host,
+                '-U', self.postgres_user,
+                '-d', self.postgres_db,
+                '--verbose',
+                '--no-password',
+                '--format=custom',
+                '--compress=9'
+            ]
+            
+            with open(backup_file, 'wb') as f:
+                result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, env=env)
+            
+            if result.returncode == 0:
+                # Compress the backup
+                compressed_file = f"{backup_file}.gz"
+                with open(backup_file, 'rb') as f_in:
+                    with gzip.open(compressed_file, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                
+                # Remove uncompressed file
+                backup_file.unlink()
+                
+                logging.info(f"PostgreSQL backup created: {compressed_file}")
+                return compressed_file
+            else:
+                logging.error(f"PostgreSQL backup failed: {result.stderr.decode()}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error creating PostgreSQL backup: {e}")
+            return None
+
+    def backup_uploads(self):
+        """Backup uploaded files"""
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_file = self.backup_dir / f"uploads_backup_{timestamp}.tar.gz"
+        uploads_dir = Path('/app/uploads')
+        
+        if not uploads_dir.exists():
+            logging.warning("Uploads directory not found, skipping")
+            return None
+        
+        try:
+            cmd = [
+                'tar', '-czf', str(backup_file),
+                '-C', str(uploads_dir.parent),
+                uploads_dir.name
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                logging.info(f"Uploads backup created: {backup_file}")
+                return backup_file
+            else:
+                logging.error(f"Uploads backup failed: {result.stderr}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error creating uploads backup: {e}")
+            return None
+
+    def backup_chroma(self):
+        """Backup ChromaDB data"""
+        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_file = self.backup_dir / f"chroma_backup_{timestamp}.tar.gz"
+        chroma_dir = Path('/chroma')
+        
+        if not chroma_dir.exists():
+            logging.warning("ChromaDB directory not found, skipping")
+            return None
+        
+        try:
+            cmd = [
+                'tar', '-czf', str(backup_file),
+                '-C', str(chroma_dir.parent),
+                chroma_dir.name
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                logging.info(f"ChromaDB backup created: {backup_file}")
+                return backup_file
+            else:
+                logging.error(f"ChromaDB backup failed: {result.stderr}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error creating ChromaDB backup: {e}")
+            return None
+
+    def upload_to_s3(self, file_path):
+        """Upload backup file to S3"""
+        if not self.s3_client or not self.s3_bucket:
+            return False
+        
+        try:
+            key = f"backups/{Path(file_path).name}"
+            self.s3_client.upload_file(str(file_path), self.s3_bucket, key)
+            logging.info(f"Backup uploaded to S3: s3://{self.s3_bucket}/{key}")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to upload to S3: {e}")
+            return False
+
+    def cleanup_old_backups(self):
+        """Remove old backup files"""
+        cutoff_date = datetime.datetime.now() - datetime.timedelta(days=self.backup_retention_days)
+        
+        for backup_file in self.backup_dir.glob('*_backup_*'):
+            try:
+                file_time = datetime.datetime.fromtimestamp(backup_file.stat().st_mtime)
+                if file_time < cutoff_date:
+                    backup_file.unlink()
+                    logging.info(f"Removed old backup: {backup_file}")
+            except Exception as e:
+                logging.error(f"Error removing old backup {backup_file}: {e}")
+
+    def run_backup(self):
+        """Run complete backup process"""
+        logging.info("Starting backup process")
+        
+        backup_files = []
+        
+        # Create PostgreSQL backup
+        postgres_backup = self.create_postgres_backup()
+        if postgres_backup:
+            backup_files.append(postgres_backup)
+        
+        # Create uploads backup
+        uploads_backup = self.backup_uploads()
+        if uploads_backup:
+            backup_files.append(uploads_backup)
+        
+        # Create ChromaDB backup
+        chroma_backup = self.backup_chroma()
+        if chroma_backup:
+            backup_files.append(chroma_backup)
+        
+        # Upload to S3 if configured
+        for backup_file in backup_files:
+            self.upload_to_s3(backup_file)
+        
+        # Cleanup old backups
+        self.cleanup_old_backups()
+        
+        logging.info(f"Backup process completed. Created {len(backup_files)} backup files")
+
+def main():
+    # Create logs directory
+    Path('/backup/logs').mkdir(exist_ok=True)
+    
+    backup_manager = BackupManager()
+    
+    # Get backup schedule from environment
+    backup_schedule = os.getenv('BACKUP_SCHEDULE', '0 2 * * *')  # Default: 2 AM daily
+    
+    # Parse cron schedule (simplified - only supports daily backups)
+    if backup_schedule == '0 2 * * *':
+        schedule.every().day.at("02:00").do(backup_manager.run_backup)
+        logging.info("Scheduled daily backup at 2:00 AM")
+    else:
+        # For other schedules, run every hour (you can extend this)
+        schedule.every().hour.do(backup_manager.run_backup)
+        logging.info("Scheduled hourly backup")
+    
+    # Run initial backup
+    backup_manager.run_backup()
+    
+    # Keep the script running
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
+
+if __name__ == "__main__":
+    main()
+EOF
+
+# Make backup script executable
+RUN chmod +x /backup/backup.py
+
+# Create directories and set permissions
+RUN mkdir -p /backup/logs /backups && \
+    chown -R backup:backup /backup /backups
+
+# Switch to backup user
+USER backup
+
+# Health check
+HEALTHCHECK --interval=300s --timeout=30s --start-period=60s --retries=3 \
+    CMD test -f /backup/logs/backup.log && tail -1 /backup/logs/backup.log | grep -q "completed" || exit 1
+
+# Start backup service
+CMD ["python3", "/backup/backup.py"]
