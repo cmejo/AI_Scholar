@@ -304,7 +304,7 @@ log "Deployment completed successfully!"
 echo
 echo -e "${BLUE}=== ACCESS INFORMATION ===${NC}"
 echo -e "Domain: ${GREEN}scholar.cmejo.com${NC}"
-echo -e "Frontend: ${GREEN}http://localhost:3000${NC} (or https://scholar.cmejo.com after SSL setup)"
+echo -e "Frontend: ${GREEN}http://localhost:3005${NC} (or https://scholar.cmejo.com after SSL setup)"
 echo -e "Backend API: ${GREEN}http://localhost:8000${NC} (or https://scholar.cmejo.com/api after SSL setup)"
 echo -e "ChromaDB: ${GREEN}http://localhost:8080${NC}"
 echo -e "Ollama: ${GREEN}http://localhost:11434${NC}"

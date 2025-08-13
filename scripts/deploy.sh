@@ -126,13 +126,17 @@ chmod 700 ssl
 
 log "Directory structure created"
 
-# Copy application files (assuming they're in the current directory)
-if [ -f "docker-compose.prod.yml" ]; then
-    log "Copying application files..."
-    cp -r . $APP_DIR/
+# Get the original directory where the script was called from
+ORIGINAL_DIR=$(pwd)
+
+# Copy application files from the original directory
+if [ -f "$ORIGINAL_DIR/docker-compose.prod.yml" ]; then
+    log "Copying application files from $ORIGINAL_DIR to $APP_DIR..."
+    cp -r $ORIGINAL_DIR/* $APP_DIR/ 2>/dev/null || true
+    cp -r $ORIGINAL_DIR/.env* $APP_DIR/ 2>/dev/null || true
     cd $APP_DIR
 else
-    error "docker-compose.prod.yml not found. Please run this script from the project root directory."
+    error "docker-compose.prod.yml not found in $ORIGINAL_DIR. Please run this script from the project root directory."
 fi
 
 # Create environment file if it doesn't exist
@@ -220,7 +224,7 @@ docker-compose -f docker-compose.prod.yml ps
 log "Deployment completed successfully!"
 echo
 echo -e "${BLUE}=== ACCESS INFORMATION ===${NC}"
-echo -e "Frontend: ${GREEN}http://localhost:3000${NC} (or https://yourdomain.com after SSL setup)"
+echo -e "Frontend: ${GREEN}http://localhost:3005${NC} (or https://yourdomain.com after SSL setup)"
 echo -e "Backend API: ${GREEN}http://localhost:8000${NC} (or https://yourdomain.com/api after SSL setup)"
 echo -e "ChromaDB: ${GREEN}http://localhost:8080${NC}"
 echo -e "Ollama: ${GREEN}http://localhost:11434${NC}"
