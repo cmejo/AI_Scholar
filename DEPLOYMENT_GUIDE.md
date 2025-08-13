@@ -134,7 +134,7 @@ Test endpoints:
 curl http://localhost:8000/health
 
 # Frontend
-curl http://localhost:3000/health
+curl http://localhost:3005/health
 
 # With SSL
 curl https://yourdomain.com/health
@@ -146,7 +146,7 @@ curl https://yourdomain.com/health
 
 | Service | Port | Description |
 |---------|------|-------------|
-| Frontend | 3000 | React application |
+| Frontend | 3005 | React application |
 | Backend | 8000 | FastAPI backend |
 | PostgreSQL | 5432 | Main database |
 | Redis | 6379 | Cache and sessions |
