@@ -131,13 +131,17 @@ chmod 700 ssl
 
 log "Directory structure created"
 
-# Copy application files (assuming they're in the current directory)
-if [ -f "../docker-compose.prod.yml" ]; then
-    log "Copying application files..."
-    cp -r ../* . 2>/dev/null || true
+# Get the original directory where the script was called from
+ORIGINAL_DIR=$(pwd)
+
+# Copy application files from the original directory
+if [ -f "$ORIGINAL_DIR/docker-compose.prod.yml" ]; then
+    log "Copying application files from $ORIGINAL_DIR to $APP_DIR..."
+    cp -r $ORIGINAL_DIR/* $APP_DIR/ 2>/dev/null || true
+    cp -r $ORIGINAL_DIR/.env* $APP_DIR/ 2>/dev/null || true
     cd $APP_DIR
 else
-    error "docker-compose.prod.yml not found. Please run this script from the project root directory."
+    error "docker-compose.prod.yml not found in $ORIGINAL_DIR. Please run this script from the project root directory."
 fi
 
 # Create monitoring configuration
