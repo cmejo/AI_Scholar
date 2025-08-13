@@ -60,9 +60,15 @@ fi
 
 # Create required directories
 log "Creating required directories..."
-mkdir -p {data/{postgres,redis,chroma,ollama,elasticsearch,prometheus,grafana},logs/{nginx,backend},uploads,backups,ssl,config,monitoring}
-chmod 755 data logs uploads backups ssl config monitoring
-chmod 700 ssl
+mkdir -p data/{postgres,redis,chroma,ollama,elasticsearch,prometheus,grafana}
+mkdir -p logs/{nginx,backend}
+mkdir -p uploads backups ssl config monitoring
+
+# Set permissions safely (only if we can)
+log "Setting directory permissions..."
+chmod 755 data logs uploads config monitoring 2>/dev/null || warn "Could not set permissions on some directories (this is usually fine)"
+chmod 755 backups 2>/dev/null || warn "Could not set permissions on backups directory (this is usually fine)"
+chmod 700 ssl 2>/dev/null || warn "Could not set permissions on ssl directory (this is usually fine)"
 
 # Configure firewall
 log "Configuring firewall..."
@@ -188,7 +194,7 @@ fi
 # Test endpoints
 endpoints=(
     "http://localhost:8000/health:Backend API"
-    "http://localhost:3000/health:Frontend"
+    "http://localhost:3005/health:Frontend"
     "http://localhost:8080/api/v1/heartbeat:ChromaDB"
     "http://localhost:11434/api/tags:Ollama"
     "http://localhost:9090/-/healthy:Prometheus"
@@ -215,7 +221,7 @@ echo -e "${BLUE}🎉 AI SCHOLAR DEPLOYMENT COMPLETED! 🎉${NC}"
 echo
 echo -e "${GREEN}=== ACCESS INFORMATION ===${NC}"
 echo -e "🌐 Domain: ${BLUE}scholar.cmejo.com${NC}"
-echo -e "🚀 Frontend: ${BLUE}http://localhost:3000${NC}"
+echo -e "🚀 Frontend: ${BLUE}http://localhost:3005${NC}"
 echo -e "🔧 Backend API: ${BLUE}http://localhost:8000${NC}"
 echo -e "📊 Grafana: ${BLUE}http://localhost:3001${NC} (admin/AiScholar2024!Grafana#Monitor)"
 echo -e "📈 Prometheus: ${BLUE}http://localhost:9090${NC}"

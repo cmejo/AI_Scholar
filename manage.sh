@@ -176,7 +176,7 @@ check_health() {
     # Check endpoints
     local endpoints=(
         "http://localhost:8000/health:Backend"
-        "http://localhost:3000/health:Frontend"
+        "http://localhost:3005/health:Frontend"
         "http://localhost:8080/api/v1/heartbeat:ChromaDB"
         "http://localhost:11434/api/tags:Ollama"
     )

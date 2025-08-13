@@ -173,7 +173,7 @@ docker-compose -f docker-compose.prod.yml ps
 log "Testing service endpoints..."
 endpoints=(
     "http://localhost:8000/health:Backend"
-    "http://localhost:3000/health:Frontend"
+    "http://localhost:3005/health:Frontend"
     "http://localhost:9090/-/healthy:Prometheus"
     "http://localhost:3001/api/health:Grafana"
 )
@@ -193,7 +193,7 @@ echo -e "${GREEN}🎉 DEPLOYMENT COMPLETED! 🎉${NC}"
 echo
 echo -e "${BLUE}=== ACCESS INFORMATION ===${NC}"
 echo -e "🌐 Domain: ${GREEN}scholar.cmejo.com${NC}"
-echo -e "🚀 Frontend: ${GREEN}http://localhost:3000${NC}"
+echo -e "🚀 Frontend: ${GREEN}http://localhost:3005${NC}"
 echo -e "🔧 Backend: ${GREEN}http://localhost:8000${NC}"
 echo -e "📊 Grafana: ${GREEN}http://localhost:3001${NC}"
 echo -e "   Username: ${YELLOW}admin${NC}"

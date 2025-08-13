@@ -88,7 +88,7 @@ done
 log "Testing service endpoints..."
 endpoints=(
     "http://localhost:8000/health:Backend API"
-    "http://localhost:3000/health:Frontend"
+    "http://localhost:3005/health:Frontend"
     "http://localhost:8080/api/v1/heartbeat:ChromaDB"
     "http://localhost:11434/api/tags:Ollama"
     "http://localhost:9090/-/healthy:Prometheus"
@@ -111,7 +111,7 @@ if [ ${#failed_services[@]} -eq 0 ]; then
     echo
     echo -e "${GREEN}=== AI SCHOLAR IS READY! ===${NC}"
     echo -e "🌐 Domain: ${BLUE}scholar.cmejo.com${NC}"
-    echo -e "🚀 Frontend: ${BLUE}http://localhost:3000${NC}"
+    echo -e "🚀 Frontend: ${BLUE}http://localhost:3005${NC}"
     echo -e "🔧 Backend API: ${BLUE}http://localhost:8000${NC}"
     echo -e "📊 Monitoring: ${BLUE}http://localhost:3001${NC}"
     echo -e "🤖 Ollama: ${BLUE}http://localhost:11434${NC}"

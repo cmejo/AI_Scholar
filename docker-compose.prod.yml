@@ -193,7 +193,7 @@ services:
     container_name: ai-scholar-frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-3000}:3005"
+      - "${FRONTEND_PORT:-3005}:3005"
     networks:
       - ai-scholar-network
     depends_on:
