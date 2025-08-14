@@ -75,9 +75,16 @@ fi
 log "Creating Docker network..."
 docker network create ai-scholar-network 2>/dev/null || log "Network already exists"
 
-# Stop any existing containers
+# Stop any existing containers and clean up volumes
 log "Stopping any existing containers..."
 docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+
+# Clean up conflicting volumes
+log "Cleaning up conflicting volumes..."
+docker volume rm ai_scholar_redis_data 2>/dev/null || true
+docker volume rm ai_scholar_postgres_data 2>/dev/null || true
+docker volume rm ai_scholar_chroma_data 2>/dev/null || true
+docker volume rm ai_scholar_ollama_data 2>/dev/null || true
 
 # Build images
 log "Building Docker images..."
@@ -85,14 +92,14 @@ docker-compose -f docker-compose.prod.yml build
 
 # Start services
 log "Starting services..."
-docker-compose -f docker-compose.prod.yml up -d postgres redis chromadb
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d postgres redis chromadb
 sleep 30
 
-docker-compose -f docker-compose.prod.yml up -d ollama
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d ollama
 sleep 60
 
-docker-compose -f docker-compose.prod.yml up -d backend frontend nginx
-docker-compose -f docker-compose.prod.yml --profile monitoring up -d
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d backend frontend nginx
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml --profile monitoring up -d
 
 # Wait and test
 log "Waiting for services to be ready..."
