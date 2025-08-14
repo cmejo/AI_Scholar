@@ -1,5 +1,5 @@
 # Nginx reverse proxy with SSL support for Ubuntu 24.04.2 LTS
-FROM nginx:1.25-alpine
+FROM nginx:1.25
 
 # Install dependencies for SSL and security
 RUN apt-get update && apt-get install -y \
