@@ -152,9 +152,6 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./config/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
-      - ./config/nginx/sites-available:/etc/nginx/sites-available:ro
-      - ./ssl:/etc/nginx/ssl:ro
       - ./logs/nginx:/var/log/nginx
     networks:
       - ai-scholar-network
