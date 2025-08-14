@@ -79,26 +79,77 @@ for port in "${ports_to_check[@]}"; do
     if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
         warn "Port $port is in use. Attempting to stop conflicting services..."
         
+        # Get PIDs using the port
+        pids=$(lsof -Pi :$port -sTCP:LISTEN -t 2>/dev/null || true)
+        
         # Try to stop Docker containers using these ports
         docker ps --format "table {{.Names}}\t{{.Ports}}" | grep ":$port->" | awk '{print $1}' | xargs -r docker stop 2>/dev/null || true
         
         # For Redis specifically, try to stop system Redis
         if [ "$port" = "6379" ]; then
+            log "Stopping Redis services..."
             sudo systemctl stop redis-server 2>/dev/null || true
             sudo systemctl stop redis 2>/dev/null || true
+            sudo systemctl disable redis-server 2>/dev/null || true
+            sudo systemctl disable redis 2>/dev/null || true
+            
+            # Kill Redis processes if still running
+            if [ -n "$pids" ]; then
+                for pid in $pids; do
+                    if ps -p $pid > /dev/null 2>&1; then
+                        log "Killing Redis process $pid"
+                        sudo kill -TERM $pid 2>/dev/null || true
+                        sleep 2
+                        if ps -p $pid > /dev/null 2>&1; then
+                            sudo kill -KILL $pid 2>/dev/null || true
+                        fi
+                    fi
+                done
+            fi
         fi
         
         # For PostgreSQL specifically
         if [ "$port" = "5432" ]; then
+            log "Stopping PostgreSQL services..."
             sudo systemctl stop postgresql 2>/dev/null || true
+            sudo systemctl disable postgresql 2>/dev/null || true
+            
+            # Kill PostgreSQL processes if still running
+            if [ -n "$pids" ]; then
+                for pid in $pids; do
+                    if ps -p $pid > /dev/null 2>&1; then
+                        log "Killing PostgreSQL process $pid"
+                        sudo kill -TERM $pid 2>/dev/null || true
+                        sleep 2
+                        if ps -p $pid > /dev/null 2>&1; then
+                            sudo kill -KILL $pid 2>/dev/null || true
+                        fi
+                    fi
+                done
+            fi
+        fi
+        
+        # For other ports, try to kill the processes
+        if [ "$port" != "6379" ] && [ "$port" != "5432" ] && [ -n "$pids" ]; then
+            for pid in $pids; do
+                if ps -p $pid > /dev/null 2>&1; then
+                    process_name=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
+                    log "Killing process $pid ($process_name) using port $port"
+                    sudo kill -TERM $pid 2>/dev/null || true
+                    sleep 2
+                    if ps -p $pid > /dev/null 2>&1; then
+                        sudo kill -KILL $pid 2>/dev/null || true
+                    fi
+                fi
+            done
         fi
         
         # Wait a moment for services to stop
-        sleep 2
+        sleep 3
         
         # Check if port is still in use
         if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
-            warn "Port $port is still in use. You may need to manually stop the service using this port."
+            error "Port $port is still in use after cleanup attempts. Please manually stop the service using this port and try again."
         else
             log "Port $port is now available"
         fi
