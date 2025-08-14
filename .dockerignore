@@ -1,144 +1,110 @@
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Docker ignore file for AI Scholar
+# Excludes unnecessary files from Docker build context
 
-# Production build
+# Data directories (contain runtime data, not needed for build)
+data/
+data/*
+data/postgres/
+data/redis/
+data/chroma/
+data/ollama/
+data/elasticsearch/
+data/prometheus/
+data/grafana/
+
+# Log directories
+logs/
+logs/*
+
+# Upload directories
+uploads/
+uploads/*
+
+# Backup directories
+backups/
+backups/*
+
+# SSL certificates
+ssl/
+ssl/*
+
+# Config directories (runtime configs)
+config/
+config/*
+
+# Monitoring configs (runtime)
+monitoring/
+monitoring/*
+
+# Node modules (will be installed in container)
+node_modules/
+node_modules/*
+
+# Build outputs
 dist/
 build/
+.next/
+out/
 
-# Environment files (will be copied explicitly)
+# Development files
+.git/
+.gitignore
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.development
+.env.test
+*.log
+*.pid
+*.seed
+*.pid.lock
 
-# IDE and editor files
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS generated files
+# OS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Git
-.git/
-.gitignore
-
-# Testing
-coverage/
-.nyc_output/
-test-results/
-test-results.json
-
-# Logs
-logs/
-*.log
-
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
+# Test coverage
 coverage/
 .nyc_output/
 
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
-
-# next.js build output
-.next
-
-# nuxt.js build output
-.nuxt
-
-# vuepress build output
-.vuepress/dist
-
-# Serverless directories
-.serverless
-
-# FuseBox cache
-.fusebox/
-
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
-
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
-
-# Temporary folders
+# Temporary files
 tmp/
 temp/
+*.tmp
+*.temp
 
-# Python
+# Documentation (not needed in containers)
+docs/
+*.md
+README*
+CHANGELOG*
+LICENSE*
+
+# Docker files (not needed in build context)
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Python cache
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+*.pyc
+*.pyo
+*.pyd
 .Python
-env/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
 venv/
+env/
 ENV/
-env.bak/
-venv.bak/
 
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
-# Backup files
-backups/
-
-# Quality reports
-quality-reports/
-
-# Bundle analysis
-bundle-analysis-report.json
-bundle-baseline.json
-dependency-analysis-report.json
-performance-monitoring-report.json
-tree-shaking-analysis.json
-
-# Husky
-.husky/_/
+# Package manager files (will be copied separately)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
