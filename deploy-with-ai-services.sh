@@ -85,6 +85,15 @@ docker rm test-chromadb test-ollama quick-test-chromadb 2>/dev/null || true
 log "Cleaning up problematic volumes..."
 docker volume rm ai_scholar_chroma_data ai_scholar_ollama_data 2>/dev/null || true
 
+# Create Docker network FIRST - this is critical!
+log "Creating Docker network..."
+docker network create ai-scholar-network 2>/dev/null || log "Network already exists"
+
+# Verify network exists
+if ! docker network ls | grep -q ai-scholar-network; then
+    error "Failed to create ai-scholar-network"
+fi
+
 # Start core services first using minimal compose
 log "Starting core services (postgres, redis, backend, frontend, nginx)..."
 DOCKER_BUILDKIT=1 docker-compose -f docker-compose.minimal.yml up -d
