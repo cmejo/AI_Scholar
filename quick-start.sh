@@ -52,6 +52,11 @@ log "Starting AI Scholar quick start..."
 log "Creating missing directories and files..."
 mkdir -p public data/{postgres,redis,chroma,ollama} logs uploads backups ssl config monitoring
 
+# Fix permissions on data directories
+log "Setting proper permissions on data directories..."
+sudo chown -R $USER:$USER data/ logs/ uploads/ backups/ 2>/dev/null || true
+chmod -R 755 data/ logs/ uploads/ backups/ 2>/dev/null || true
+
 # Create vite.svg if it doesn't exist
 if [ ! -f "public/vite.svg" ]; then
     cat > public/vite.svg << 'EOF'
@@ -73,7 +78,7 @@ fi
 
 # Check for port conflicts and stop conflicting services
 log "Checking for port conflicts..."
-ports_to_check=(3005 8000 5432 6379 8080 9090 3001)
+ports_to_check=(3006 8001 5433 6380 8081 9091 3002)
 
 for port in "${ports_to_check[@]}"; do
     if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
@@ -86,7 +91,7 @@ for port in "${ports_to_check[@]}"; do
         docker ps --format "table {{.Names}}\t{{.Ports}}" | grep ":$port->" | awk '{print $1}' | xargs -r docker stop 2>/dev/null || true
         
         # For Redis specifically, try to stop system Redis
-        if [ "$port" = "6379" ]; then
+        if [ "$port" = "6380" ]; then
             log "Stopping Redis services..."
             sudo systemctl stop redis-server 2>/dev/null || true
             sudo systemctl stop redis 2>/dev/null || true
@@ -109,7 +114,7 @@ for port in "${ports_to_check[@]}"; do
         fi
         
         # For PostgreSQL specifically
-        if [ "$port" = "5432" ]; then
+        if [ "$port" = "5433" ]; then
             log "Stopping PostgreSQL services..."
             sudo systemctl stop postgresql 2>/dev/null || true
             sudo systemctl disable postgresql 2>/dev/null || true
@@ -130,7 +135,7 @@ for port in "${ports_to_check[@]}"; do
         fi
         
         # For other ports, try to kill the processes
-        if [ "$port" != "6379" ] && [ "$port" != "5432" ] && [ -n "$pids" ]; then
+        if [ "$port" != "6380" ] && [ "$port" != "5433" ] && [ -n "$pids" ]; then
             for pid in $pids; do
                 if ps -p $pid > /dev/null 2>&1; then
                     process_name=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
@@ -184,28 +189,60 @@ docker system prune -f 2>/dev/null || true
 log "Building Docker images..."
 docker-compose -f docker-compose.prod.yml build
 
-# Start services
-log "Starting services..."
-DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d postgres redis chromadb
+# Start services in stages
+log "Starting core services (postgres, redis)..."
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d postgres redis
+sleep 20
+
+log "Waiting for core services to be healthy..."
+for i in {1..30}; do
+    if docker-compose -f docker-compose.prod.yml ps postgres | grep -q "healthy" && \
+       docker-compose -f docker-compose.prod.yml ps redis | grep -q "healthy"; then
+        log "Core services are healthy"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        warn "Core services taking longer than expected to start"
+    fi
+    sleep 2
+done
+
+log "Starting ChromaDB..."
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d chromadb
 sleep 30
 
+log "Starting Ollama (this may take a few minutes)..."
 DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d ollama
-sleep 60
+sleep 45
 
-DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d backend frontend nginx
-DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml --profile monitoring up -d
+log "Checking service health before starting application services..."
+# Check if critical services are running (don't fail if Ollama/ChromaDB have issues)
+if docker-compose -f docker-compose.prod.yml ps postgres | grep -q "healthy" && \
+   docker-compose -f docker-compose.prod.yml ps redis | grep -q "healthy"; then
+    log "Core services are ready, starting application services..."
+    DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d backend frontend nginx
+    
+    log "Starting monitoring services..."
+    DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml --profile monitoring up -d
+else
+    error "Core services (postgres/redis) are not healthy. Cannot proceed."
+fi
 
 # Wait and test
-log "Waiting for services to be ready..."
-sleep 30
+log "Waiting for application services to be ready..."
+sleep 45
+
+# Check service status first
+log "Checking service status..."
+docker-compose -f docker-compose.prod.yml ps
 
 # Test endpoints
 log "Testing service endpoints..."
 endpoints=(
-    "http://localhost:8000/health:Backend"
-    "http://localhost:3005/health:Frontend"
-    "http://localhost:9090/-/healthy:Prometheus"
-    "http://localhost:3001/api/health:Grafana"
+    "http://localhost:8001/health:Backend"
+    "http://localhost:3006/health:Frontend"
+    "http://localhost:9091/-/healthy:Prometheus"
+    "http://localhost:3002/api/health:Grafana"
 )
 
 for endpoint in "${endpoints[@]}"; do
@@ -223,10 +260,10 @@ echo -e "${GREEN}🎉 QUICK START COMPLETED! 🎉${NC}"
 echo
 echo -e "${BLUE}=== ACCESS INFORMATION ===${NC}"
 echo -e "🌐 Domain: ${GREEN}scholar.cmejo.com${NC}"
-echo -e "🚀 Frontend: ${GREEN}http://localhost:3005${NC}"
-echo -e "🔧 Backend: ${GREEN}http://localhost:8000${NC}"
-echo -e "📊 Grafana: ${GREEN}http://localhost:3001${NC} (admin/AiScholar2024!Grafana#Monitor)"
-echo -e "📈 Prometheus: ${GREEN}http://localhost:9090${NC}"
+echo -e "🚀 Frontend: ${GREEN}http://localhost:3006${NC}"
+echo -e "🔧 Backend: ${GREEN}http://localhost:8001${NC}"
+echo -e "📊 Grafana: ${GREEN}http://localhost:3002${NC} (admin/AiScholar2024!Grafana#Monitor)"
+echo -e "📈 Prometheus: ${GREEN}http://localhost:9091${NC}"
 echo
 echo -e "${YELLOW}=== NEXT STEPS ===${NC}"
 echo "1. Set up SSL: ${BLUE}./manage.sh ssl scholar.cmejo.com${NC}"
