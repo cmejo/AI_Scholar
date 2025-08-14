@@ -71,6 +71,40 @@ if ! command -v docker-compose &> /dev/null; then
     error "Docker Compose not found. Please install Docker Compose first."
 fi
 
+# Check for port conflicts and stop conflicting services
+log "Checking for port conflicts..."
+ports_to_check=(3005 8000 5432 6379 8080 9090 3001)
+
+for port in "${ports_to_check[@]}"; do
+    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        warn "Port $port is in use. Attempting to stop conflicting services..."
+        
+        # Try to stop Docker containers using these ports
+        docker ps --format "table {{.Names}}\t{{.Ports}}" | grep ":$port->" | awk '{print $1}' | xargs -r docker stop 2>/dev/null || true
+        
+        # For Redis specifically, try to stop system Redis
+        if [ "$port" = "6379" ]; then
+            sudo systemctl stop redis-server 2>/dev/null || true
+            sudo systemctl stop redis 2>/dev/null || true
+        fi
+        
+        # For PostgreSQL specifically
+        if [ "$port" = "5432" ]; then
+            sudo systemctl stop postgresql 2>/dev/null || true
+        fi
+        
+        # Wait a moment for services to stop
+        sleep 2
+        
+        # Check if port is still in use
+        if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+            warn "Port $port is still in use. You may need to manually stop the service using this port."
+        else
+            log "Port $port is now available"
+        fi
+    fi
+done
+
 # Create Docker network
 log "Creating Docker network..."
 docker network create ai-scholar-network 2>/dev/null || log "Network already exists"
@@ -79,12 +113,21 @@ docker network create ai-scholar-network 2>/dev/null || log "Network already exi
 log "Stopping any existing containers..."
 docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
 
+# Force stop any remaining AI Scholar containers
+log "Force stopping any remaining AI Scholar containers..."
+docker ps -a --filter "name=ai-scholar" --format "{{.Names}}" | xargs -r docker stop 2>/dev/null || true
+docker ps -a --filter "name=ai-scholar" --format "{{.Names}}" | xargs -r docker rm 2>/dev/null || true
+
 # Clean up conflicting volumes
 log "Cleaning up conflicting volumes..."
 docker volume rm ai_scholar_redis_data 2>/dev/null || true
 docker volume rm ai_scholar_postgres_data 2>/dev/null || true
 docker volume rm ai_scholar_chroma_data 2>/dev/null || true
 docker volume rm ai_scholar_ollama_data 2>/dev/null || true
+
+# Prune unused Docker resources
+log "Cleaning up unused Docker resources..."
+docker system prune -f 2>/dev/null || true
 
 # Build images
 log "Building Docker images..."
