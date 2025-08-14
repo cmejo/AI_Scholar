@@ -38,8 +38,8 @@ EOF
 echo -e "${NC}"
 
 # Check if we're in the right directory
-if [ ! -f "docker-compose.prod.yml" ]; then
-    error "docker-compose.prod.yml not found. Please run this script from the project root directory."
+if [ ! -f "docker-compose.minimal.yml" ]; then
+    error "docker-compose.minimal.yml not found. Please run this script from the project root directory."
 fi
 
 if [ ! -f ".env" ]; then
@@ -168,6 +168,7 @@ docker network create ai-scholar-network 2>/dev/null || log "Network already exi
 # Stop any existing containers and clean up volumes
 log "Stopping any existing containers..."
 docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+docker-compose -f docker-compose.minimal.yml down 2>/dev/null || true
 
 # Force stop any remaining AI Scholar containers
 log "Force stopping any remaining AI Scholar containers..."
@@ -187,16 +188,16 @@ docker system prune -f 2>/dev/null || true
 
 # Build images
 log "Building Docker images..."
-docker-compose -f docker-compose.prod.yml build
+docker-compose -f docker-compose.minimal.yml build
 
-# Start only essential services (skip ChromaDB and Ollama for now)
+# Start essential services
 log "Starting essential services (postgres, redis)..."
-DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d postgres redis
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.minimal.yml up -d postgres redis
 
 log "Waiting for essential services to be healthy..."
 for i in {1..60}; do
-    if docker-compose -f docker-compose.prod.yml ps postgres | grep -q "healthy" && \
-       docker-compose -f docker-compose.prod.yml ps redis | grep -q "healthy"; then
+    if docker-compose -f docker-compose.minimal.yml ps postgres | grep -q "healthy" && \
+       docker-compose -f docker-compose.minimal.yml ps redis | grep -q "healthy"; then
         log "Essential services are healthy"
         break
     fi
@@ -207,7 +208,7 @@ for i in {1..60}; do
 done
 
 log "Starting application services..."
-DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d backend frontend nginx
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.minimal.yml up -d backend frontend nginx
 
 # Wait and test
 log "Waiting for application services to be ready..."
@@ -215,7 +216,7 @@ sleep 30
 
 # Check service status first
 log "Checking service status..."
-docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.minimal.yml ps
 
 # Test endpoints
 log "Testing service endpoints..."
@@ -245,6 +246,7 @@ echo
 echo -e "${YELLOW}=== NOTES ===${NC}"
 echo "• ChromaDB and Ollama were skipped to avoid startup issues"
 echo "• You can add them later once the core application is working"
+echo "• To add ChromaDB/Ollama later: ${BLUE}docker-compose -f docker-compose.prod.yml up -d chromadb ollama${NC}"
 echo "• To add monitoring: ${BLUE}docker-compose -f docker-compose.prod.yml --profile monitoring up -d${NC}"
 echo
 log "🚀 Minimal deployment completed successfully!"
