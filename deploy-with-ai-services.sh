@@ -70,21 +70,30 @@ fi
 # Clean up any existing containers
 log "Cleaning up existing containers..."
 docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+docker-compose -f docker-compose.minimal.yml down 2>/dev/null || true
+
+# Force stop and remove all AI Scholar containers
+log "Force removing all AI Scholar containers..."
+docker ps -a --filter "name=ai-scholar" --format "{{.Names}}" | xargs -r docker stop 2>/dev/null || true
 docker ps -a --filter "name=ai-scholar" --format "{{.Names}}" | xargs -r docker rm -f 2>/dev/null || true
+
+# Also clean up any test containers
+docker stop test-chromadb test-ollama quick-test-chromadb 2>/dev/null || true
+docker rm test-chromadb test-ollama quick-test-chromadb 2>/dev/null || true
 
 # Clean up volumes if they exist and are problematic
 log "Cleaning up problematic volumes..."
 docker volume rm ai_scholar_chroma_data ai_scholar_ollama_data 2>/dev/null || true
 
-# Start core services first
-log "Starting core services (postgres, redis)..."
-DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d postgres redis
+# Start core services first using minimal compose
+log "Starting core services (postgres, redis, backend, frontend, nginx)..."
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.minimal.yml up -d
 
 # Wait for core services
 log "Waiting for core services to be healthy..."
 for i in {1..60}; do
-    if docker-compose -f docker-compose.prod.yml ps postgres | grep -q "healthy" && \
-       docker-compose -f docker-compose.prod.yml ps redis | grep -q "healthy"; then
+    if docker-compose -f docker-compose.minimal.yml ps postgres | grep -q "healthy" && \
+       docker-compose -f docker-compose.minimal.yml ps redis | grep -q "healthy"; then
         log "Core services are healthy"
         break
     fi
@@ -210,9 +219,8 @@ if docker ps | grep -q ai-scholar-ollama && \
     ollama_running=true
 fi
 
-# Start application services
-log "Starting application services..."
-DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d backend frontend nginx
+# Application services are already started with minimal compose
+log "Core application services are running..."
 
 # Wait for application services
 log "Waiting for application services..."
@@ -220,11 +228,16 @@ sleep 45
 
 # Check service status
 log "Checking service status..."
-docker-compose -f docker-compose.prod.yml ps
+echo "=== Core Services ==="
+docker-compose -f docker-compose.minimal.yml ps
+echo
+echo "=== AI Services ==="
+docker ps --filter "name=ai-scholar-chromadb" --filter "name=ai-scholar-ollama" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 # Test endpoints
 log "Testing service endpoints..."
 endpoints=(
+    "http://localhost:8080/health:Nginx Proxy"
     "http://localhost:8001/health:Backend"
     "http://localhost:3006/health:Frontend"
 )
@@ -256,8 +269,9 @@ echo
 echo -e "${GREEN}🎉 DEPLOYMENT COMPLETED! 🎉${NC}"
 echo
 echo -e "${BLUE}=== ACCESS INFORMATION ===${NC}"
-echo -e "🚀 Frontend: ${GREEN}http://localhost:3006${NC}"
-echo -e "🔧 Backend: ${GREEN}http://localhost:8001${NC}"
+echo -e "🌐 Main App: ${GREEN}http://localhost:8080${NC} (nginx proxy)"
+echo -e "🚀 Frontend: ${GREEN}http://localhost:3006${NC} (direct)"
+echo -e "🔧 Backend: ${GREEN}http://localhost:8001${NC} (direct)"
 
 if [ "$chromadb_running" = true ]; then
     echo -e "🔍 ChromaDB: ${GREEN}http://localhost:8081${NC}"
