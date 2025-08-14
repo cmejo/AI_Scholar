@@ -184,11 +184,9 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile.frontend
+      dockerfile: Dockerfile.frontend.simple
       args:
         - BUILDKIT_INLINE_CACHE=1
-        - VITE_API_URL=${VITE_API_URL:-https://yourdomain.com/api}
-        - VITE_WS_URL=${VITE_WS_URL:-wss://yourdomain.com/ws}
     image: ai-scholar-frontend:latest
     container_name: ai-scholar-frontend
     restart: unless-stopped
