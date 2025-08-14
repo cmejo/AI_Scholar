@@ -78,7 +78,7 @@ fi
 
 # Check for port conflicts and stop conflicting services
 log "Checking for port conflicts..."
-ports_to_check=(3006 8001 5433 6380)
+ports_to_check=(3006 8001 5433 6380 8080 8443)
 
 for port in "${ports_to_check[@]}"; do
     if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
@@ -240,8 +240,9 @@ echo -e "${GREEN}🎉 MINIMAL DEPLOYMENT COMPLETED! 🎉${NC}"
 echo
 echo -e "${BLUE}=== ACCESS INFORMATION ===${NC}"
 echo -e "🌐 Domain: ${GREEN}scholar.cmejo.com${NC}"
-echo -e "🚀 Frontend: ${GREEN}http://localhost:3006${NC}"
-echo -e "🔧 Backend: ${GREEN}http://localhost:8001${NC}"
+echo -e "🚀 Frontend: ${GREEN}http://localhost:3006${NC} (direct)"
+echo -e "🔧 Backend: ${GREEN}http://localhost:8001${NC} (direct)"
+echo -e "🌐 Nginx Proxy: ${GREEN}http://localhost:8080${NC} (recommended)"
 echo
 echo -e "${YELLOW}=== NOTES ===${NC}"
 echo "• ChromaDB and Ollama were skipped to avoid startup issues"
