@@ -1,6 +1,6 @@
 #!/bin/bash
-# AI Scholar Simple Deployment Script
-# Minimal deployment without permission changes
+# AI Scholar Build and Run Script
+# Simple script that just builds and runs without pulling
 
 set -e
 
@@ -33,7 +33,7 @@ cat << 'EOF'
   | | | | _| |_   /\__/ / (__| | | | (_) | | (_| | |   
   \_| |_/ \___/   \____/ \___|_| |_|\___/|_|\__,_|_|   
                                                        
-  Simple Deployment for scholar.cmejo.com
+  Build and Run for scholar.cmejo.com
 EOF
 echo -e "${NC}"
 
@@ -46,32 +46,24 @@ if [ ! -f ".env" ]; then
     error ".env file not found. Please ensure the .env file is present."
 fi
 
-log "Starting AI Scholar simple deployment..."
+log "Starting AI Scholar build and run..."
 
 # Check Docker installation
 if ! command -v docker &> /dev/null; then
-    log "Docker not found. Installing Docker..."
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    sudo usermod -aG docker $USER
-    rm get-docker.sh
-    warn "Docker installed. You may need to log out and back in for group membership to take effect."
+    error "Docker not found. Please install Docker first."
 fi
 
-# Check Docker Compose
 if ! command -v docker-compose &> /dev/null; then
-    log "Installing Docker Compose..."
-    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    sudo chmod +x /usr/local/bin/docker-compose
+    error "Docker Compose not found. Please install Docker Compose first."
 fi
 
-# Create directories without changing permissions
+# Create directories
 log "Creating required directories..."
 mkdir -p data/{postgres,redis,chroma,ollama,elasticsearch,prometheus,grafana}
 mkdir -p logs/{nginx,backend}
 mkdir -p uploads backups ssl config monitoring/{prometheus,grafana/{dashboards,datasources}}
 
-# Create basic monitoring configuration
+# Create monitoring configuration
 log "Setting up monitoring configuration..."
 
 # Prometheus config
@@ -114,12 +106,12 @@ EOF
 log "Creating Docker network..."
 docker network create ai-scholar-network 2>/dev/null || log "Network already exists"
 
-# Pull base images only (skip custom images that need to be built)
-log "Pulling base Docker images..."
-docker-compose -f docker-compose.prod.yml pull postgres redis chromadb ollama prometheus grafana node-exporter redis-exporter postgres-exporter || log "Some base images may already exist"
+# Stop any existing containers
+log "Stopping any existing containers..."
+docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
 
-# Build custom images
-log "Building custom images..."
+# Build all images
+log "Building all Docker images (this may take several minutes)..."
 docker-compose -f docker-compose.prod.yml build --no-cache
 
 # Start services in stages
@@ -144,27 +136,6 @@ docker-compose -f docker-compose.prod.yml --profile monitoring up -d
 log "Waiting for all services to be ready..."
 sleep 30
 
-# Initialize Ollama models (optional, can be done later)
-log "Initializing Ollama models (this may take a while)..."
-docker-compose -f docker-compose.prod.yml exec -T ollama bash -c "
-    echo 'Waiting for Ollama to be ready...'
-    timeout=300
-    while [ \$timeout -gt 0 ] && ! curl -f http://localhost:11434/api/tags >/dev/null 2>&1; do
-        sleep 5
-        timeout=\$((timeout-5))
-    done
-    
-    if [ \$timeout -le 0 ]; then
-        echo 'Timeout waiting for Ollama'
-        exit 1
-    fi
-    
-    echo 'Pulling essential models...'
-    ollama pull mistral || echo 'Failed to pull mistral'
-    ollama pull nomic-embed-text || echo 'Failed to pull nomic-embed-text'
-    echo 'Model initialization completed (some models may have failed)'
-" || warn "Ollama model initialization had issues - you can initialize models manually later"
-
 # Show status
 log "Checking service status..."
 docker-compose -f docker-compose.prod.yml ps
@@ -183,13 +154,34 @@ for endpoint in "${endpoints[@]}"; do
     if timeout 10 curl -f "$url" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ $name is responding${NC}"
     else
-        echo -e "${YELLOW}⚠️  $name is not responding yet${NC}"
+        echo -e "${YELLOW}⚠️  $name is not responding yet (may still be starting)${NC}"
     fi
 done
 
+# Initialize Ollama models (optional)
+log "Initializing Ollama models..."
+docker-compose -f docker-compose.prod.yml exec -T ollama bash -c "
+    echo 'Waiting for Ollama to be ready...'
+    timeout=300
+    while [ \$timeout -gt 0 ] && ! curl -f http://localhost:11434/api/tags >/dev/null 2>&1; do
+        sleep 5
+        timeout=\$((timeout-5))
+    done
+    
+    if [ \$timeout -le 0 ]; then
+        echo 'Timeout waiting for Ollama'
+        exit 1
+    fi
+    
+    echo 'Pulling essential models...'
+    ollama pull mistral || echo 'Failed to pull mistral'
+    ollama pull nomic-embed-text || echo 'Failed to pull nomic-embed-text'
+    echo 'Model initialization completed'
+" || warn "Ollama model initialization had issues - you can initialize models manually later"
+
 # Success message
 echo
-echo -e "${GREEN}🎉 DEPLOYMENT COMPLETED! 🎉${NC}"
+echo -e "${GREEN}🎉 BUILD AND DEPLOYMENT COMPLETED! 🎉${NC}"
 echo
 echo -e "${BLUE}=== ACCESS INFORMATION ===${NC}"
 echo -e "🌐 Domain: ${GREEN}scholar.cmejo.com${NC}"
@@ -214,4 +206,4 @@ echo "./manage.sh health    # Health check"
 echo "./manage.sh restart   # Restart services"
 echo "./manage.sh stop      # Stop all services"
 echo
-log "🚀 Simple deployment completed successfully!"
+log "🚀 Build and run completed successfully!"

@@ -55,13 +55,17 @@ if ! grep -q "scholar.cmejo.com" .env; then
     error "Configuration not set for scholar.cmejo.com. Please check .env file."
 fi
 
-# Run the full deployment with monitoring
-log "Running full deployment with monitoring enabled..."
-if [ -f "scripts/deploy-with-monitoring.sh" ]; then
-    ./scripts/deploy-with-monitoring.sh
+# Run the build and run script
+log "Running build and deployment..."
+if [ -f "build-and-run.sh" ]; then
+    ./build-and-run.sh
 else
-    # Fallback to regular deployment
-    ./scripts/deploy.sh --with-monitoring
+    # Fallback to simple deploy
+    if [ -f "simple-deploy.sh" ]; then
+        ./simple-deploy.sh
+    else
+        error "No deployment script found"
+    fi
 fi
 
 # Wait for services to be fully ready

@@ -129,9 +129,9 @@ datasources:
     editable: true
 EOF
 
-# Pull Docker images
-log "Pulling Docker images..."
-docker-compose -f docker-compose.prod.yml pull
+# Pull base images only (skip custom images that need to be built)
+log "Pulling base Docker images..."
+docker-compose -f docker-compose.prod.yml pull postgres redis chromadb ollama prometheus grafana node-exporter redis-exporter postgres-exporter || log "Some base images may already exist"
 
 # Build custom images
 log "Building custom Docker images..."
