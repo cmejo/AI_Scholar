@@ -7,7 +7,7 @@ version: '3.8'
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:16-bookworm
+    image: postgres:16-alpine
     container_name: ai-scholar-postgres
     restart: unless-stopped
     environment:
@@ -38,7 +38,7 @@ services:
 
   # Redis Cache
   redis:
-    image: redis:7-bookworm
+    image: redis:7-alpine
     container_name: ai-scholar-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru --save 900 1 --save 300 10

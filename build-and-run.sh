@@ -110,6 +110,14 @@ docker network create ai-scholar-network 2>/dev/null || log "Network already exi
 log "Stopping any existing containers..."
 docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
 
+# Pull base images first
+log "Pulling base Docker images..."
+docker pull python:3.11-slim || warn "Could not pull Python image"
+docker pull node:20-slim || warn "Could not pull Node image"
+docker pull nginx:1.25-alpine || warn "Could not pull Nginx image"
+docker pull postgres:16-alpine || warn "Could not pull PostgreSQL image"
+docker pull redis:7-alpine || warn "Could not pull Redis image"
+
 # Build all images
 log "Building all Docker images (this may take several minutes)..."
 docker-compose -f docker-compose.prod.yml build --no-cache

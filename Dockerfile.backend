@@ -1,5 +1,5 @@
 # Multi-stage build for Python backend optimized for Ubuntu 24.04.2 LTS
-FROM python:3.12-bookworm AS builder
+FROM python:3.11-slim AS builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -31,7 +31,7 @@ COPY backend/requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt
 
 # Production stage
-FROM python:3.12-bookworm-slim
+FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
