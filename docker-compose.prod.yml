@@ -1,4 +1,4 @@
-version: '3.8'
+# version: '3.8'
 
 # AI Scholar Production Docker Compose
 # Optimized for Ubuntu 24.04.2 LTS and scholar.cmejo.com
