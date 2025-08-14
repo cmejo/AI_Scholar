@@ -104,11 +104,22 @@ while [ $chromadb_attempts -lt $max_chromadb_attempts ]; do
     log "ChromaDB attempt $chromadb_attempts/$max_chromadb_attempts"
     
     # Stop any existing ChromaDB container
-    docker stop ai-scholar-chromadb 2>/dev/null || true
-    docker rm ai-scholar-chromadb 2>/dev/null || true
+    docker stop ai-scholar-chromadb test-chromadb 2>/dev/null || true
+    docker rm ai-scholar-chromadb test-chromadb 2>/dev/null || true
     
-    # Start ChromaDB
-    DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d chromadb
+    # Start ChromaDB with version 0.4.15
+    docker run -d --name ai-scholar-chromadb \
+        --network ai-scholar-network \
+        -p 8081:8000 \
+        --user root \
+        -v $(pwd)/data/chroma:/chroma/chroma \
+        -e CHROMA_SERVER_HOST=0.0.0.0 \
+        -e CHROMA_SERVER_HTTP_PORT=8000 \
+        -e ANONYMIZED_TELEMETRY=False \
+        -e ALLOW_RESET=True \
+        -e CHROMA_SERVER_CORS_ALLOW_ORIGINS='["*"]' \
+        --restart unless-stopped \
+        chromadb/chroma:0.4.15
     
     # Wait and check
     sleep 30
@@ -139,11 +150,20 @@ while [ $ollama_attempts -lt $max_ollama_attempts ]; do
     log "Ollama attempt $ollama_attempts/$max_ollama_attempts"
     
     # Stop any existing Ollama container
-    docker stop ai-scholar-ollama 2>/dev/null || true
-    docker rm ai-scholar-ollama 2>/dev/null || true
+    docker stop ai-scholar-ollama test-ollama 2>/dev/null || true
+    docker rm ai-scholar-ollama test-ollama 2>/dev/null || true
     
     # Start Ollama
-    DOCKER_BUILDKIT=1 docker-compose -f docker-compose.prod.yml up -d ollama
+    docker run -d --name ai-scholar-ollama \
+        --network ai-scholar-network \
+        -p 11435:11434 \
+        -v $(pwd)/data/ollama:/root/.ollama \
+        -e OLLAMA_ORIGINS=* \
+        -e OLLAMA_HOST=0.0.0.0:11434 \
+        -e OLLAMA_KEEP_ALIVE=5m \
+        -e OLLAMA_MAX_LOADED_MODELS=1 \
+        --restart unless-stopped \
+        ollama/ollama:latest
     
     # Wait with progress indicator
     log "Waiting for Ollama to initialize (this can take 3-5 minutes)..."
