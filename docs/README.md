@@ -20,7 +20,7 @@
 
 AI Scholar represents the next evolution in research technology—a comprehensive ecosystem that seamlessly integrates cutting-edge artificial intelligence with advanced research methodologies to revolutionize how researchers discover, analyze, and synthesize knowledge. Built on a foundation of Retrieval-Augmented Generation (RAG) technology , this platform combines the power of large language models with sophisticated document processing, knowledge graph construction, and personalized AI assistance to create an intelligent research companion that adapts to each user's expertise and research style.
 
-At its core, AI Scholar transforms static document collections into dynamic, interactive knowledge bases through advanced hierarchical chunking, semantic search, and real-time reasoning capabilities. The platform's memory-enabled AI maintains persistent context across research sessions, learning from user interactions to provide increasingly personalized and relevant insights. With support for multimodal content processing—including text, images, audio, and video—researchers can work with diverse information sources while the system automatically extracts entities, relationships, and key concepts to build comprehensive knowledge graphs.
+AI Scholar transforms static document collections into dynamic, interactive knowledge bases through advanced hierarchical chunking, semantic search, and real-time reasoning capabilities. The platform's memory-enabled AI maintains persistent context across research sessions, learning from user interactions to provide increasingly personalized and relevant insights. With support for multimodal content processing—including text, images, audio, and video—researchers can work with diverse information sources while the system automatically extracts entities, relationships, and key concepts to build comprehensive knowledge graphs.
 
 The platform extends beyond traditional document management by offering a complete research workflow solution. From intelligent research planning and automated quiz generation for knowledge retention, to secure code execution environments and collaborative workspaces, AI Scholar provides researchers with enterprise-grade tools wrapped in an intuitive, accessible interface. Advanced features include voice-controlled navigation, real-time collaboration, institutional role management, and integration with major academic databases and reference managers, making it suitable for individual researchers, educational institutions, and large research organizations.
 
@@ -959,19 +959,10 @@ export const MyComponent: React.FC<ComponentProps> = ({
 - **💎 Core Contributor**: Direct collaboration access
 - **👑 Maintainer**: Repository access and decision-making
 
-#### **🎁 Contribution Rewards**
-- **📚 Learning Resources**: Access to premium AI/ML courses
-- **🎤 Speaking Opportunities**: Conference presentation opportunities
-- **💼 Career Support**: LinkedIn recommendations and networking
-- **🎯 Swag & Merchandise**: Exclusive contributor merchandise
-
 ### **📞 Getting Help**
 
 #### **💬 Community Channels**
-- **💬 [Discord Server](https://discord.gg/aischolar)** - Real-time chat and support
 - **📋 [GitHub Discussions](https://github.com/cmejo/AI_Scholar/discussions)** - Q&A and ideas
-- **📧 [Mailing List](mailto:community@aischolar.com)** - Updates and announcements
-- **🐦 [Twitter](https://twitter.com/aischolar)** - News and quick updates
 
 #### **🆘 Support Resources**
 - **📖 [Contributing Guide](CONTRIBUTING.md)** - Detailed contribution instructions
@@ -1091,19 +1082,13 @@ copies or substantial portions of the Software.
 - **📚 [Documentation](docs/)** - Comprehensive guides and tutorials
 - **❓ [GitHub Issues](https://github.com/cmejo/AI_Scholar/issues)** - Bug reports and feature requests
 - **💬 [GitHub Discussions](https://github.com/cmejo/AI_Scholar/discussions)** - Community Q&A and ideas
-- **📧 [Email Support](mailto:support@aischolar.com)** - Direct support contact
 
 ### **🌐 Community Links**
-- **🐦 [Twitter](https://twitter.com/aischolar)** - Updates and announcements
-- **💼 [LinkedIn](https://linkedin.com/company/aischolar)** - Professional updates
-- **📺 [YouTube](https://youtube.com/@aischolar)** - Tutorials and demos
-- **📝 [Blog](https://blog.aischolar.com)** - Technical articles and insights
+- **📝 [Blog](https://cmejo.com/blog)** - Technical articles and insights
 
 ### **🤝 Professional Services**
 - **🏢 Enterprise Support** - Dedicated support for organizations
-- **🎓 Training & Workshops** - Custom training programs
 - **🔧 Custom Development** - Tailored feature development
-- **☁️ Managed Hosting** - Fully managed cloud deployment
 
 ---
 
@@ -1115,7 +1100,7 @@ copies or substantial portions of the Software.
 [![View Demo](https://img.shields.io/badge/View%20Demo-green?style=for-the-badge&logo=play)](https://demo.aischolar.com)
 [![Join Community](https://img.shields.io/badge/Join%20Community-purple?style=for-the-badge&logo=discord)](https://discord.gg/aischolar)
 
-**Built with ❤️ for the research community**
+**Built by Christopher Mejo with ❤️ for the research community**
 
 *Transforming research through AI-powered intelligence*
 
