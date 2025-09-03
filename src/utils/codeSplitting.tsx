@@ -2,11 +2,12 @@
  * Enhanced code splitting utilities for AI Scholar
  * Provides monitored lazy loading with performance tracking and error handling
  */
-import { ComponentType, lazy } from 'react';
+import type { ComponentType } from 'react';
+import { lazy } from 'react';
 
-interface LoadableComponent<T = Record<string, unknown>> {
-  (): Promise<{ default: ComponentType<T> }>;
-}
+type LoadableComponent<T = Record<string, unknown>> = () => Promise<{
+  default: ComponentType<T>;
+}>;
 
 interface MonitoringOptions {
   componentName: string;
@@ -292,7 +293,7 @@ export function createRouteComponent<T = {}>(
 export function createFeatureComponent<T = {}>(
   featureName: string,
   loader: LoadableComponent<T>,
-  critical: boolean = false
+  critical = false
 ): ComponentType<T> {
   return createMonitoredLazyComponent(loader, {
     componentName: `Feature-${featureName}`,

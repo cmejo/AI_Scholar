@@ -221,7 +221,10 @@ def custom_openapi():
     return app.openapi_schema
 
 app.openapi = custom_openapi
-    # Shutdown
+
+# Shutdown handler
+@app.on_event("shutdown")
+async def shutdown_event():
     logger.info("Shutting down AI Scholar RAG Backend...")
     await redis_client.disconnect()
 
