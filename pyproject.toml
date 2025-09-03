@@ -1,0 +1,81 @@
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.tox
+  | \.venv
+  | venv
+  | backend/venv
+  | backend/__pycache__
+  | backend/migrations
+  | backend/alembic
+  | _build
+  | buck-out
+  | build
+  | dist
+  | node_modules
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+skip_glob = [
+    ".git/*",
+    "__pycache__/*",
+    ".venv/*",
+    "venv/*",
+    "backend/venv/*",
+    "backend/__pycache__/*",
+    "backend/migrations/*",
+    "backend/alembic/*",
+    ".pytest_cache/*",
+    ".mypy_cache/*",
+    "node_modules/*",
+    "dist/*",
+    "build/*"
+]
+known_first_party = ["backend", "src"]
+known_third_party = ["fastapi", "pydantic", "sqlalchemy", "redis", "chromadb", "openai"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = "backend.migrations.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "backend.alembic.*"
+ignore_errors = true
