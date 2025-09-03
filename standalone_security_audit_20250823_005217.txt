@@ -1,0 +1,39 @@
+Standalone Zotero Security Audit Report
+==================================================
+
+Audit ID: audit_20250823_005213
+Timestamp: 2025-08-23T00:52:13.007571
+Overall Score: 8.2/10.0
+
+SUMMARY:
+Vulnerabilities: 2
+Recommendations: 1
+
+DETAILED RESULTS:
+
+File Permissions:
+Score: 5.0/5.0
+
+Configuration:
+Score: 5.0/5.0
+
+Dependencies:
+Score: 5.0/5.0
+
+Code Security:
+Score: 1.0/5.0
+
+Environment:
+Score: 3.5/5.0
+Issues:
+  - Missing environment variables: SECRET_KEY, DATABASE_PASSWORD, ZOTERO_CLIENT_SECRET
+
+Documentation:
+Score: 5.0/5.0
+
+VULNERABILITIES:
+1. code_security (high): 3 high-severity security issues found in code
+2. code_security (medium): 2 medium-severity security issues found in code
+
+RECOMMENDATIONS:
+1. Set required environment variables: SECRET_KEY, DATABASE_PASSWORD, ZOTERO_CLIENT_SECRET

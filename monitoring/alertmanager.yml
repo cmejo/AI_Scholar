@@ -1,0 +1,262 @@
+# AlertManager Configuration for Zotero Integration
+# Defines alert routing, notification channels, and escalation policies
+
+global:
+  smtp_smarthost: '${SMTP_HOST}:${SMTP_PORT}'
+  smtp_from: 'alerts@aischolar.com'
+  smtp_auth_username: '${SMTP_USER}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  smtp_require_tls: true
+
+# Templates for alert notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Alert routing configuration
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default'
+  routes:
+    # Critical Zotero alerts - immediate notification
+    - match:
+        service: zotero
+        severity: critical
+      receiver: 'zotero-critical'
+      group_wait: 0s
+      repeat_interval: 5m
+      continue: true
+
+    # Zotero warning alerts
+    - match:
+        service: zotero
+        severity: warning
+      receiver: 'zotero-warnings'
+      group_wait: 30s
+      repeat_interval: 30m
+
+    # Database alerts
+    - match:
+        alertname: ZoteroDatabaseConnectionIssues
+      receiver: 'database-alerts'
+      group_wait: 0s
+      repeat_interval: 10m
+
+    # Sync-related alerts
+    - match_re:
+        alertname: 'Zotero.*Sync.*'
+      receiver: 'sync-alerts'
+      group_wait: 1m
+      repeat_interval: 1h
+
+    # Performance alerts
+    - match_re:
+        alertname: 'Zotero.*Performance.*|ZoteroHigh.*'
+      receiver: 'performance-alerts'
+      group_wait: 2m
+      repeat_interval: 2h
+
+    # Security alerts
+    - match_re:
+        alertname: 'Zotero.*Auth.*|Zotero.*Security.*'
+      receiver: 'security-alerts'
+      group_wait: 0s
+      repeat_interval: 15m
+
+# Notification receivers
+receivers:
+  # Default receiver
+  - name: 'default'
+    email_configs:
+      - to: 'devops@aischolar.com'
+        subject: 'AI Scholar Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+          {{ end }}
+
+  # Critical Zotero alerts
+  - name: 'zotero-critical'
+    pagerduty_configs:
+      - routing_key: '${PAGERDUTY_INTEGRATION_KEY}'
+        description: 'Critical Zotero Alert: {{ .GroupLabels.alertname }}'
+        severity: 'critical'
+        details:
+          summary: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+          description: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+          environment: '${ENVIRONMENT}'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#zotero-critical'
+        title: '🚨 CRITICAL: Zotero Integration Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Environment:* ${ENVIRONMENT}
+          *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+        color: 'danger'
+    email_configs:
+      - to: 'devops@aischolar.com,backend-team@aischolar.com'
+        subject: '🚨 CRITICAL: Zotero Integration Alert - {{ .GroupLabels.alertname }}'
+        body: |
+          CRITICAL ALERT - Immediate attention required!
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Environment: ${ENVIRONMENT}
+          Started: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          
+          Labels:
+          {{ range .Labels.SortedPairs }}  {{ .Name }}: {{ .Value }}
+          {{ end }}
+          {{ end }}
+
+  # Zotero warning alerts
+  - name: 'zotero-warnings'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#zotero-alerts'
+        title: '⚠️ Zotero Integration Warning'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Environment:* ${ENVIRONMENT}
+          {{ end }}
+        color: 'warning'
+    email_configs:
+      - to: 'backend-team@aischolar.com'
+        subject: '⚠️ Zotero Warning: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Environment: ${ENVIRONMENT}
+          {{ end }}
+
+  # Database-specific alerts
+  - name: 'database-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#database-alerts'
+        title: '🗄️ Database Alert: Zotero Integration'
+        text: |
+          {{ range .Alerts }}
+          *Database Issue:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          *Environment:* ${ENVIRONMENT}
+          {{ end }}
+        color: 'danger'
+    email_configs:
+      - to: 'dba@aischolar.com,devops@aischolar.com'
+        subject: '🗄️ Database Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Database alert for Zotero integration:
+          
+          {{ range .Alerts }}
+          Issue: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Environment: ${ENVIRONMENT}
+          {{ end }}
+
+  # Sync-related alerts
+  - name: 'sync-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#zotero-sync'
+        title: '🔄 Zotero Sync Alert'
+        text: |
+          {{ range .Alerts }}
+          *Sync Issue:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          {{ end }}
+        color: 'warning'
+    email_configs:
+      - to: 'backend-team@aischolar.com'
+        subject: '🔄 Zotero Sync Alert: {{ .GroupLabels.alertname }}'
+
+  # Performance alerts
+  - name: 'performance-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#performance'
+        title: '📊 Zotero Performance Alert'
+        text: |
+          {{ range .Alerts }}
+          *Performance Issue:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          {{ end }}
+        color: 'warning'
+
+  # Security alerts
+  - name: 'security-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#security-alerts'
+        title: '🔒 Zotero Security Alert'
+        text: |
+          {{ range .Alerts }}
+          *Security Issue:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          *Environment:* ${ENVIRONMENT}
+          {{ end }}
+        color: 'danger'
+    email_configs:
+      - to: 'security@aischolar.com,devops@aischolar.com'
+        subject: '🔒 SECURITY ALERT: {{ .GroupLabels.alertname }}'
+        body: |
+          SECURITY ALERT - Zotero Integration
+          
+          {{ range .Alerts }}
+          Issue: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Environment: ${ENVIRONMENT}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+
+# Inhibition rules to prevent alert spam
+inhibit_rules:
+  # Inhibit warning alerts when critical alerts are firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
+
+  # Inhibit individual service alerts when the whole service is down
+  - source_match:
+      alertname: 'ZoteroServiceDown'
+    target_match_re:
+      alertname: 'Zotero.*'
+    equal: ['service']
+
+  # Inhibit sync alerts when database is down
+  - source_match:
+      alertname: 'ZoteroDatabaseConnectionIssues'
+    target_match_re:
+      alertname: 'ZoteroSync.*'
+
+# Alert grouping and timing
+group_by: ['alertname', 'cluster', 'service']
+group_wait: 10s
+group_interval: 5m
+repeat_interval: 12h
+
+# Silence configuration
+silences:
+  # Maintenance window silences can be added here
+  # Example:
+  # - matchers:
+  #     - name: service
+  #       value: zotero
+  #   startsAt: "2024-01-01T02:00:00Z"
+  #   endsAt: "2024-01-01T04:00:00Z"
+  #   createdBy: "maintenance"
+  #   comment: "Scheduled maintenance window"

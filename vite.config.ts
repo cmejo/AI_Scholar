@@ -4,20 +4,30 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [
-    react({
-      // Enable React Fast Refresh
-      fastRefresh: true,
-    }),
-    // Bundle analyzer plugin
-    visualizer({
-      filename: 'dist/bundle-analysis.html',
-      open: false,
-      gzipSize: true,
-      brotliSize: true,
-    }),
-  ],
+export default defineConfig(({ command, mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const isProduction = mode === 'production';
+  const isDevelopment = mode === 'development';
+  
+  return {
+    plugins: [
+      react({
+        fastRefresh: isDevelopment,
+        babel: {
+          plugins: isProduction ? [
+            ['babel-plugin-react-remove-properties', { properties: ['data-testid'] }]
+          ] : []
+        }
+      }),
+      // Bundle analyzer plugin
+      visualizer({
+        filename: 'dist/bundle-analysis.html',
+        open: false,
+        gzipSize: true,
+        brotliSize: true,
+        template: 'treemap'
+      }),
+    ],
   
   // Optimize dependencies
   optimizeDeps: {
@@ -31,10 +41,11 @@ export default defineConfig({
     force: process.env.NODE_ENV === 'production',
   },
 
-  // Build optimizations
-  build: {
-    // Enable source maps for debugging
-    sourcemap: process.env.NODE_ENV === 'development',
+    // Build optimizations
+    build: {
+      target: 'esnext',
+      sourcemap: isDevelopment,
+      minify: isProduction ? 'terser' : false,
     
     // Optimize chunk splitting
     rollupOptions: {
@@ -108,14 +119,20 @@ export default defineConfig({
       },
     },
     
-    // Minification options
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: process.env.NODE_ENV === 'production',
-        drop_debugger: process.env.NODE_ENV === 'production',
-      },
-    },
+      // Terser options for production
+      terserOptions: isProduction ? {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+          pure_funcs: ['console.log', 'console.info', 'console.debug']
+        },
+        mangle: {
+          safari10: true
+        },
+        format: {
+          comments: false
+        }
+      } : undefined,
     
     // Chunk size warnings
     chunkSizeWarningLimit: 500,
@@ -143,9 +160,16 @@ export default defineConfig({
     },
   },
 
-  // Performance optimizations
-  esbuild: {
-    // Remove console logs in production
-    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
-  },
+    // Performance optimizations
+    esbuild: {
+      // Remove console logs in production
+      drop: isProduction ? ['console', 'debugger'] : [],
+    },
+    
+    // Environment variables
+    define: {
+      __APP_VERSION__: JSON.stringify(env.npm_package_version || '2.0.0'),
+      __BUILD_TIME__: JSON.stringify(new Date().toISOString())
+    }
+  };
 });

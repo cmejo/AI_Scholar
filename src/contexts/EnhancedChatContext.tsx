@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { ContextualResponse } from '../utils/contextAwareRetrieval';
 import { ChainOfThoughtResponse } from '../utils/chainOfThought';
 
@@ -175,6 +175,15 @@ export const EnhancedChatProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [currentConversation]);
 
+  const value = useMemo(() => ({
+    conversations,
+    currentConversation,
+    createNewConversation,
+    switchConversation,
+    sendMessage,
+    deleteConversation,
+  }), [conversations, currentConversation, createNewConversation, switchConversation, sendMessage, deleteConversation]);
+
   // Initialize with a default conversation
   React.useEffect(() => {
     if (conversations.length === 0) {
@@ -183,14 +192,7 @@ export const EnhancedChatProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [conversations.length, createNewConversation]);
 
   return (
-    <EnhancedChatContext.Provider value={{
-      conversations,
-      currentConversation,
-      createNewConversation,
-      switchConversation,
-      sendMessage,
-      deleteConversation,
-    }}>
+    <EnhancedChatContext.Provider value={value}>
       {children}
     </EnhancedChatContext.Provider>
   );

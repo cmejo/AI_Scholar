@@ -1,0 +1,295 @@
+version: '3.8'
+
+services:
+  # Main application with Zotero integration
+  ai-scholar-backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: ai-scholar-backend-zotero
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - ZOTERO_CLIENT_ID=${ZOTERO_CLIENT_ID}
+      - ZOTERO_CLIENT_SECRET=${ZOTERO_CLIENT_SECRET}
+      - ZOTERO_REDIRECT_URI=${ZOTERO_REDIRECT_URI}
+      - ZOTERO_WEBHOOK_SECRET=${ZOTERO_WEBHOOK_SECRET}
+      - ZOTERO_ENCRYPTION_KEY=${ZOTERO_ENCRYPTION_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
+    volumes:
+      - zotero_attachments:/app/data/zotero_attachments
+      - zotero_logs:/app/logs
+      - ../config/zotero_config.${ENVIRONMENT:-production}.json:/app/config/zotero_config.json:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - zotero_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/zotero"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend with Zotero components
+  ai-scholar-frontend:
+    build:
+      context: ../
+      dockerfile: Dockerfile.frontend
+    container_name: ai-scholar-frontend-zotero
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8000}
+      - REACT_APP_ZOTERO_ENABLED=true
+    ports:
+      - "3000:3000"
+    depends_on:
+      - ai-scholar-backend
+    networks:
+      - zotero_network
+    restart: unless-stopped
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: zotero-postgres
+    environment:
+      - POSTGRES_DB=${DB_NAME:-ai_scholar}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../backend/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - zotero_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-ai_scholar}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    container_name: zotero-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - zotero_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Celery worker for background tasks
+  celery-worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: zotero-celery-worker
+    command: celery -A app.celery worker --loglevel=info --concurrency=4
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - ZOTERO_CLIENT_ID=${ZOTERO_CLIENT_ID}
+      - ZOTERO_CLIENT_SECRET=${ZOTERO_CLIENT_SECRET}
+      - ZOTERO_ENCRYPTION_KEY=${ZOTERO_ENCRYPTION_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - zotero_attachments:/app/data/zotero_attachments
+      - zotero_logs:/app/logs
+      - ../config/zotero_config.${ENVIRONMENT:-production}.json:/app/config/zotero_config.json:ro
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - zotero_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.celery", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Celery beat scheduler
+  celery-beat:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: zotero-celery-beat
+    command: celery -A app.celery beat --loglevel=info
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+    volumes:
+      - zotero_logs:/app/logs
+      - ../config/zotero_config.${ENVIRONMENT:-production}.json:/app/config/zotero_config.json:ro
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - zotero_network
+    restart: unless-stopped
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: zotero-nginx
+    volumes:
+      - ../config/nginx/zotero.conf:/etc/nginx/conf.d/default.conf:ro
+      - zotero_attachments:/var/www/attachments:ro
+      - ../ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - ai-scholar-backend
+      - ai-scholar-frontend
+    networks:
+      - zotero_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: zotero-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/zotero_monitoring.yml:/etc/prometheus/rules/zotero.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - zotero_network
+    restart: unless-stopped
+
+  # Grafana dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: zotero-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - zotero_network
+    restart: unless-stopped
+
+  # Log aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: zotero-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ../monitoring/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - zotero_network
+    restart: unless-stopped
+
+  # Log shipping
+  promtail:
+    image: grafana/promtail:latest
+    container_name: zotero-promtail
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ../monitoring/promtail-config.yml:/etc/promtail/config.yml:ro
+      - zotero_logs:/var/log/zotero:ro
+      - /var/log:/var/log/host:ro
+    depends_on:
+      - loki
+    networks:
+      - zotero_network
+    restart: unless-stopped
+
+  # File storage backup
+  backup:
+    image: alpine:latest
+    container_name: zotero-backup
+    command: |
+      sh -c "
+        apk add --no-cache postgresql-client aws-cli &&
+        while true; do
+          echo 'Starting backup...' &&
+          pg_dump -h postgres -U ${DB_USER:-postgres} -d ${DB_NAME:-ai_scholar} > /backup/db_backup_$$(date +%Y%m%d_%H%M%S).sql &&
+          tar -czf /backup/attachments_backup_$$(date +%Y%m%d_%H%M%S).tar.gz -C /attachments . &&
+          find /backup -name '*.sql' -mtime +7 -delete &&
+          find /backup -name '*.tar.gz' -mtime +7 -delete &&
+          echo 'Backup completed' &&
+          sleep 86400
+        done
+      "
+    environment:
+      - PGPASSWORD=${DB_PASSWORD}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_NAME=${DB_NAME:-ai_scholar}
+    volumes:
+      - zotero_attachments:/attachments:ro
+      - backup_data:/backup
+    depends_on:
+      - postgres
+    networks:
+      - zotero_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  zotero_attachments:
+    driver: local
+  zotero_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  loki_data:
+    driver: local
+  backup_data:
+    driver: local
+
+networks:
+  zotero_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -1,0 +1,334 @@
+# Zotero Integration Monitoring Configuration
+# This file defines monitoring rules, alerts, and dashboards for Zotero integration
+
+# Prometheus monitoring rules
+groups:
+  - name: zotero_integration
+    rules:
+      # Service availability
+      - alert: ZoteroServiceDown
+        expr: up{job="zotero-integration"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: zotero
+        annotations:
+          summary: "Zotero integration service is down"
+          description: "The Zotero integration service has been down for more than 1 minute"
+
+      # API response time
+      - alert: ZoteroHighResponseTime
+        expr: histogram_quantile(0.95, rate(zotero_api_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: zotero
+        annotations:
+          summary: "High Zotero API response time"
+          description: "95th percentile response time is {{ $value }}s"
+
+      # Error rate
+      - alert: ZoteroHighErrorRate
+        expr: rate(zotero_api_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: zotero
+        annotations:
+          summary: "High Zotero API error rate"
+          description: "Error rate is {{ $value }} errors per second"
+
+      # Sync failures
+      - alert: ZoteroSyncFailures
+        expr: increase(zotero_sync_failures_total[10m]) > 5
+        for: 1m
+        labels:
+          severity: warning
+          service: zotero
+        annotations:
+          summary: "Multiple Zotero sync failures"
+          description: "{{ $value }} sync failures in the last 10 minutes"
+
+      # Database connection issues
+      - alert: ZoteroDatabaseConnectionIssues
+        expr: zotero_database_connections_failed_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: zotero
+        annotations:
+          summary: "Zotero database connection failures"
+          description: "Database connection failures detected"
+
+      # Storage space
+      - alert: ZoteroStorageSpaceLow
+        expr: (zotero_storage_used_bytes / zotero_storage_total_bytes) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: zotero
+        annotations:
+          summary: "Zotero storage space running low"
+          description: "Storage is {{ $value | humanizePercentage }} full"
+
+      # Rate limiting
+      - alert: ZoteroRateLimitHit
+        expr: increase(zotero_rate_limit_exceeded_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: zotero
+        annotations:
+          summary: "Zotero API rate limit exceeded"
+          description: "Rate limit exceeded {{ $value }} times in 5 minutes"
+
+      # Authentication failures
+      - alert: ZoteroAuthFailures
+        expr: increase(zotero_auth_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: zotero
+        annotations:
+          summary: "High number of Zotero authentication failures"
+          description: "{{ $value }} authentication failures in 5 minutes"
+
+      # Memory usage
+      - alert: ZoteroHighMemoryUsage
+        expr: (process_resident_memory_bytes{job="zotero-integration"} / 1024 / 1024 / 1024) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: zotero
+        annotations:
+          summary: "High memory usage in Zotero service"
+          description: "Memory usage is {{ $value }}GB"
+
+      # Queue backlog
+      - alert: ZoteroQueueBacklog
+        expr: zotero_sync_queue_size > 1000
+        for: 10m
+        labels:
+          severity: warning
+          service: zotero
+        annotations:
+          summary: "Large Zotero sync queue backlog"
+          description: "Sync queue has {{ $value }} pending items"
+
+# Grafana dashboard configuration
+dashboards:
+  - name: "Zotero Integration Overview"
+    panels:
+      - title: "Service Status"
+        type: "stat"
+        targets:
+          - expr: "up{job='zotero-integration'}"
+            legendFormat: "Service Up"
+      
+      - title: "API Request Rate"
+        type: "graph"
+        targets:
+          - expr: "rate(zotero_api_requests_total[5m])"
+            legendFormat: "Requests/sec"
+      
+      - title: "Response Time"
+        type: "graph"
+        targets:
+          - expr: "histogram_quantile(0.50, rate(zotero_api_request_duration_seconds_bucket[5m]))"
+            legendFormat: "50th percentile"
+          - expr: "histogram_quantile(0.95, rate(zotero_api_request_duration_seconds_bucket[5m]))"
+            legendFormat: "95th percentile"
+          - expr: "histogram_quantile(0.99, rate(zotero_api_request_duration_seconds_bucket[5m]))"
+            legendFormat: "99th percentile"
+      
+      - title: "Error Rate"
+        type: "graph"
+        targets:
+          - expr: "rate(zotero_api_errors_total[5m])"
+            legendFormat: "Errors/sec"
+      
+      - title: "Active Connections"
+        type: "stat"
+        targets:
+          - expr: "zotero_active_connections"
+            legendFormat: "Active Connections"
+      
+      - title: "Sync Operations"
+        type: "graph"
+        targets:
+          - expr: "rate(zotero_sync_operations_total[5m])"
+            legendFormat: "Syncs/sec"
+          - expr: "rate(zotero_sync_failures_total[5m])"
+            legendFormat: "Failures/sec"
+      
+      - title: "Storage Usage"
+        type: "graph"
+        targets:
+          - expr: "zotero_storage_used_bytes"
+            legendFormat: "Used Storage"
+          - expr: "zotero_storage_total_bytes"
+            legendFormat: "Total Storage"
+      
+      - title: "Memory Usage"
+        type: "graph"
+        targets:
+          - expr: "process_resident_memory_bytes{job='zotero-integration'}"
+            legendFormat: "Memory Usage"
+      
+      - title: "CPU Usage"
+        type: "graph"
+        targets:
+          - expr: "rate(process_cpu_seconds_total{job='zotero-integration'}[5m]) * 100"
+            legendFormat: "CPU %"
+
+  - name: "Zotero Sync Monitoring"
+    panels:
+      - title: "Sync Queue Size"
+        type: "stat"
+        targets:
+          - expr: "zotero_sync_queue_size"
+            legendFormat: "Queue Size"
+      
+      - title: "Sync Success Rate"
+        type: "stat"
+        targets:
+          - expr: "rate(zotero_sync_operations_total[5m]) - rate(zotero_sync_failures_total[5m])"
+            legendFormat: "Success Rate"
+      
+      - title: "Items Synced"
+        type: "graph"
+        targets:
+          - expr: "increase(zotero_items_synced_total[1h])"
+            legendFormat: "Items/hour"
+      
+      - title: "Sync Duration"
+        type: "graph"
+        targets:
+          - expr: "histogram_quantile(0.50, rate(zotero_sync_duration_seconds_bucket[5m]))"
+            legendFormat: "50th percentile"
+          - expr: "histogram_quantile(0.95, rate(zotero_sync_duration_seconds_bucket[5m]))"
+            legendFormat: "95th percentile"
+      
+      - title: "Libraries by Status"
+        type: "pie"
+        targets:
+          - expr: "zotero_libraries_by_status"
+            legendFormat: "{{ status }}"
+
+# Log aggregation rules
+log_rules:
+  - name: "zotero_errors"
+    pattern: "ERROR.*zotero"
+    action: "alert"
+    severity: "error"
+  
+  - name: "zotero_warnings"
+    pattern: "WARN.*zotero"
+    action: "count"
+    severity: "warning"
+  
+  - name: "zotero_auth_failures"
+    pattern: "Authentication failed.*zotero"
+    action: "alert"
+    severity: "warning"
+  
+  - name: "zotero_rate_limits"
+    pattern: "Rate limit exceeded.*zotero"
+    action: "alert"
+    severity: "warning"
+
+# Health check configuration
+health_checks:
+  - name: "zotero_api_health"
+    endpoint: "/health/zotero"
+    interval: "30s"
+    timeout: "10s"
+    expected_status: 200
+  
+  - name: "zotero_database_health"
+    endpoint: "/health/zotero/database"
+    interval: "60s"
+    timeout: "15s"
+    expected_status: 200
+  
+  - name: "zotero_sync_health"
+    endpoint: "/health/zotero/sync"
+    interval: "120s"
+    timeout: "30s"
+    expected_status: 200
+
+# Notification channels
+notification_channels:
+  - name: "zotero_alerts_email"
+    type: "email"
+    settings:
+      addresses: ["devops@aischolar.com", "backend-team@aischolar.com"]
+      subject: "Zotero Integration Alert - {{ .GroupLabels.alertname }}"
+  
+  - name: "zotero_alerts_slack"
+    type: "slack"
+    settings:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      channel: "#zotero-alerts"
+      title: "Zotero Integration Alert"
+  
+  - name: "zotero_critical_pagerduty"
+    type: "pagerduty"
+    settings:
+      integration_key: "${PAGERDUTY_INTEGRATION_KEY}"
+      severity: "critical"
+
+# Alert routing
+alert_routing:
+  routes:
+    - match:
+        service: "zotero"
+        severity: "critical"
+      receiver: "zotero_critical_pagerduty"
+      group_wait: "10s"
+      group_interval: "5m"
+      repeat_interval: "12h"
+    
+    - match:
+        service: "zotero"
+        severity: "warning"
+      receiver: "zotero_alerts_slack"
+      group_wait: "30s"
+      group_interval: "10m"
+      repeat_interval: "4h"
+    
+    - match:
+        service: "zotero"
+      receiver: "zotero_alerts_email"
+      group_wait: "1m"
+      group_interval: "15m"
+      repeat_interval: "24h"
+
+# Performance thresholds
+performance_thresholds:
+  api_response_time:
+    warning: 1.0  # seconds
+    critical: 3.0  # seconds
+  
+  error_rate:
+    warning: 0.05  # 5%
+    critical: 0.10  # 10%
+  
+  sync_queue_size:
+    warning: 500
+    critical: 1000
+  
+  memory_usage:
+    warning: 1.5  # GB
+    critical: 2.0  # GB
+  
+  storage_usage:
+    warning: 0.80  # 80%
+    critical: 0.90  # 90%
+
+# Retention policies
+retention:
+  metrics: "30d"
+  logs: "7d"
+  alerts: "90d"
+  traces: "3d"

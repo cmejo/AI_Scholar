@@ -1,0 +1,187 @@
+# Green Environment Docker Compose Configuration
+# Used for blue-green deployments
+
+version: '3.8'
+
+services:
+  # Backend API Service (Green)
+  backend-green:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aischolar-backend-green
+    environment:
+      - ENVIRONMENT=production
+      - DEPLOYMENT_SLOT=green
+    env_file:
+      - .env.production
+      - config/deployment/production.env
+    ports:
+      - "8002:8000"  # Green environment port
+    volumes:
+      - ./backend:/app
+      - zotero_attachments_green:/app/data/zotero_attachments
+      - backend_logs_green:/app/logs
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - aischolar-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Frontend Service (Green)
+  frontend-green:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: aischolar-frontend-green
+    environment:
+      - NODE_ENV=production
+      - DEPLOYMENT_SLOT=green
+      - REACT_APP_API_URL=http://backend-green:8000
+    ports:
+      - "3002:3000"  # Green environment port
+    volumes:
+      - ./frontend/build:/app/build
+    depends_on:
+      - backend-green
+    networks:
+      - aischolar-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Celery Worker (Green)
+  celery-worker-green:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aischolar-celery-green
+    command: celery -A app.celery worker --loglevel=info --concurrency=4
+    environment:
+      - ENVIRONMENT=production
+      - DEPLOYMENT_SLOT=green
+    env_file:
+      - .env.production
+      - config/deployment/production.env
+    volumes:
+      - ./backend:/app
+      - zotero_attachments_green:/app/data/zotero_attachments
+      - backend_logs_green:/app/logs
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - aischolar-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Celery Beat Scheduler (Green)
+  celery-beat-green:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aischolar-celery-beat-green
+    command: celery -A app.celery beat --loglevel=info
+    environment:
+      - ENVIRONMENT=production
+      - DEPLOYMENT_SLOT=green
+    env_file:
+      - .env.production
+      - config/deployment/production.env
+    volumes:
+      - ./backend:/app
+      - backend_logs_green:/app/logs
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - aischolar-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Nginx Load Balancer (Green)
+  nginx-green:
+    image: nginx:alpine
+    container_name: aischolar-nginx-green
+    ports:
+      - "8081:80"
+      - "8444:443"
+    volumes:
+      - ./config/nginx/green.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl/certs:ro
+      - nginx_logs_green:/var/log/nginx
+    depends_on:
+      - backend-green
+      - frontend-green
+    networks:
+      - aischolar-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  zotero_attachments_green:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /app/data/green/zotero_attachments
+  backend_logs_green:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /app/logs/green
+  nginx_logs_green:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/nginx/green
+
+networks:
+  aischolar-network:
+    external: true

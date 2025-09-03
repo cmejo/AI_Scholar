@@ -1,0 +1,179 @@
+# YAML Lint configuration for Ubuntu compatibility
+# https://yamllint.readthedocs.io/
+
+extends: default
+
+# File patterns to include
+yaml-files:
+  - '*.yaml'
+  - '*.yml'
+  - '.yamllint'
+  - '.yamllint.yml'
+  - '.yamllint.yaml'
+
+# Ignore patterns
+ignore: |
+  node_modules/
+  .git/
+  venv/
+  .venv/
+  __pycache__/
+  .pytest_cache/
+  .mypy_cache/
+  dist/
+  build/
+  coverage/
+
+rules:
+  # Braces (dictionaries)
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+    min-spaces-inside-empty: 0
+    max-spaces-inside-empty: 0
+    
+  # Brackets (lists)
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 0
+    min-spaces-inside-empty: 0
+    max-spaces-inside-empty: 0
+    
+  # Colons
+  colons:
+    max-spaces-before: 0
+    min-spaces-after: 1
+    max-spaces-after: 1
+    
+  # Commas
+  commas:
+    max-spaces-before: 0
+    min-spaces-after: 1
+    max-spaces-after: 1
+    
+  # Comments
+  comments:
+    min-spaces-from-content: 1
+    require-starting-space: true
+    
+  # Comments indentation
+  comments-indentation: enable
+  
+  # Document markers
+  document-end: disable
+  document-start:
+    present: false
+    
+  # Empty lines
+  empty-lines:
+    max: 2
+    max-start: 0
+    max-end: 1
+    
+  # Empty values
+  empty-values:
+    forbid-in-block-mappings: true
+    forbid-in-flow-mappings: true
+    
+  # Float values
+  float-values:
+    require-numeral-before-decimal: false
+    forbid-scientific-notation: false
+    forbid-nan: false
+    forbid-inf: false
+    
+  # Hyphens
+  hyphens:
+    max-spaces-after: 1
+    
+  # Indentation
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+    
+  # Key duplicates
+  key-duplicates: enable
+  
+  # Key ordering
+  key-ordering: disable
+  
+  # Line length
+  line-length:
+    max: 120
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true
+    
+  # New line at end of file
+  new-line-at-end-of-file: enable
+  
+  # Octal values
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: false
+    
+  # Quoted strings
+  quoted-strings:
+    quote-type: any
+    required: false
+    extra-required: []
+    extra-allowed: []
+    
+  # Trailing spaces
+  trailing-spaces: enable
+  
+  # Truthy values
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no', 'on', 'off']
+    check-keys: true
+
+# Custom rules for Docker Compose and Ubuntu-specific configurations
+custom-rules:
+  # Docker Compose version pinning
+  docker-compose-version:
+    description: "Ensure Docker Compose version is specified"
+    pattern: "version:"
+    required: true
+    
+  # Service health checks
+  docker-health-checks:
+    description: "Recommend health checks for services"
+    pattern: "healthcheck:"
+    recommended: true
+    
+  # Volume permissions for Ubuntu
+  ubuntu-volume-permissions:
+    description: "Check volume mount permissions for Ubuntu compatibility"
+    pattern: "volumes:"
+    check-permissions: true
+    
+  # Network configuration
+  ubuntu-network-config:
+    description: "Validate network configuration for Ubuntu Docker"
+    pattern: "networks:"
+    validate-ubuntu: true
+
+# Severity levels
+severity:
+  error:
+    - key-duplicates
+    - syntax
+    - trailing-spaces
+    - new-line-at-end-of-file
+    
+  warning:
+    - line-length
+    - indentation
+    - comments
+    - empty-lines
+    
+  info:
+    - quoted-strings
+    - truthy
+    - octal-values
+
+# Output format
+output: parsable
+
+# Locale settings for Ubuntu compatibility
+locale: en_US.UTF-8

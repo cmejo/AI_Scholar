@@ -5,7 +5,8 @@ import os
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form
+from fastapi import JSONResponse, FastAPI, HTTPException, Depends, UploadFile, File, Form
+from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from middleware.performance_middleware import PerformanceMiddleware, CacheOptimizationMiddleware, DatabaseOptimizationMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -13,9 +14,15 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import uvicorn
 
-from core.config import settings
+from core.config import settings, ALLOWED_FILE_TYPES, MAX_FILE_SIZE_MB, MAX_BATCH_FILES
 from core.database import init_db
 from core.redis_client import redis_client
+from core.exceptions import (
+    FileValidationError, DocumentNotFoundError, 
+    DocumentProcessingError, AuthenticationError,
+    ValidationError, BaseAPIException
+)
+from utils.file_validation import FileValidator
 from services.document_processor import DocumentProcessor
 from services.rag_service import RAGService
 from services.enhanced_rag_service import EnhancedRAGService
@@ -48,6 +55,7 @@ from api.graphql_schema import graphql_router
 from api.integration_auth_endpoints import router as integration_auth_router
 from api.webhook_notification_endpoints import router as webhook_notification_router
 from api.developer_portal_endpoints import router as developer_portal_router
+from api.zotero_endpoints import router as zotero_router
 from models.schemas import (
     DocumentResponse, 
     ChatRequest, 
@@ -93,6 +101,128 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down AI Scholar RAG Backend...")
+
+# Create FastAPI app with enhanced configuration
+app = FastAPI(
+    title="AI Scholar API",
+    description="""
+    ## 🎓 AI Scholar Research Platform API
+    
+    A comprehensive API for AI-powered research assistance and document management.
+    
+    ### Features
+    - **Document Processing**: Upload and process research documents with AI
+    - **RAG System**: Retrieval-Augmented Generation for intelligent Q&A
+    - **Knowledge Graphs**: Entity extraction and relationship mapping
+    - **Research Tools**: Advanced research workflow management
+    - **Real-time Collaboration**: Live document collaboration and updates
+    
+    ### Authentication
+    Use Bearer token authentication for all protected endpoints.
+    
+    ### Rate Limits
+    - 60 requests per minute per IP
+    - 1000 requests per hour per IP
+    - Burst limit: 10 requests per 10 seconds
+    
+    ### Quick Start
+    ```python
+    import requests
+    
+    # Upload a document
+    with open('research_paper.pdf', 'rb') as f:
+        response = requests.post(
+            'http://localhost:8000/api/documents/upload',
+            files={'file': f},
+            headers={'Authorization': 'Bearer YOUR_TOKEN'}
+        )
+    
+    # Ask a question about the document
+    response = requests.post(
+        'http://localhost:8000/api/chat/query',
+        json={
+            'query': 'What are the main findings?',
+            'document_ids': ['doc_id_from_upload']
+        },
+        headers={'Authorization': 'Bearer YOUR_TOKEN'}
+    )
+    ```
+    """,
+    version="2.0.0",
+    contact={
+        "name": "AI Scholar Team",
+        "url": "https://github.com/cmejo/AI_Scholar",
+        "email": "support@aischolar.com"
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT"
+    },
+    lifespan=lifespan
+)
+
+def custom_openapi():
+    """Custom OpenAPI schema with enhanced documentation"""
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    
+    # Add custom extensions
+    openapi_schema["info"]["x-logo"] = {
+        "url": "/static/logo.png",
+        "altText": "AI Scholar Logo"
+    }
+    
+    # Add examples for common operations
+    openapi_schema["info"]["x-examples"] = {
+        "document_upload": {
+            "summary": "Upload Research Paper",
+            "description": "Upload a PDF research paper for processing",
+            "value": {
+                "file": "research_paper.pdf",
+                "chunking_strategy": "hierarchical",
+                "metadata": {
+                    "title": "Research Paper Title",
+                    "authors": ["Author 1", "Author 2"],
+                    "year": 2024
+                }
+            }
+        },
+        "ai_query": {
+            "summary": "Ask AI Question",
+            "description": "Query the AI system about uploaded documents",
+            "value": {
+                "query": "What are the main contributions of this research?",
+                "context_limit": 5,
+                "include_sources": True
+            }
+        }
+    }
+    
+    # Add security schemes
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT"
+        }
+    }
+    
+    # Add global security requirement
+    openapi_schema["security"] = [{"BearerAuth": []}]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+    # Shutdown
+    logger.info("Shutting down AI Scholar RAG Backend...")
     await redis_client.disconnect()
 
 app = FastAPI(
@@ -114,11 +244,34 @@ app.add_middleware(DatabaseOptimizationMiddleware)
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Custom exception handlers
+@app.exception_handler(BaseAPIException)
+async def base_api_exception_handler(request, exc: BaseAPIException):
+    """Handle custom API exceptions"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.to_dict()
+    )
+
+@app.exception_handler(FileValidationError)
+async def file_validation_exception_handler(request, exc: FileValidationError):
+    """Handle file validation errors"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": exc.error_code,
+                "message": exc.message,
+                "details": exc.extra_data
+            }
+        }
+    )
 
 # Include advanced endpoints router
 app.include_router(advanced_router)
@@ -145,6 +298,7 @@ app.include_router(graphql_router)
 app.include_router(integration_auth_router)
 app.include_router(webhook_notification_router)
 app.include_router(developer_portal_router)
+app.include_router(zotero_router)
 
 # Dependency for authentication
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -186,10 +340,22 @@ async def upload_document(
 ):
     """Upload and process a document with enhanced hierarchical chunking"""
     try:
-        # Validate file type
-        allowed_types = ['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-        if file.content_type not in allowed_types:
-            raise HTTPException(status_code=400, detail="Unsupported file type")
+        # Enhanced file validation with security checks
+        file_content = await file.read()
+        await file.seek(0)  # Reset file pointer
+        
+        validation_result = FileValidator.validate_upload_file(
+            filename=file.filename or "unknown",
+            file_content=file_content,
+            declared_mime_type=file.content_type or ""
+        )
+        
+        if not validation_result['is_valid']:
+            raise FileValidationError(
+                message="; ".join(validation_result['errors']),
+                filename=file.filename,
+                validation_errors=validation_result['errors']
+            )
         
         # Process document with enhanced processing
         result = await document_processor.process_document(file, user.id)
@@ -228,9 +394,16 @@ async def upload_document(
         
         return result
         
+    except FileValidationError:
+        raise  # Re-raise validation errors as-is
+    except DocumentProcessingError:
+        raise  # Re-raise processing errors as-is
     except Exception as e:
-        logger.error(f"Document upload error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Document processing failed: {str(e)}")
+        logger.error(f"Unexpected document processing error: {str(e)}")
+        raise DocumentProcessingError(
+            message="An unexpected error occurred during document processing",
+            processing_stage="upload"
+        )
 
 @app.get("/api/documents", response_model=List[DocumentResponse])
 async def get_documents(user = Depends(get_current_user)):
@@ -430,12 +603,29 @@ async def batch_upload_documents(
         
         for file in files:
             try:
-                # Validate file type
-                allowed_types = ['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-                if file.content_type not in allowed_types:
+                # Enhanced batch file validation
+                try:
+                    file_content = await file.read()
+                    await file.seek(0)
+                    
+                    validation_result = FileValidator.validate_upload_file(
+                        filename=file.filename or "unknown",
+                        file_content=file_content,
+                        declared_mime_type=file.content_type or ""
+                    )
+                    
+                    if not validation_result['is_valid']:
+                        failed_uploads.append({
+                            "filename": file.filename,
+                            "error": "; ".join(validation_result['errors']),
+                            "validation_details": validation_result['errors']
+                        })
+                        continue
+                        
+                except Exception as validation_error:
                     failed_uploads.append({
                         "filename": file.filename,
-                        "error": "Unsupported file type"
+                        "error": f"Validation failed: {str(validation_error)}"
                     })
                     continue
                 

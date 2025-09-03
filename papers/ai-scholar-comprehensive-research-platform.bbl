@@ -1,0 +1,135 @@
+\begin{thebibliography}{10}
+
+\bibitem{amano2016languages}
+Tatsuya Amano, Juan~P Gonz{\'a}lez-Varo, and William~J Sutherland.
+\newblock Languages are still a major barrier to global science.
+\newblock {\em PLoS biology}, 14(12):e2000933, 2016.
+
+\bibitem{ammar2018construction}
+Waleed Ammar, Dirk Groeneveld, Chandra Bhagavatula, Iz~Beltagy, Miles Crawford,
+  Doug Downey, Jason Dunkelberger, Ahmed Elgohary, Sergey Feldman, Vu~Ha,
+  et~al.
+\newblock Construction of the literature graph in semantic scholar.
+\newblock In {\em Proceedings of the 2018 Conference of the North American
+  Chapter of the Association for Computational Linguistics: Human Language
+  Technologies, Volume 3 (Industry Papers)}, pages 84--91, 2018.
+
+\bibitem{baker2016reproducibility}
+Monya Baker.
+\newblock 1,500 scientists lift the lid on reproducibility.
+\newblock {\em Nature News}, 533(7604):452, 2016.
+
+\bibitem{beltagy2019scibert}
+Iz~Beltagy, Kyle Lo, and Arman Cohan.
+\newblock Scibert: A pretrained language model for scientific text.
+\newblock {\em arXiv preprint arXiv:1903.10676}, 2019.
+
+\bibitem{ben2014succinct}
+Eli Ben-Sasson, Alessandro Chiesa, Daniel Genkin, Eran Tromer, and Madars
+  Virza.
+\newblock Succinct non-interactive zero knowledge for a von neumann
+  architecture.
+\newblock In {\em 23rd USENIX Security Symposium (USENIX Security 14)}, pages
+  781--796, 2014.
+
+\bibitem{bornmann2015growth}
+Lutz Bornmann and R{\"u}diger Mutz.
+\newblock Growth rates of modern science: A bibliometric analysis based on the
+  number of publications and cited references.
+\newblock {\em Journal of the Association for Information Science and
+  Technology}, 66(11):2215--2222, 2015.
+
+\bibitem{cohan2020specter}
+Arman Cohan, Sergey Feldman, Iz~Beltagy, Doug Downey, and Daniel~S Weld.
+\newblock Specter: Document-level representation learning using
+  citation-informed transformers.
+\newblock {\em arXiv preprint arXiv:2004.07180}, 2020.
+
+\bibitem{ellis1989concurrency}
+Clarence~A Ellis and Simon~J Gibbs.
+\newblock Concurrency control in groupware systems.
+\newblock {\em ACM SIGMOD Record}, 18(2):399--407, 1989.
+
+\bibitem{fanelli2009many}
+Daniele Fanelli.
+\newblock How many scientists fabricate and falsify research? a systematic
+  review and meta-analysis of survey data.
+\newblock {\em PLoS one}, 4(5):e5738, 2009.
+
+\bibitem{grech2017blockchain}
+Alexander Grech and Anthony~F Camilleri.
+\newblock A blockchain-based system for the verification of academic
+  credentials.
+\newblock {\em European Commission, JRC Science for Policy Report}, 2017.
+
+\bibitem{iris2019}
+{Iris.ai}.
+\newblock Iris.ai: Ai-powered research assistant.
+\newblock \url{https://iris.ai}, 2019.
+\newblock Accessed: 2024-01-15.
+
+\bibitem{overleaf2019}
+{Overleaf}.
+\newblock Overleaf: Real-time collaborative writing and publishing tools.
+\newblock \url{https://www.overleaf.com}, 2019.
+\newblock Accessed: 2024-01-15.
+
+\bibitem{priem2022openalex}
+Jason Priem, Heather Piwowar, and Richard Orr.
+\newblock Openalex: A fully-open index of scholarly works, authors, venues,
+  institutions, and concepts.
+\newblock {\em arXiv preprint arXiv:2205.01833}, 2022.
+
+\bibitem{radianti2020systematic}
+Jaziar Radianti, Tim~A Majchrzak, Jennifer Fromm, and Isabell Wohlgenannt.
+\newblock A systematic review of immersive virtual reality applications for
+  higher education: Design elements, lessons learned, and research agenda.
+\newblock {\em Computers \& Education}, 147:103778, 2020.
+
+\bibitem{sinha2015overview}
+Arnab Sinha, Zhihong Shen, Yang Song, Hao Ma, Darrin Eide, Bo-June~Paul Hsu,
+  and Kuansan Wang.
+\newblock An overview of microsoft academic service (mas) and applications.
+\newblock {\em Proceedings of the 24th international conference on world wide
+  web}, pages 243--246, 2015.
+
+\bibitem{slack2019}
+{Slack Technologies}.
+\newblock Slack: Where work happens.
+\newblock \url{https://slack.com}, 2019.
+\newblock Accessed: 2024-01-15.
+
+\bibitem{tenorio2019blockchain}
+Antonio Tenorio-Forn{\'e}s, Viktor Jacynycz, David Llop-Vila, Antonio~A
+  S{\'a}nchez-Ruiz, and Samer Hassan.
+\newblock A blockchain-based approach for data accountability and provenance
+  tracking.
+\newblock {\em arXiv preprint arXiv:1906.07226}, 2019.
+
+\bibitem{thelwall2014researchgate}
+Mike Thelwall and Kayvan Kousha.
+\newblock Researchgate: Disseminating, communicating, and measuring
+  scholarship?
+\newblock {\em Journal of the Association for Information Science and
+  Technology}, 65(4):876--889, 2014.
+
+\bibitem{vaswani2017attention}
+Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones,
+  Aidan~N Gomez, {\L}ukasz Kaiser, and Illia Polosukhin.
+\newblock Attention is all you need.
+\newblock {\em Advances in neural information processing systems}, 30, 2017.
+
+\bibitem{velickovic2017graph}
+Petar Veli{\v{c}}kovi{\'c}, Guillem Cucurull, Arantxa Casanova, Adriana Romero,
+  Pietro Lio, and Yoshua Bengio.
+\newblock Graph attention networks.
+\newblock {\em arXiv preprint arXiv:1710.10903}, 2017.
+
+\bibitem{zhang2022scientific}
+Ningyu Zhang, Lei Li, Xiang Chen, Shumin Deng, Zhanlin Bi, Chuanqi Tan, Fei
+  Huang, and Huajun Chen.
+\newblock Scientific knowledge graph construction and application: A survey.
+\newblock {\em IEEE Transactions on Knowledge and Data Engineering},
+  34(8):3626--3643, 2022.
+
+\end{thebibliography}

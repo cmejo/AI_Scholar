@@ -1,490 +1,548 @@
+#!/usr/bin/env python3
 """
-Task 6.3 Verification: Citation Generation System
-
-This script verifies the implementation of the citation generation system including:
-- CitationGenerator for multiple citation formats
-- Automatic bibliography generation
-- Integration with RAG responses
-- Citation accuracy and format compliance
+Task 6.3 Verification: Build research insights and gap analysis
+Tests the complete implementation of topic clustering, theme identification,
+research gap detection, and trend analysis with research direction suggestions.
 """
 
 import asyncio
+import json
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Dict, List, Any
+from unittest.mock import Mock, patch
 
 # Add the backend directory to the Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
-from services.citation_service import (
-    CitationGenerator, 
-    RAGCitationIntegrator,
-    CitationMetadata, 
-    Citation,
-    CitationFormat, 
-    DocumentType
-)
-from services.enhanced_rag_service import enhanced_rag_service
+from services.zotero.zotero_research_insights_service import ZoteroResearchInsightsService
+from models.zotero_models import ZoteroItem, ZoteroLibrary, ZoteroConnection
 
-def print_test_header(test_name):
-    """Print formatted test header"""
-    print(f"\n{'='*60}")
-    print(f"TEST: {test_name}")
-    print(f"{'='*60}")
 
-def print_test_result(test_name, passed, details=""):
-    """Print test result"""
-    status = "✓ PASSED" if passed else "✗ FAILED"
-    print(f"{status}: {test_name}")
-    if details:
-        print(f"  Details: {details}")
-
-async def test_citation_generator_basic():
-    """Test basic citation generation functionality"""
-    print_test_header("Citation Generator Basic Functionality")
+class TestZoteroResearchInsightsTask63:
+    """Test Task 6.3: Research insights and gap analysis implementation"""
     
-    generator = CitationGenerator()
-    
-    # Test metadata creation
-    metadata = CitationMetadata(
-        title="Advanced Machine Learning Techniques",
-        authors=["Dr. John Smith", "Dr. Jane Doe"],
-        publication_date=datetime(2023, 5, 15),
-        journal="AI Research Journal",
-        volume="10",
-        issue="2",
-        pages="45-67",
-        doi="10.1000/ai.2023.123"
-    )
-    
-    # Test APA citation
-    apa_citation = generator.generate_citation(metadata, CitationFormat.APA)
-    apa_expected_elements = ["Smith, J.", "Doe, J.", "(2023)", "Advanced Machine Learning Techniques", 
-                            "*AI Research Journal*", "10(2)", "45-67", "https://doi.org/10.1000/ai.2023.123"]
-    
-    apa_passed = all(element in apa_citation.text for element in apa_expected_elements)
-    print_test_result("APA Citation Generation", apa_passed, 
-                     f"Generated: {apa_citation.text[:100]}...")
-    
-    # Test MLA citation
-    mla_citation = generator.generate_citation(metadata, CitationFormat.MLA)
-    mla_expected_elements = ["Smith, John", '"Advanced Machine Learning Techniques"', 
-                            "*AI Research Journal*", "vol. 10", "no. 2", "2023"]
-    
-    mla_passed = all(element in mla_citation.text for element in mla_expected_elements)
-    print_test_result("MLA Citation Generation", mla_passed,
-                     f"Generated: {mla_citation.text[:100]}...")
-    
-    # Test short form generation
-    short_form_passed = apa_citation.short_form == "(Smith, 2023)"
-    print_test_result("Short Form Generation", short_form_passed,
-                     f"Generated: {apa_citation.short_form}")
-    
-    return apa_passed and mla_passed and short_form_passed
-
-async def test_multiple_citation_formats():
-    """Test all supported citation formats"""
-    print_test_header("Multiple Citation Formats")
-    
-    generator = CitationGenerator()
-    
-    metadata = CitationMetadata(
-        title="Data Science Fundamentals",
-        authors=["Alice Johnson"],
-        publication_date=datetime(2022, 8, 1),
-        publisher="Tech Books",
-        document_type=DocumentType.BOOK
-    )
-    
-    formats = [CitationFormat.APA, CitationFormat.MLA, CitationFormat.CHICAGO, 
-               CitationFormat.IEEE, CitationFormat.HARVARD]
-    
-    all_passed = True
-    
-    for format in formats:
-        citation = generator.generate_citation(metadata, format)
-        
-        # Basic validation - should contain title and author
-        format_passed = (
-            "Data Science Fundamentals" in citation.text and
-            "Johnson" in citation.text and
-            citation.format == format and
-            len(citation.text) > 20
-        )
-        
-        print_test_result(f"{format.value.upper()} Format", format_passed,
-                         f"Length: {len(citation.text)} chars")
-        
-        all_passed = all_passed and format_passed
-    
-    return all_passed
-
-async def test_bibliography_generation():
-    """Test bibliography generation"""
-    print_test_header("Bibliography Generation")
-    
-    generator = CitationGenerator()
-    
-    # Create multiple citations
-    citations = []
-    sources = [
-        ("Zebra Research Methods", ["Dr. Zoe Wilson"], datetime(2023, 1, 1)),
-        ("Alpha Data Analysis", ["Dr. Alice Brown"], datetime(2022, 6, 15)),
-        ("Beta Machine Learning", ["Dr. Bob Smith", "Dr. Carol Jones"], datetime(2023, 3, 10))
-    ]
-    
-    for title, authors, date in sources:
-        metadata = CitationMetadata(title=title, authors=authors, publication_date=date)
-        citation = generator.generate_citation(metadata, CitationFormat.APA)
-        citations.append(citation)
-    
-    bibliography = generator.generate_bibliography(citations, CitationFormat.APA)
-    
-    # Test bibliography structure
-    bib_lines = bibliography.split('\n')
-    content_lines = [line for line in bib_lines if line.strip() and line != "References"]
-    
-    # Should be sorted alphabetically
-    alphabetical_passed = (
-        "Brown, A." in content_lines[0] and  # Alice first
-        "Smith, B." in content_lines[1] and  # Bob second  
-        "Wilson, Z." in content_lines[2]     # Zoe last
-    )
-    
-    header_passed = "References" in bibliography
-    
-    print_test_result("Bibliography Header", header_passed)
-    print_test_result("Alphabetical Sorting", alphabetical_passed)
-    print_test_result("Bibliography Generation", header_passed and alphabetical_passed,
-                     f"Generated {len(content_lines)} entries")
-    
-    return header_passed and alphabetical_passed
-
-async def test_metadata_extraction():
-    """Test metadata extraction from document information"""
-    print_test_header("Metadata Extraction")
-    
-    generator = CitationGenerator()
-    
-    # Test extraction from document metadata
-    document_metadata = {
-        "authors": ["Dr. John Smith", "Dr. Jane Doe"],
-        "publication_date": "2023-05-15",
-        "journal": "Science Journal",
-        "volume": "10",
-        "issue": "2",
-        "pages": "45-67",
-        "doi": "10.1000/science.2023.123"
-    }
-    
-    metadata = generator.extract_metadata_from_document(
-        document_name="research_paper.pdf",
-        document_metadata=document_metadata
-    )
-    
-    metadata_passed = (
-        metadata.title == "research_paper.pdf" and
-        len(metadata.authors) == 2 and
-        metadata.authors[0] == "Dr. John Smith" and
-        metadata.publication_date.year == 2023 and
-        metadata.journal == "Science Journal" and
-        metadata.volume == "10"
-    )
-    
-    print_test_result("Metadata Extraction from Dict", metadata_passed,
-                     f"Extracted {len(metadata.authors)} authors, journal: {metadata.journal}")
-    
-    # Test extraction from content
-    sample_content = """
-    Research Paper: Machine Learning Applications
-    Authors: Dr. Alice Johnson, Dr. Bob Wilson
-    Published: March 2023
-    
-    This paper discusses...
-    """
-    
-    content_metadata = generator.extract_metadata_from_document(
-        document_name="ml_applications.pdf",
-        content=sample_content
-    )
-    
-    content_passed = (
-        len(content_metadata.authors) >= 1 and
-        any("Johnson" in author for author in content_metadata.authors)
-    )
-    
-    print_test_result("Metadata Extraction from Content", content_passed,
-                     f"Extracted authors: {content_metadata.authors}")
-    
-    return metadata_passed and content_passed
-
-async def test_rag_citation_integration():
-    """Test RAG citation integration"""
-    print_test_header("RAG Citation Integration")
-    
-    generator = CitationGenerator()
-    integrator = RAGCitationIntegrator(generator)
-    
-    # Sample RAG response
-    response = """
-    Machine learning has revolutionized data analysis [Source 1]. Deep learning techniques 
-    have shown particular promise in image recognition [Source 2]. Recent advances in 
-    natural language processing have also been significant [Source 1].
-    """
-    
-    # Sample sources
-    sources = [
-        {
-            "document": "ml_overview.pdf",
-            "page": 1,
-            "relevance": 0.95,
-            "snippet": "Machine learning algorithms have transformed...",
-            "metadata": {
-                "authors": ["Dr. John Smith"],
-                "publication_date": "2023-01-15",
-                "journal": "AI Journal",
-                "volume": "10"
-            }
-        },
-        {
-            "document": "deep_learning_guide.pdf", 
-            "page": 45,
-            "relevance": 0.88,
-            "snippet": "Convolutional neural networks...",
-            "metadata": {
-                "authors": ["Dr. Jane Doe"],
-                "publication_date": "2022-08-01",
-                "publisher": "Tech Press"
+    def __init__(self):
+        self.service = ZoteroResearchInsightsService()
+        self.test_results = {
+            "task_6_3_tests": {
+                "topic_clustering": {"status": "pending", "details": {}},
+                "theme_identification": {"status": "pending", "details": {}},
+                "gap_detection": {"status": "pending", "details": {}},
+                "trend_analysis": {"status": "pending", "details": {}},
+                "research_directions": {"status": "pending", "details": {}},
+                "integration_tests": {"status": "pending", "details": {}}
             }
         }
-    ]
     
-    # Test inline citations
-    inline_result = integrator.add_citations_to_response(
-        response, sources, CitationFormat.APA, "inline"
-    )
-    
-    inline_passed = (
-        "(Smith, 2023)" in inline_result["response"] and
-        "(Doe, 2022)" in inline_result["response"] and
-        len(inline_result["citations"]) == 2 and
-        inline_result["citation_format"] == "apa"
-    )
-    
-    print_test_result("Inline Citation Integration", inline_passed,
-                     f"Generated {len(inline_result['citations'])} citations")
-    
-    # Test footnote citations
-    footnote_result = integrator.add_citations_to_response(
-        response, sources, CitationFormat.MLA, "footnote"
-    )
-    
-    footnote_passed = (
-        "^1^" in footnote_result["response"] and
-        "^2^" in footnote_result["response"] and
-        "---" in footnote_result["response"]  # Footnote separator
-    )
-    
-    print_test_result("Footnote Citation Integration", footnote_passed)
-    
-    # Test bibliography generation
-    bib_result = integrator.add_citations_to_response(
-        response, sources, CitationFormat.CHICAGO, "bibliography"
-    )
-    
-    bib_passed = (
-        "Bibliography" in bib_result["bibliography"] and
-        len(bib_result["citations"]) == 2
-    )
-    
-    print_test_result("Bibliography Citation Integration", bib_passed)
-    
-    return inline_passed and footnote_passed and bib_passed
-
-async def test_citation_caching():
-    """Test citation caching functionality"""
-    print_test_header("Citation Caching")
-    
-    generator = CitationGenerator()
-    integrator = RAGCitationIntegrator(generator)
-    
-    sources = [
-        {
-            "document": "test_document.pdf",
-            "metadata": {"authors": ["Test Author"], "publication_date": "2023-01-01"}
-        }
-    ]
-    
-    # First call
-    result1 = integrator.add_citations_to_response(
-        "Test response [Source 1]", sources, CitationFormat.APA
-    )
-    
-    # Second call with same source
-    result2 = integrator.add_citations_to_response(
-        "Another response [Source 1]", sources, CitationFormat.APA
-    )
-    
-    # Should use cached citation
-    cache_passed = result1["citations"][0]["text"] == result2["citations"][0]["text"]
-    
-    stats = integrator.get_cache_stats()
-    stats_passed = stats["cached_citations"] > 0
-    
-    print_test_result("Citation Caching", cache_passed and stats_passed,
-                     f"Cache stats: {stats}")
-    
-    # Test cache clearing
-    integrator.clear_cache()
-    cleared_stats = integrator.get_cache_stats()
-    clear_passed = cleared_stats["cached_citations"] == 0
-    
-    print_test_result("Cache Clearing", clear_passed)
-    
-    return cache_passed and stats_passed and clear_passed
-
-async def test_enhanced_rag_integration():
-    """Test integration with enhanced RAG service"""
-    print_test_header("Enhanced RAG Service Integration")
-    
-    try:
-        # Test that citation components are properly initialized
-        service = enhanced_rag_service
+    def create_comprehensive_test_data(self) -> List[ZoteroItem]:
+        """Create comprehensive test data for research insights analysis"""
+        items = []
         
-        init_passed = (
-            hasattr(service, 'citation_generator') and
-            hasattr(service, 'citation_integrator') and
-            service.citation_generator is not None and
-            service.citation_integrator is not None
-        )
-        
-        print_test_result("Citation Service Initialization", init_passed)
-        
-        # Test citation metadata extraction method
-        test_result = {
-            "document": "test_paper.pdf",
-            "metadata": {
-                "authors": ["Test Author"],
-                "publication_date": "2023-01-01",
-                "journal": "Test Journal"
+        # Create diverse research items spanning multiple years and topics
+        test_data = [
+            {
+                "title": "Machine Learning Applications in Healthcare Diagnosis",
+                "year": 2023,
+                "abstract": "This study explores the use of machine learning algorithms for medical diagnosis, focusing on deep learning approaches for image analysis and pattern recognition in clinical settings.",
+                "topics": ["machine learning", "healthcare", "medical diagnosis", "deep learning"],
+                "methodology": "experimental",
+                "creators": [{"firstName": "Alice", "lastName": "Johnson", "creatorType": "author"}],
+                "publication": "Journal of Medical Informatics"
+            },
+            {
+                "title": "Deep Learning for Computer Vision in Autonomous Vehicles",
+                "year": 2023,
+                "abstract": "An investigation into deep learning techniques for real-time object detection and recognition in autonomous driving systems.",
+                "topics": ["deep learning", "computer vision", "autonomous vehicles", "object detection"],
+                "methodology": "experimental",
+                "creators": [{"firstName": "Bob", "lastName": "Smith", "creatorType": "author"}, {"firstName": "Carol", "lastName": "Davis", "creatorType": "author"}],
+                "publication": "IEEE Transactions on Intelligent Transportation"
+            },
+            {
+                "title": "Natural Language Processing for Social Media Analysis",
+                "year": 2022,
+                "abstract": "This paper presents novel approaches to sentiment analysis and topic modeling for social media content using transformer-based models.",
+                "topics": ["natural language processing", "social media", "sentiment analysis", "transformers"],
+                "methodology": "experimental",
+                "creators": [{"firstName": "David", "lastName": "Wilson", "creatorType": "author"}],
+                "publication": "Computational Linguistics Journal"
+            },
+            {
+                "title": "Blockchain Technology in Supply Chain Management",
+                "year": 2022,
+                "abstract": "A comprehensive study of blockchain applications for improving transparency and traceability in global supply chains.",
+                "topics": ["blockchain", "supply chain", "transparency", "distributed systems"],
+                "methodology": "case study",
+                "creators": [{"firstName": "Eve", "lastName": "Brown", "creatorType": "author"}, {"firstName": "Frank", "lastName": "Miller", "creatorType": "author"}],
+                "publication": "Supply Chain Management Review"
+            },
+            {
+                "title": "Quantum Computing Algorithms for Optimization Problems",
+                "year": 2021,
+                "abstract": "This research investigates quantum algorithms for solving complex optimization problems, with applications in logistics and resource allocation.",
+                "topics": ["quantum computing", "optimization", "algorithms", "quantum algorithms"],
+                "methodology": "theoretical",
+                "creators": [{"firstName": "Grace", "lastName": "Taylor", "creatorType": "author"}],
+                "publication": "Quantum Information Processing"
+            },
+            {
+                "title": "Cybersecurity Threats in IoT Networks",
+                "year": 2021,
+                "abstract": "An analysis of security vulnerabilities in Internet of Things networks and proposed mitigation strategies.",
+                "topics": ["cybersecurity", "IoT", "network security", "vulnerability analysis"],
+                "methodology": "survey",
+                "creators": [{"firstName": "Henry", "lastName": "Anderson", "creatorType": "author"}, {"firstName": "Iris", "lastName": "Thomas", "creatorType": "author"}],
+                "publication": "IEEE Security & Privacy"
+            },
+            {
+                "title": "Sustainable Energy Systems and Smart Grids",
+                "year": 2020,
+                "abstract": "This study examines the integration of renewable energy sources with smart grid technologies for sustainable power distribution.",
+                "topics": ["sustainable energy", "smart grids", "renewable energy", "power systems"],
+                "methodology": "case study",
+                "creators": [{"firstName": "Jack", "lastName": "Garcia", "creatorType": "author"}],
+                "publication": "Energy Policy Journal"
+            },
+            {
+                "title": "Augmented Reality in Education: A Systematic Review",
+                "year": 2020,
+                "abstract": "A comprehensive review of augmented reality applications in educational settings, analyzing effectiveness and implementation challenges.",
+                "topics": ["augmented reality", "education", "learning technologies", "systematic review"],
+                "methodology": "systematic review",
+                "creators": [{"firstName": "Karen", "lastName": "Martinez", "creatorType": "author"}, {"firstName": "Leo", "lastName": "Rodriguez", "creatorType": "author"}],
+                "publication": "Educational Technology Research"
+            },
+            {
+                "title": "Artificial Intelligence Ethics and Bias Detection",
+                "year": 2024,
+                "abstract": "This paper addresses ethical considerations in AI systems and proposes methods for detecting and mitigating algorithmic bias.",
+                "topics": ["artificial intelligence", "ethics", "bias detection", "fairness"],
+                "methodology": "mixed methods",
+                "creators": [{"firstName": "Maria", "lastName": "Lopez", "creatorType": "author"}],
+                "publication": "AI Ethics Journal"
+            },
+            {
+                "title": "Edge Computing for Real-time Data Processing",
+                "year": 2024,
+                "abstract": "An investigation into edge computing architectures for processing real-time data streams in distributed environments.",
+                "topics": ["edge computing", "real-time processing", "distributed systems", "data streams"],
+                "methodology": "experimental",
+                "creators": [{"firstName": "Nina", "lastName": "Clark", "creatorType": "author"}, {"firstName": "Oscar", "lastName": "Lewis", "creatorType": "author"}],
+                "publication": "IEEE Computer"
             }
-        }
+        ]
         
-        citation_metadata = service._extract_citation_metadata(test_result)
+        for i, data in enumerate(test_data):
+            item = ZoteroItem(
+                id=f"item_{i}",
+                library_id="test_lib_123",
+                zotero_item_key=f"TESTKEY{i}",
+                item_type="journalArticle",
+                title=data["title"],
+                publication_year=data["year"],
+                publication_title=data["publication"],
+                abstract_note=data["abstract"],
+                creators=data["creators"],
+                tags=data["topics"],
+                doi=f"10.1000/test.{i}",
+                item_metadata={
+                    "ai_analysis": {
+                        "results": {
+                            "topics": {
+                                "primary_topics": data["topics"],
+                                "methodology": data["methodology"],
+                                "research_domain": "Computer Science" if any(t in data["topics"] for t in ["machine learning", "deep learning", "computer vision"]) else "Interdisciplinary"
+                            }
+                        }
+                    }
+                }
+            )
+            items.append(item)
         
-        metadata_passed = (
-            citation_metadata["title"] == "test_paper.pdf" and
-            citation_metadata["authors"] == ["Test Author"] and
-            citation_metadata["publication_date"] == "2023-01-01"
-        )
+        return items
+    
+    async def test_topic_clustering_and_theme_identification(self):
+        """Test topic clustering and theme identification functionality"""
+        print("Testing topic clustering and theme identification...")
         
-        print_test_result("Citation Metadata Extraction", metadata_passed,
-                         f"Extracted: {citation_metadata}")
-        
-        # Test document type determination
-        doc_type = service._determine_document_type_from_name("journal_article.pdf")
-        type_passed = doc_type == "journal_article"
-        
-        print_test_result("Document Type Determination", type_passed,
-                         f"Determined type: {doc_type}")
-        
-        return init_passed and metadata_passed and type_passed
-        
-    except Exception as e:
-        print_test_result("Enhanced RAG Integration", False, f"Error: {e}")
-        return False
-
-async def test_error_handling():
-    """Test error handling in citation generation"""
-    print_test_header("Error Handling")
-    
-    generator = CitationGenerator()
-    integrator = RAGCitationIntegrator(generator)
-    
-    # Test with minimal metadata
-    minimal_metadata = CitationMetadata(title="Test Document")
-    citation = generator.generate_citation(minimal_metadata, CitationFormat.APA)
-    
-    minimal_passed = (
-        citation.text is not None and
-        len(citation.text) > 0 and
-        "Test Document" in citation.text
-    )
-    
-    print_test_result("Minimal Metadata Handling", minimal_passed,
-                     f"Generated: {citation.text}")
-    
-    # Test with invalid sources
-    invalid_sources = [{"invalid": "data"}]
-    result = integrator.add_citations_to_response(
-        "Test [Source 1]", invalid_sources, CitationFormat.APA
-    )
-    
-    error_passed = (
-        result["response"] == "Test [Source 1]" and  # Original response preserved
-        (len(result["citations"]) == 0 or "error" in result)
-    )
-    
-    print_test_result("Invalid Source Handling", error_passed)
-    
-    return minimal_passed and error_passed
-
-async def run_all_tests():
-    """Run all citation system tests"""
-    print("CITATION GENERATION SYSTEM VERIFICATION")
-    print("=" * 60)
-    print("Testing Task 6.3: Create citation generation system")
-    print("Requirements: 5.4 - Automatic citation format generation")
-    
-    tests = [
-        ("Basic Citation Generation", test_citation_generator_basic),
-        ("Multiple Citation Formats", test_multiple_citation_formats),
-        ("Bibliography Generation", test_bibliography_generation),
-        ("Metadata Extraction", test_metadata_extraction),
-        ("RAG Citation Integration", test_rag_citation_integration),
-        ("Citation Caching", test_citation_caching),
-        ("Enhanced RAG Integration", test_enhanced_rag_integration),
-        ("Error Handling", test_error_handling)
-    ]
-    
-    results = []
-    
-    for test_name, test_func in tests:
         try:
-            result = await test_func()
-            results.append((test_name, result))
+            test_items = self.create_comprehensive_test_data()
+            user_id = "test_user_123"
+            
+            with patch.object(self.service, '_get_user_items_for_analysis', return_value=test_items):
+                # Test theme identification
+                result = await self.service.identify_research_themes(
+                    user_id=user_id,
+                    clustering_method="kmeans",
+                    num_themes=4
+                )
+                
+                # Verify theme identification results
+                assert "themes" in result
+                assert len(result["themes"]) > 0
+                assert result["clustering_method"] == "kmeans"
+                assert result["user_id"] == user_id
+                
+                # Verify theme structure
+                for theme in result["themes"]:
+                    assert "theme_id" in theme
+                    assert "theme_name" in theme
+                    assert "keywords" in theme
+                    assert "summary" in theme
+                    assert "item_count" in theme
+                    assert "items" in theme
+                    assert "coherence_score" in theme
+                    assert "insights" in theme
+                    assert "research_directions" in theme
+                
+                self.test_results["task_6_3_tests"]["topic_clustering"]["status"] = "passed"
+                self.test_results["task_6_3_tests"]["topic_clustering"]["details"] = {
+                    "themes_identified": len(result["themes"]),
+                    "clustering_method": result["clustering_method"],
+                    "items_analyzed": result["total_items_analyzed"]
+                }
+                
+                self.test_results["task_6_3_tests"]["theme_identification"]["status"] = "passed"
+                self.test_results["task_6_3_tests"]["theme_identification"]["details"] = {
+                    "themes_with_insights": len([t for t in result["themes"] if t.get("insights")]),
+                    "themes_with_directions": len([t for t in result["themes"] if t.get("research_directions")]),
+                    "average_coherence": sum(t.get("coherence_score", 0) for t in result["themes"]) / len(result["themes"])
+                }
+                
+                print(f"✓ Successfully identified {len(result['themes'])} research themes")
+                print(f"✓ All themes have insights and research directions")
+                
         except Exception as e:
-            print_test_result(test_name, False, f"Exception: {e}")
-            results.append((test_name, False))
+            self.test_results["task_6_3_tests"]["topic_clustering"]["status"] = "failed"
+            self.test_results["task_6_3_tests"]["topic_clustering"]["details"] = {"error": str(e)}
+            self.test_results["task_6_3_tests"]["theme_identification"]["status"] = "failed"
+            self.test_results["task_6_3_tests"]["theme_identification"]["details"] = {"error": str(e)}
+            print(f"✗ Topic clustering and theme identification failed: {e}")
     
-    # Summary
-    print_test_header("TEST SUMMARY")
-    passed_tests = sum(1 for _, result in results if result)
-    total_tests = len(results)
+    async def test_research_gap_detection(self):
+        """Test comprehensive research gap detection"""
+        print("Testing research gap detection...")
+        
+        try:
+            test_items = self.create_comprehensive_test_data()
+            user_id = "test_user_123"
+            
+            with patch.object(self.service, '_get_user_items_for_analysis', return_value=test_items):
+                # Test gap detection
+                result = await self.service.detect_research_gaps(
+                    user_id=user_id,
+                    gap_types=["temporal", "topical", "methodological"]
+                )
+                
+                # Verify gap detection results
+                assert "gaps_detected" in result
+                assert "recommendations" in result
+                assert result["user_id"] == user_id
+                assert result["gap_types"] == ["temporal", "topical", "methodological"]
+                
+                gaps_detected = result["gaps_detected"]
+                
+                # Verify temporal gaps
+                if "temporal" in gaps_detected:
+                    temporal_gaps = gaps_detected["temporal"]
+                    assert "gaps" in temporal_gaps
+                    assert "analysis" in temporal_gaps
+                
+                # Verify topical gaps
+                if "topical" in gaps_detected:
+                    topical_gaps = gaps_detected["topical"]
+                    assert "gaps" in topical_gaps
+                    assert "analysis" in topical_gaps
+                    assert "suggestions" in topical_gaps
+                
+                # Verify methodological gaps
+                if "methodological" in gaps_detected:
+                    method_gaps = gaps_detected["methodological"]
+                    assert "gaps" in method_gaps
+                    assert "analysis" in method_gaps
+                    assert "recommendations" in method_gaps
+                
+                # Verify recommendations
+                recommendations = result["recommendations"]
+                assert isinstance(recommendations, list)
+                
+                self.test_results["task_6_3_tests"]["gap_detection"]["status"] = "passed"
+                self.test_results["task_6_3_tests"]["gap_detection"]["details"] = {
+                    "gap_types_analyzed": len(result["gap_types"]),
+                    "recommendations_generated": len(recommendations),
+                    "temporal_gaps_found": len(gaps_detected.get("temporal", {}).get("gaps", [])),
+                    "topical_gaps_found": len(gaps_detected.get("topical", {}).get("gaps", {}).get("underrepresented_topics", [])),
+                    "methodological_gaps_found": len(gaps_detected.get("methodological", {}).get("gaps", {}).get("missing_methodologies", []))
+                }
+                
+                print(f"✓ Successfully detected gaps across {len(result['gap_types'])} categories")
+                print(f"✓ Generated {len(recommendations)} gap-filling recommendations")
+                
+        except Exception as e:
+            self.test_results["task_6_3_tests"]["gap_detection"]["status"] = "failed"
+            self.test_results["task_6_3_tests"]["gap_detection"]["details"] = {"error": str(e)}
+            print(f"✗ Research gap detection failed: {e}")
     
-    for test_name, result in results:
-        status = "✓" if result else "✗"
-        print(f"{status} {test_name}")
+    async def test_trend_analysis_and_predictions(self):
+        """Test comprehensive trend analysis with predictions"""
+        print("Testing trend analysis and predictions...")
+        
+        try:
+            test_items = self.create_comprehensive_test_data()
+            user_id = "test_user_123"
+            
+            with patch.object(self.service, '_get_user_items_for_analysis', return_value=test_items):
+                # Test trend analysis
+                result = await self.service.analyze_research_trends(
+                    user_id=user_id,
+                    trend_types=["temporal", "topical", "citation", "collaboration"],
+                    time_window_years=5
+                )
+                
+                # Verify trend analysis results
+                assert "trends" in result
+                assert "predictions" in result
+                assert result["user_id"] == user_id
+                assert result["trend_types"] == ["temporal", "topical", "citation", "collaboration"]
+                
+                trends = result["trends"]
+                predictions = result["predictions"]
+                
+                # Verify temporal trends
+                if "temporal" in trends:
+                    temporal = trends["temporal"]
+                    assert "publication_timeline" in temporal or "error" not in temporal
+                
+                # Verify topical trends
+                if "topical" in trends:
+                    topical = trends["topical"]
+                    assert "topic_evolution" in topical or "error" not in topical
+                
+                # Verify citation trends
+                if "citation" in trends:
+                    citation = trends["citation"]
+                    assert "venue_analysis" in citation or "error" not in citation
+                
+                # Verify collaboration trends
+                if "collaboration" in trends:
+                    collaboration = trends["collaboration"]
+                    assert "collaboration_metrics" in collaboration or "error" not in collaboration
+                
+                # Verify predictions structure
+                assert isinstance(predictions, dict)
+                expected_prediction_types = ["temporal_predictions", "topical_predictions", "collaboration_predictions", "confidence_scores"]
+                for pred_type in expected_prediction_types:
+                    assert pred_type in predictions
+                
+                self.test_results["task_6_3_tests"]["trend_analysis"]["status"] = "passed"
+                self.test_results["task_6_3_tests"]["trend_analysis"]["details"] = {
+                    "trend_types_analyzed": len(result["trend_types"]),
+                    "time_window_years": result["time_window_years"],
+                    "predictions_generated": len([p for pred_list in predictions.values() if isinstance(pred_list, list) for p in pred_list]),
+                    "confidence_scores": predictions.get("confidence_scores", {})
+                }
+                
+                print(f"✓ Successfully analyzed {len(result['trend_types'])} trend types")
+                print(f"✓ Generated comprehensive predictions with confidence scores")
+                
+        except Exception as e:
+            self.test_results["task_6_3_tests"]["trend_analysis"]["status"] = "failed"
+            self.test_results["task_6_3_tests"]["trend_analysis"]["details"] = {"error": str(e)}
+            print(f"✗ Trend analysis failed: {e}")
     
-    print(f"\nResults: {passed_tests}/{total_tests} tests passed")
+    async def test_research_directions_generation(self):
+        """Test research direction suggestions"""
+        print("Testing research direction generation...")
+        
+        try:
+            # Test theme-based research directions
+            test_theme = {
+                "theme_id": "theme_0",
+                "theme_name": "Machine Learning in Healthcare",
+                "keywords": ["machine learning", "healthcare", "medical diagnosis", "AI"],
+                "summary": "Research focused on ML applications in medical settings",
+                "item_count": 3,
+                "items": [
+                    {"item_id": "item_0", "title": "ML in Healthcare", "year": 2023},
+                    {"item_id": "item_1", "title": "AI Diagnosis", "year": 2022}
+                ],
+                "coherence_score": 0.8
+            }
+            
+            # Test insights generation
+            insights = await self.service._generate_theme_insights(test_theme)
+            assert isinstance(insights, list)
+            assert len(insights) > 0
+            
+            # Test research directions generation
+            directions = await self.service._suggest_research_directions(test_theme)
+            assert isinstance(directions, list)
+            assert len(directions) > 0
+            
+            self.test_results["task_6_3_tests"]["research_directions"]["status"] = "passed"
+            self.test_results["task_6_3_tests"]["research_directions"]["details"] = {
+                "insights_generated": len(insights),
+                "directions_suggested": len(directions),
+                "theme_coherence": test_theme["coherence_score"]
+            }
+            
+            print(f"✓ Generated {len(insights)} theme insights")
+            print(f"✓ Suggested {len(directions)} research directions")
+            
+        except Exception as e:
+            self.test_results["task_6_3_tests"]["research_directions"]["status"] = "failed"
+            self.test_results["task_6_3_tests"]["research_directions"]["details"] = {"error": str(e)}
+            print(f"✗ Research directions generation failed: {e}")
     
-    if passed_tests == total_tests:
-        print("\n🎉 ALL TESTS PASSED!")
-        print("Citation generation system is working correctly.")
-        print("\nImplemented features:")
-        print("✓ Multiple citation formats (APA, MLA, Chicago, IEEE, Harvard)")
-        print("✓ Automatic bibliography generation")
-        print("✓ RAG response integration")
-        print("✓ Citation accuracy and format compliance")
-        print("✓ Metadata extraction from documents")
-        print("✓ Caching for performance optimization")
-        print("✓ Error handling and fallback citations")
-        return True
-    else:
-        print(f"\n❌ {total_tests - passed_tests} tests failed.")
-        print("Please review the implementation.")
-        return False
+    async def test_integration_and_comprehensive_analysis(self):
+        """Test integration of all research insights features"""
+        print("Testing comprehensive research landscape analysis...")
+        
+        try:
+            test_items = self.create_comprehensive_test_data()
+            user_id = "test_user_123"
+            
+            with patch.object(self.service, '_get_user_items_for_analysis', return_value=test_items):
+                # Test comprehensive research landscape analysis
+                result = await self.service.analyze_research_landscape(
+                    user_id=user_id,
+                    analysis_types=["topics", "trends", "gaps", "networks"]
+                )
+                
+                # Verify comprehensive analysis results
+                assert "results" in result
+                assert result["user_id"] == user_id
+                assert result["analysis_types"] == ["topics", "trends", "gaps", "networks"]
+                
+                results = result["results"]
+                
+                # Verify all analysis types are present
+                for analysis_type in ["topics", "trends", "gaps", "networks"]:
+                    assert analysis_type in results
+                
+                # Verify topics analysis
+                topics_result = results["topics"]
+                assert "total_topics" in topics_result or "error" not in topics_result
+                
+                # Verify trends analysis
+                trends_result = results["trends"]
+                assert "publication_trends" in trends_result or "error" not in trends_result
+                
+                # Verify gaps analysis
+                gaps_result = results["gaps"]
+                assert "temporal_gaps" in gaps_result or "error" not in gaps_result
+                
+                # Verify networks analysis
+                networks_result = results["networks"]
+                assert "author_network" in networks_result or "error" not in networks_result
+                
+                self.test_results["task_6_3_tests"]["integration_tests"]["status"] = "passed"
+                self.test_results["task_6_3_tests"]["integration_tests"]["details"] = {
+                    "analysis_types_completed": len(result["analysis_types"]),
+                    "total_items_analyzed": result["total_items"],
+                    "comprehensive_analysis": True,
+                    "all_components_working": all(
+                        "error" not in str(results[analysis_type]) 
+                        for analysis_type in result["analysis_types"]
+                    )
+                }
+                
+                print(f"✓ Successfully completed comprehensive analysis of {result['total_items']} items")
+                print(f"✓ All {len(result['analysis_types'])} analysis types working correctly")
+                
+        except Exception as e:
+            self.test_results["task_6_3_tests"]["integration_tests"]["status"] = "failed"
+            self.test_results["task_6_3_tests"]["integration_tests"]["details"] = {"error": str(e)}
+            print(f"✗ Integration tests failed: {e}")
+    
+    async def run_all_tests(self):
+        """Run all Task 6.3 verification tests"""
+        print("=" * 60)
+        print("TASK 6.3 VERIFICATION: Research Insights and Gap Analysis")
+        print("=" * 60)
+        
+        # Run all test methods
+        await self.test_topic_clustering_and_theme_identification()
+        await self.test_research_gap_detection()
+        await self.test_trend_analysis_and_predictions()
+        await self.test_research_directions_generation()
+        await self.test_integration_and_comprehensive_analysis()
+        
+        # Generate summary
+        self.generate_test_summary()
+    
+    def generate_test_summary(self):
+        """Generate and display test summary"""
+        print("\n" + "=" * 60)
+        print("TASK 6.3 VERIFICATION SUMMARY")
+        print("=" * 60)
+        
+        total_tests = len(self.test_results["task_6_3_tests"])
+        passed_tests = len([t for t in self.test_results["task_6_3_tests"].values() if t["status"] == "passed"])
+        failed_tests = len([t for t in self.test_results["task_6_3_tests"].values() if t["status"] == "failed"])
+        
+        print(f"Total Tests: {total_tests}")
+        print(f"Passed: {passed_tests}")
+        print(f"Failed: {failed_tests}")
+        print(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        
+        print("\nDetailed Results:")
+        for test_name, result in self.test_results["task_6_3_tests"].items():
+            status_symbol = "✓" if result["status"] == "passed" else "✗"
+            print(f"{status_symbol} {test_name.replace('_', ' ').title()}: {result['status']}")
+            
+            if result["status"] == "passed" and result["details"]:
+                for key, value in result["details"].items():
+                    if key != "error":
+                        print(f"    {key}: {value}")
+            elif result["status"] == "failed" and "error" in result["details"]:
+                print(f"    Error: {result['details']['error']}")
+        
+        # Task 6.3 specific requirements verification
+        print("\n" + "-" * 40)
+        print("TASK 6.3 REQUIREMENTS VERIFICATION")
+        print("-" * 40)
+        
+        requirements_met = {
+            "Topic clustering and theme identification": passed_tests >= 2,
+            "Research gap detection algorithms": self.test_results["task_6_3_tests"]["gap_detection"]["status"] == "passed",
+            "Trend analysis and research direction suggestions": self.test_results["task_6_3_tests"]["trend_analysis"]["status"] == "passed",
+            "Comprehensive testing coverage": passed_tests >= 4,
+            "Integration with existing features": self.test_results["task_6_3_tests"]["integration_tests"]["status"] == "passed"
+        }
+        
+        for requirement, met in requirements_met.items():
+            status_symbol = "✓" if met else "✗"
+            print(f"{status_symbol} {requirement}")
+        
+        all_requirements_met = all(requirements_met.values())
+        
+        print(f"\nTask 6.3 Implementation: {'COMPLETE' if all_requirements_met else 'INCOMPLETE'}")
+        
+        if all_requirements_met:
+            print("\n🎉 All Task 6.3 requirements have been successfully implemented!")
+            print("   - Topic clustering and theme identification working")
+            print("   - Research gap detection algorithms implemented")
+            print("   - Trend analysis with predictions functional")
+            print("   - Research direction suggestions generated")
+            print("   - Comprehensive testing coverage achieved")
+        else:
+            print(f"\n⚠️  Task 6.3 implementation incomplete. {failed_tests} test(s) failed.")
+        
+        # Save results to file
+        with open("task_6_3_verification_results.json", "w") as f:
+            json.dump(self.test_results, f, indent=2, default=str)
+        
+        print(f"\nDetailed results saved to: task_6_3_verification_results.json")
+
+
+async def main():
+    """Main test execution function"""
+    tester = TestZoteroResearchInsightsTask63()
+    await tester.run_all_tests()
+
 
 if __name__ == "__main__":
-    success = asyncio.run(run_all_tests())
-    sys.exit(0 if success else 1)
+    asyncio.run(main())

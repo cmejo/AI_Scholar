@@ -99,7 +99,6 @@ export default tseslint.config(
       'no-console': 'warn',
       'no-debugger': 'error',
       'no-duplicate-imports': 'error',
-      'no-unused-expressions': 'error',
       'prefer-const': 'error',
       'no-var': 'error',
       

@@ -2,7 +2,7 @@
  * Document context for managing document state
  */
 
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { Document, DocumentContext } from '../types/chat';
 
 const DocumentContextImpl = createContext<DocumentContext | undefined>(undefined);
@@ -44,13 +44,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setDocuments(prev => prev.filter(doc => doc.id !== id));
   }, []);
 
-  const value: DocumentContext = {
+  const value: DocumentContext = useMemo(() => ({
     documents,
     uploadDocument,
     deleteDocument,
     isUploading,
     error,
-  };
+  }), [documents, uploadDocument, deleteDocument, isUploading, error]);
 
   return (
     <DocumentContextImpl.Provider value={value}>

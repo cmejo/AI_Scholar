@@ -1,0 +1,170 @@
+name: Quality Gates
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install Node.js dependencies
+      run: npm ci
+      
+    - name: Install Python dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+        
+    - name: Run TypeScript type checking
+      run: npm run type-check
+      
+    - name: Run ESLint
+      run: npm run lint
+      
+    - name: Run Prettier check
+      run: npm run format:check
+      
+    - name: Run Python linting
+      run: |
+        cd backend
+        python -m flake8 .
+        python -m black --check .
+        python -m isort --check-only .
+        
+    - name: Run frontend tests
+      run: npm run test:run
+      
+    - name: Run backend tests
+      run: |
+        cd backend
+        python -m pytest --cov=. --cov-fail-under=80
+        
+    - name: Build frontend
+      run: npm run build
+      
+    - name: Check bundle size
+      run: |
+        npm run build
+        node -e "
+          const fs = require('fs');
+          const path = require('path');
+          
+          function getDirSize(dir) {
+            let size = 0;
+            const files = fs.readdirSync(dir);
+            for (const file of files) {
+              const filePath = path.join(dir, file);
+              const stats = fs.statSync(filePath);
+              if (stats.isDirectory()) {
+                size += getDirSize(filePath);
+              } else {
+                size += stats.size;
+              }
+            }
+            return size;
+          }
+          
+          const distSize = getDirSize('dist');
+          const sizeMB = distSize / (1024 * 1024);
+          console.log(\`Bundle size: \${sizeMB.toFixed(2)}MB\`);
+          
+          if (sizeMB > 1.5) {
+            console.error(\`Bundle size \${sizeMB.toFixed(2)}MB exceeds 1.5MB limit\`);
+            process.exit(1);
+          }
+        "
+        
+    - name: Run security analysis
+      run: |
+        python3 tools/analysis/unified_analyzer.py --types security
+        
+    - name: Run performance analysis
+      run: |
+        python3 tools/monitoring/performance_monitor.py
+        
+    - name: Generate quality report
+      run: |
+        python3 tools/development/dev_dashboard.py
+        
+    - name: Upload quality artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: quality-reports
+        path: |
+          analysis_report.json
+          performance_report.json
+          dev_dashboard.json
+          htmlcov/
+          
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+        
+  dependency-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Run npm audit
+      run: |
+        npm audit --audit-level=moderate
+        
+    - name: Check for outdated packages
+      run: |
+        npm outdated || true
+        
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install safety
+      run: pip install safety
+      
+    - name: Run Python security check
+      run: |
+        cd backend
+        safety check -r requirements.txt

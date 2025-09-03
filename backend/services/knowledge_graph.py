@@ -1,1731 +1,826 @@
 """
-Enhanced Knowledge graph service for entity extraction and relationship mapping
+Knowledge Graph Builder for AI Scholar
+Dynamic knowledge graph construction and research connection discovery
 """
-import networkx as nx
+import asyncio
 import json
 import logging
-import re
-import asyncio
-from typing import List, Dict, Any, Optional, Tuple, Set
-import spacy
-from collections import defaultdict, Counter
-import requests
+from typing import Dict, Any, List, Optional, Tuple, Set
+from dataclasses import dataclass, asdict
 from datetime import datetime
-
-from core.database import get_db, DocumentChunk, KnowledgeGraphEntity, KnowledgeGraphRelationship
-from models.schemas import (
-    KnowledgeGraphEntityCreate, KnowledgeGraphRelationshipCreate,
-    EntityType, RelationshipType, ReasoningResult
-)
+import networkx as nx
+import numpy as np
+from collections import defaultdict, Counter
+import re
+import spacy
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 logger = logging.getLogger(__name__)
 
+@dataclass
+class Entity:
+    """Knowledge graph entity"""
+    id: str
+    name: str
+    type: str  # person, concept, method, dataset, etc.
+    properties: Dict[str, Any]
+    confidence: float
+    source_documents: List[str]
+
+@dataclass
+class Relationship:
+    """Knowledge graph relationship"""
+    id: str
+    source_entity: str
+    target_entity: str
+    relationship_type: str  # cites, uses, extends, contradicts, etc.
+    properties: Dict[str, Any]
+    confidence: float
+    evidence: List[str]
+
+@dataclass
+class ResearchConnection:
+    """Discovered research connection"""
+    connection_id: str
+    entities: List[str]
+    connection_type: str
+    strength: float
+    explanation: str
+    supporting_evidence: List[str]
+    potential_impact: str
+
 class EntityExtractor:
-    """Enhanced entity extraction using NER libraries and LLM assistance"""
+    """Extract entities from research documents"""
     
     def __init__(self):
+        # Load spaCy model for NER
         try:
             self.nlp = spacy.load("en_core_web_sm")
         except OSError:
-            logger.warning("spaCy model not found. Entity extraction will be limited.")
+            logger.warning("spaCy model not found. Using mock entity extraction.")
             self.nlp = None
         
-        # Entity type mapping from spaCy to our schema
-        self.entity_type_mapping = {
-            "PERSON": EntityType.PERSON,
-            "ORG": EntityType.ORGANIZATION,
-            "GPE": EntityType.LOCATION,
-            "LOC": EntityType.LOCATION,
-            "EVENT": EntityType.EVENT,
-            "PRODUCT": EntityType.PRODUCT,
-            "WORK_OF_ART": EntityType.CONCEPT,
-            "LAW": EntityType.CONCEPT,
-            "LANGUAGE": EntityType.CONCEPT,
-            "NORP": EntityType.CONCEPT,
-            "FAC": EntityType.LOCATION,
-            "MONEY": EntityType.CONCEPT,
-            "PERCENT": EntityType.CONCEPT,
-            "DATE": EntityType.CONCEPT,
-            "TIME": EntityType.CONCEPT,
-            "QUANTITY": EntityType.CONCEPT,
-            "ORDINAL": EntityType.CONCEPT,
-            "CARDINAL": EntityType.CONCEPT
+        # Research-specific entity patterns
+        self.research_patterns = {
+            "methods": [
+                r"\b(machine learning|deep learning|neural network|SVM|random forest|regression|clustering)\b",
+                r"\b(BERT|GPT|transformer|CNN|RNN|LSTM|GAN)\b",
+                r"\b(cross-validation|bootstrap|ANOVA|t-test|chi-square)\b"
+            ],
+            "datasets": [
+                r"\b(ImageNet|MNIST|CIFAR|CoNLL|SQuAD|GLUE|SuperGLUE)\b",
+                r"\b([A-Z][a-z]+ dataset|[A-Z][a-z]+ corpus)\b"
+            ],
+            "metrics": [
+                r"\b(accuracy|precision|recall|F1|AUC|BLEU|ROUGE|perplexity)\b",
+                r"\b(mean squared error|cross-entropy|IoU|mAP)\b"
+            ],
+            "concepts": [
+                r"\b(artificial intelligence|natural language processing|computer vision)\b",
+                r"\b(supervised learning|unsupervised learning|reinforcement learning)\b",
+                r"\b(attention mechanism|transfer learning|few-shot learning)\b"
+            ]
         }
     
-    async def extract_entities(self, text: str, use_llm: bool = True) -> List[Dict[str, Any]]:
-        """Extract entities from text with confidence scoring"""
+    async def extract_entities(self, text: str, document_id: str) -> List[Entity]:
+        """Extract entities from research text"""
         entities = []
         
-        # Primary extraction using spaCy
+        # Extract using spaCy NER
         if self.nlp:
-            entities.extend(await self._extract_with_spacy(text))
+            entities.extend(await self._extract_with_spacy(text, document_id))
         
-        # Fallback pattern-based extraction
-        entities.extend(await self._extract_with_patterns(text))
+        # Extract research-specific entities
+        entities.extend(await self._extract_research_entities(text, document_id))
         
-        # LLM-assisted extraction for complex entities
-        if use_llm:
-            llm_entities = await self._extract_with_llm(text)
-            entities.extend(llm_entities)
+        # Extract author names and citations
+        entities.extend(await self._extract_authors_and_citations(text, document_id))
         
-        # Deduplicate and score entities
-        return await self._deduplicate_and_score(entities, text)
+        # Deduplicate entities
+        entities = self._deduplicate_entities(entities)
+        
+        return entities
     
-    async def _extract_with_spacy(self, text: str) -> List[Dict[str, Any]]:
+    async def _extract_with_spacy(self, text: str, document_id: str) -> List[Entity]:
         """Extract entities using spaCy NER"""
         entities = []
+        
         doc = self.nlp(text)
         
         for ent in doc.ents:
-            entity_type = self.entity_type_mapping.get(ent.label_, EntityType.OTHER)
-            confidence = self._calculate_spacy_confidence(ent, doc)
-            
-            entities.append({
-                "text": ent.text.strip(),
-                "type": entity_type,
-                "start": ent.start_char,
-                "end": ent.end_char,
-                "confidence": confidence,
-                "source": "spacy",
-                "metadata": {
-                    "spacy_label": ent.label_,
-                    "lemma": ent.lemma_,
-                    "pos": ent.root.pos_
-                }
-            })
+            if ent.label_ in ["PERSON", "ORG", "GPE", "PRODUCT", "EVENT"]:
+                entity = Entity(
+                    id=f"ent_{hash(ent.text.lower()) % 100000}",
+                    name=ent.text,
+                    type=ent.label_.lower(),
+                    properties={
+                        "start_char": ent.start_char,
+                        "end_char": ent.end_char,
+                        "context": text[max(0, ent.start_char-50):ent.end_char+50]
+                    },
+                    confidence=0.8,  # spaCy confidence
+                    source_documents=[document_id]
+                )
+                entities.append(entity)
         
         return entities
     
-    async def _extract_with_patterns(self, text: str) -> List[Dict[str, Any]]:
-        """Extract entities using pattern matching"""
+    async def _extract_research_entities(self, text: str, document_id: str) -> List[Entity]:
+        """Extract research-specific entities using patterns"""
         entities = []
         
-        # Email pattern
-        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-        for match in re.finditer(email_pattern, text):
-            entities.append({
-                "text": match.group(),
-                "type": EntityType.PERSON,
-                "start": match.start(),
-                "end": match.end(),
-                "confidence": 0.9,
-                "source": "pattern",
-                "metadata": {"pattern_type": "email"}
-            })
-        
-        # URL pattern
-        url_pattern = r'https?://(?:[-\w.])+(?:[:\d]+)?(?:/(?:[\w/_.])*(?:\?(?:[\w&=%.])*)?(?:#(?:[\w.])*)?)?'
-        for match in re.finditer(url_pattern, text):
-            entities.append({
-                "text": match.group(),
-                "type": EntityType.CONCEPT,
-                "start": match.start(),
-                "end": match.end(),
-                "confidence": 0.95,
-                "source": "pattern",
-                "metadata": {"pattern_type": "url"}
-            })
-        
-        # Capitalized phrases (potential proper nouns)
-        proper_noun_pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b'
-        for match in re.finditer(proper_noun_pattern, text):
-            # Skip if it's at the beginning of a sentence
-            if match.start() == 0 or text[match.start()-1] in '.!?':
-                continue
+        for entity_type, patterns in self.research_patterns.items():
+            for pattern in patterns:
+                matches = re.finditer(pattern, text, re.IGNORECASE)
                 
-            entities.append({
-                "text": match.group(),
-                "type": EntityType.OTHER,
-                "start": match.start(),
-                "end": match.end(),
-                "confidence": 0.6,
-                "source": "pattern",
-                "metadata": {"pattern_type": "proper_noun"}
-            })
-        
-        # Medical/Scientific terms
-        medical_pattern = r'\b(?:cancer|disease|virus|bacteria|infection|syndrome|disorder|condition|treatment|therapy|medicine|drug|vaccine|symptom|diagnosis)\b'
-        for match in re.finditer(medical_pattern, text, re.IGNORECASE):
-            entities.append({
-                "text": match.group(),
-                "type": EntityType.CONCEPT,
-                "start": match.start(),
-                "end": match.end(),
-                "confidence": 0.8,
-                "source": "pattern",
-                "metadata": {"pattern_type": "medical_term"}
-            })
-        
-        # Body parts and biological terms
-        biological_pattern = r'\b(?:heart|brain|lung|liver|kidney|stomach|muscle|bone|blood|cell|tissue|organ|system|cardiovascular|respiratory|nervous|digestive)\b'
-        for match in re.finditer(biological_pattern, text, re.IGNORECASE):
-            entities.append({
-                "text": match.group(),
-                "type": EntityType.CONCEPT,
-                "start": match.start(),
-                "end": match.end(),
-                "confidence": 0.8,
-                "source": "pattern",
-                "metadata": {"pattern_type": "biological_term"}
-            })
-        
-        # Technology terms
-        tech_pattern = r'\b(?:machine learning|artificial intelligence|neural network|algorithm|computer|software|hardware|internet|database|programming|technology|digital|cyber|AI|ML|API|CPU|GPU|RAM|SSD)\b'
-        for match in re.finditer(tech_pattern, text, re.IGNORECASE):
-            entities.append({
-                "text": match.group(),
-                "type": EntityType.CONCEPT,
-                "start": match.start(),
-                "end": match.end(),
-                "confidence": 0.85,
-                "source": "pattern",
-                "metadata": {"pattern_type": "tech_term"}
-            })
-        
-        # Animals
-        animal_pattern = r'\b(?:dogs?|cats?|wolv(?:es?)|lions?|tigers?|elephants?|bears?|horses?|cows?|pigs?|sheep|goats?|chickens?|birds?|fish(?:es)?|whales?|dolphins?|sharks?|snakes?|spiders?|insects?|animals?|mammals?|reptiles?|amphibians?)\b'
-        for match in re.finditer(animal_pattern, text, re.IGNORECASE):
-            entities.append({
-                "text": match.group(),
-                "type": EntityType.CONCEPT,
-                "start": match.start(),
-                "end": match.end(),
-                "confidence": 0.75,
-                "source": "pattern",
-                "metadata": {"pattern_type": "animal"}
-            })
-        
-        # Activities and behaviors
-        activity_pattern = r'\b(?:smoking|drinking|exercise|running|walking|swimming|eating|sleeping|working|studying|reading|writing|playing|dancing|singing)\b'
-        for match in re.finditer(activity_pattern, text, re.IGNORECASE):
-            entities.append({
-                "text": match.group(),
-                "type": EntityType.CONCEPT,
-                "start": match.start(),
-                "end": match.end(),
-                "confidence": 0.7,
-                "source": "pattern",
-                "metadata": {"pattern_type": "activity"}
-            })
-        
-        # Compound terms (two or more words that might be concepts)
-        compound_pattern = r'\b(?:[a-z]+\s+(?:learning|intelligence|system|network|cancer|disease|syndrome|disorder))\b'
-        for match in re.finditer(compound_pattern, text, re.IGNORECASE):
-            entities.append({
-                "text": match.group(),
-                "type": EntityType.CONCEPT,
-                "start": match.start(),
-                "end": match.end(),
-                "confidence": 0.8,
-                "source": "pattern",
-                "metadata": {"pattern_type": "compound_concept"}
-            })
+                for match in matches:
+                    entity_name = match.group().strip()
+                    
+                    entity = Entity(
+                        id=f"res_{hash(entity_name.lower()) % 100000}",
+                        name=entity_name,
+                        type=entity_type,
+                        properties={
+                            "pattern_matched": pattern,
+                            "start_char": match.start(),
+                            "end_char": match.end(),
+                            "context": text[max(0, match.start()-50):match.end()+50]
+                        },
+                        confidence=0.9,  # High confidence for pattern matches
+                        source_documents=[document_id]
+                    )
+                    entities.append(entity)
         
         return entities
     
-    async def _extract_with_llm(self, text: str) -> List[Dict[str, Any]]:
-        """Extract entities using LLM assistance"""
+    async def _extract_authors_and_citations(self, text: str, document_id: str) -> List[Entity]:
+        """Extract author names and citations"""
         entities = []
         
-        try:
-            # Prepare prompt for LLM
-            prompt = f"""
-            Extract entities from the following text. Focus on:
-            - Technical concepts and terminology
-            - Domain-specific entities
-            - Abstract concepts
-            - Relationships and processes
+        # Extract author patterns
+        author_patterns = [
+            r"\b([A-Z][a-z]+ et al\.)",  # "Smith et al."
+            r"\b([A-Z][a-z]+, [A-Z]\.)",  # "Smith, J."
+            r"\b([A-Z][a-z]+ and [A-Z][a-z]+)",  # "Smith and Jones"
+        ]
+        
+        for pattern in author_patterns:
+            matches = re.finditer(pattern, text)
             
-            Text: {text[:1000]}  # Limit text length
-            
-            Return entities in JSON format with: name, type (person/organization/location/concept/event/product/other), confidence (0-1)
-            """
-            
-            # Make request to local LLM (assuming Ollama is available)
-            response = await self._query_llm(prompt)
-            if response:
-                llm_entities = self._parse_llm_response(response, text)
-                entities.extend(llm_entities)
+            for match in matches:
+                author_name = match.group(1).strip()
                 
-        except Exception as e:
-            logger.warning(f"LLM entity extraction failed: {str(e)}")
+                entity = Entity(
+                    id=f"auth_{hash(author_name.lower()) % 100000}",
+                    name=author_name,
+                    type="author",
+                    properties={
+                        "citation_format": True,
+                        "start_char": match.start(),
+                        "end_char": match.end()
+                    },
+                    confidence=0.85,
+                    source_documents=[document_id]
+                )
+                entities.append(entity)
         
         return entities
     
-    async def _query_llm(self, prompt: str) -> Optional[str]:
-        """Query local LLM for entity extraction"""
-        try:
-            # Assuming Ollama is running locally
-            response = requests.post(
-                "http://localhost:11434/api/generate",
-                json={
-                    "model": "llama2",  # or whatever model is available
-                    "prompt": prompt,
-                    "stream": False
-                },
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                return response.json().get("response", "")
-        except Exception as e:
-            logger.warning(f"LLM query failed: {str(e)}")
+    def _deduplicate_entities(self, entities: List[Entity]) -> List[Entity]:
+        """Remove duplicate entities"""
+        seen = {}
+        deduplicated = []
         
-        return None
-    
-    def _parse_llm_response(self, response: str, original_text: str) -> List[Dict[str, Any]]:
-        """Parse LLM response to extract entities"""
-        entities = []
-        
-        try:
-            # Try to extract JSON from response
-            json_match = re.search(r'\[.*\]', response, re.DOTALL)
-            if json_match:
-                entity_data = json.loads(json_match.group())
-                
-                for item in entity_data:
-                    if isinstance(item, dict) and "name" in item:
-                        # Find entity position in original text
-                        entity_text = item["name"]
-                        start_pos = original_text.lower().find(entity_text.lower())
-                        
-                        if start_pos != -1:
-                            entities.append({
-                                "text": entity_text,
-                                "type": self._map_llm_type(item.get("type", "other")),
-                                "start": start_pos,
-                                "end": start_pos + len(entity_text),
-                                "confidence": float(item.get("confidence", 0.7)),
-                                "source": "llm",
-                                "metadata": {"llm_type": item.get("type")}
-                            })
-        except Exception as e:
-            logger.warning(f"Failed to parse LLM response: {str(e)}")
-        
-        return entities
-    
-    def _map_llm_type(self, llm_type: str) -> EntityType:
-        """Map LLM entity type to our schema"""
-        type_mapping = {
-            "person": EntityType.PERSON,
-            "organization": EntityType.ORGANIZATION,
-            "location": EntityType.LOCATION,
-            "concept": EntityType.CONCEPT,
-            "event": EntityType.EVENT,
-            "product": EntityType.PRODUCT
-        }
-        return type_mapping.get(llm_type.lower(), EntityType.OTHER)
-    
-    def _calculate_spacy_confidence(self, ent, doc) -> float:
-        """Calculate confidence score for spaCy entities"""
-        base_confidence = 0.8
-        
-        # Adjust based on entity length
-        if len(ent.text) < 3:
-            base_confidence -= 0.2
-        elif len(ent.text) > 20:
-            base_confidence -= 0.1
-        
-        # Adjust based on context
-        if ent.label_ in ["PERSON", "ORG", "GPE"]:
-            base_confidence += 0.1
-        
-        # Check if entity appears multiple times
-        entity_count = sum(1 for e in doc.ents if e.text.lower() == ent.text.lower())
-        if entity_count > 1:
-            base_confidence += 0.1
-        
-        return min(1.0, max(0.1, base_confidence))
-    
-    async def _deduplicate_and_score(self, entities: List[Dict[str, Any]], text: str) -> List[Dict[str, Any]]:
-        """Deduplicate entities and calculate final confidence scores"""
-        entity_groups = defaultdict(list)
-        
-        # Group similar entities
         for entity in entities:
-            key = entity["text"].lower().strip()
-            entity_groups[key].append(entity)
-        
-        final_entities = []
-        for entity_group in entity_groups.values():
-            if len(entity_group) == 1:
-                final_entities.append(entity_group[0])
+            # Create a key based on normalized name and type
+            key = (entity.name.lower().strip(), entity.type)
+            
+            if key not in seen:
+                seen[key] = entity
+                deduplicated.append(entity)
             else:
-                # Merge entities with same text
-                merged_entity = await self._merge_entities(entity_group, text)
-                final_entities.append(merged_entity)
+                # Merge source documents
+                existing = seen[key]
+                existing.source_documents.extend(entity.source_documents)
+                existing.source_documents = list(set(existing.source_documents))
+                
+                # Update confidence (take maximum)
+                existing.confidence = max(existing.confidence, entity.confidence)
         
-        return final_entities
-    
-    async def _merge_entities(self, entities: List[Dict[str, Any]], text: str) -> Dict[str, Any]:
-        """Merge duplicate entities and calculate combined confidence"""
-        # Use the entity with highest confidence as base
-        base_entity = max(entities, key=lambda x: x["confidence"])
-        
-        # Calculate combined confidence
-        confidences = [e["confidence"] for e in entities]
-        sources = [e["source"] for e in entities]
-        
-        # Boost confidence if multiple sources agree
-        combined_confidence = max(confidences)
-        if len(set(sources)) > 1:
-            combined_confidence = min(1.0, combined_confidence + 0.2)
-        
-        # Merge metadata
-        merged_metadata = {}
-        for entity in entities:
-            merged_metadata.update(entity.get("metadata", {}))
-        
-        return {
-            "text": base_entity["text"],
-            "type": base_entity["type"],
-            "start": base_entity["start"],
-            "end": base_entity["end"],
-            "confidence": combined_confidence,
-            "source": "merged",
-            "metadata": {
-                **merged_metadata,
-                "sources": sources,
-                "merge_count": len(entities)
-            }
-        }
+        return deduplicated
 
-
-class RelationshipMapper:
-    """Discover entity connections and relationships"""
+class RelationshipExtractor:
+    """Extract relationships between entities"""
     
     def __init__(self):
-        # Enhanced relationship patterns for different types
         self.relationship_patterns = {
-            RelationshipType.CAUSES: [
-                r"(.+?)\s+(?:causes?|leads? to|results? in|triggers?|brings about|produces?)\s+(.+)",
-                r"(.+?)\s+(?:because of|due to|owing to|as a result of)\s+(.+)",
-                r"(.+?)\s+(?:→|->|leads to|results in)\s+(.+)",
-                r"(.+?)\s+(?:makes?|creates?|generates?)\s+(.+)",
+            "cites": [
+                r"(.*?)\s+(cites?|references?|mentions?)\s+(.*?)",
+                r"(.*?)\s+(according to|as shown by|demonstrated by)\s+(.*?)"
             ],
-            RelationshipType.PART_OF: [
-                r"(.+?)\s+(?:is part of|belongs to|is in|is within|is a component of)\s+(.+)",
-                r"(.+?)\s+(?:contains?|includes?|has|comprises?|consists of)\s+(.+)",
-                r"(.+?)\s+(?:is a member of|is included in)\s+(.+)",
+            "uses": [
+                r"(.*?)\s+(uses?|utilizes?|employs?|applies?)\s+(.*?)",
+                r"(.*?)\s+(based on|built on|extends?)\s+(.*?)"
             ],
-            RelationshipType.SIMILAR_TO: [
-                r"(.+?)\s+(?:(?:is|are)\s+similar to|(?:is|are)\s+like|resembles?|(?:is|are)\s+comparable to)\s+(.+)",
-                r"(.+?)\s+(?:and|&)\s+(.+?)\s+(?:are similar|are alike|are comparable)",
-                r"(.+?)\s+(?:mirrors?|parallels?|echoes?)\s+(.+)",
+            "improves": [
+                r"(.*?)\s+(improves?|enhances?|outperforms?)\s+(.*?)",
+                r"(.*?)\s+(better than|superior to|exceeds?)\s+(.*?)"
             ],
-            RelationshipType.DEFINED_BY: [
-                r"(.+?)\s+(?:is defined as|means|refers to|is|are)\s+(.+)",
-                r"(.+?):\s+(.+)",  # Definition pattern
-                r"(.+?)\s+(?:equals?|represents?|signifies?)\s+(.+)",
-            ],
-            RelationshipType.OPPOSITE_OF: [
-                r"(.+?)\s+(?:is opposite to|opposes?|contrasts with|differs from)\s+(.+)",
-                r"(.+?)\s+(?:vs\.?|versus|against)\s+(.+)",
-                r"(.+?)\s+(?:but|however|while)\s+(.+)",
-            ],
-            RelationshipType.EXAMPLE_OF: [
-                r"(.+?)\s+(?:is an example of|exemplifies?|illustrates?)\s+(.+)",
-                r"(.+?)\s+(?:such as|like|including)\s+(.+)",
-                r"(.+?)\s+(?:for example|for instance)\s+(.+)",
+            "contradicts": [
+                r"(.*?)\s+(contradicts?|disputes?|challenges?)\s+(.*?)",
+                r"(.*?)\s+(unlike|contrary to|different from)\s+(.*?)"
             ]
         }
     
     async def extract_relationships(
         self, 
         text: str, 
-        entities: List[Dict[str, Any]], 
-        use_llm: bool = True
-    ) -> List[Dict[str, Any]]:
+        entities: List[Entity], 
+        document_id: str
+    ) -> List[Relationship]:
         """Extract relationships between entities"""
         relationships = []
         
-        # Pattern-based relationship extraction
-        relationships.extend(await self._extract_with_patterns(text, entities))
+        # Extract pattern-based relationships
+        relationships.extend(
+            await self._extract_pattern_relationships(text, entities, document_id)
+        )
         
-        # Co-occurrence based relationships
-        relationships.extend(await self._extract_cooccurrence(text, entities))
+        # Extract co-occurrence relationships
+        relationships.extend(
+            await self._extract_cooccurrence_relationships(text, entities, document_id)
+        )
         
-        # LLM-assisted relationship extraction
-        if use_llm:
-            llm_relationships = await self._extract_with_llm(text, entities)
-            relationships.extend(llm_relationships)
+        # Extract citation relationships
+        relationships.extend(
+            await self._extract_citation_relationships(text, entities, document_id)
+        )
         
-        # Score and filter relationships
-        return await self._score_and_filter_relationships(relationships, text)
+        return relationships
     
-    async def _extract_with_patterns(self, text: str, entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Extract relationships using pattern matching"""
+    async def _extract_pattern_relationships(
+        self, 
+        text: str, 
+        entities: List[Entity], 
+        document_id: str
+    ) -> List[Relationship]:
+        """Extract relationships using linguistic patterns"""
         relationships = []
-        entity_texts = [e["text"] for e in entities]
         
-        # Split text into sentences for better pattern matching
-        sentences = re.split(r'[.!?]+', text)
+        # Create entity name to entity mapping
+        entity_map = {entity.name.lower(): entity for entity in entities}
         
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if not sentence:
-                continue
+        for rel_type, patterns in self.relationship_patterns.items():
+            for pattern in patterns:
+                matches = re.finditer(pattern, text, re.IGNORECASE)
                 
-            for rel_type, patterns in self.relationship_patterns.items():
-                for pattern in patterns:
-                    matches = re.finditer(pattern, sentence, re.IGNORECASE)
+                for match in matches:
+                    source_text = match.group(1).strip()
+                    target_text = match.group(3).strip() if len(match.groups()) >= 3 else ""
                     
-                    for match in matches:
-                        source_text = match.group(1).strip()
-                        target_text = match.group(2).strip()
-                        
-                        # Clean up the extracted text
-                        source_text = self._clean_extracted_text(source_text)
-                        target_text = self._clean_extracted_text(target_text)
-                        
-                        # Find matching entities (more flexible matching)
-                        source_entity = self._find_matching_entity_flexible(source_text, entity_texts)
-                        target_entity = self._find_matching_entity_flexible(target_text, entity_texts)
-                        
-                        if source_entity and target_entity and source_entity != target_entity:
-                            # Calculate confidence based on pattern quality and match quality
-                            confidence = self._calculate_pattern_confidence(
-                                rel_type, pattern, match.group(0), source_entity, target_entity
-                            )
-                            
-                            relationships.append({
-                                "source": source_entity,
-                                "target": target_entity,
-                                "type": rel_type,
-                                "confidence": confidence,
+                    # Find matching entities
+                    source_entity = self._find_matching_entity(source_text, entity_map)
+                    target_entity = self._find_matching_entity(target_text, entity_map)
+                    
+                    if source_entity and target_entity:
+                        relationship = Relationship(
+                            id=f"rel_{hash(f'{source_entity.id}_{target_entity.id}_{rel_type}') % 100000}",
+                            source_entity=source_entity.id,
+                            target_entity=target_entity.id,
+                            relationship_type=rel_type,
+                            properties={
+                                "pattern_matched": pattern,
                                 "context": match.group(0),
-                                "source_method": "pattern",
-                                "metadata": {
-                                    "pattern": pattern,
-                                    "sentence": sentence,
-                                    "match_quality": "exact" if source_text in entity_texts and target_text in entity_texts else "partial"
-                                }
-                            })
+                                "start_char": match.start(),
+                                "end_char": match.end()
+                            },
+                            confidence=0.8,
+                            evidence=[match.group(0)]
+                        )
+                        relationships.append(relationship)
         
         return relationships
     
-    def _clean_extracted_text(self, text: str) -> str:
-        """Clean extracted text from patterns"""
-        # Remove common articles and prepositions from the beginning
-        text = re.sub(r'^(?:the|a|an|this|that|these|those)\s+', '', text, flags=re.IGNORECASE)
-        # Remove trailing punctuation
-        text = re.sub(r'[,;:]+$', '', text)
-        return text.strip()
-    
-    def _find_matching_entity_flexible(self, text: str, entity_texts: List[str]) -> Optional[str]:
-        """Find entity with more flexible matching"""
-        text_lower = text.lower().strip()
-        
-        # Exact match first
-        for entity_text in entity_texts:
-            if entity_text.lower() == text_lower:
-                return entity_text
-        
-        # Partial match - entity contains the text
-        for entity_text in entity_texts:
-            if text_lower in entity_text.lower():
-                return entity_text
-        
-        # Partial match - text contains the entity
-        for entity_text in entity_texts:
-            if entity_text.lower() in text_lower:
-                return entity_text
-        
-        # Word-based matching for compound entities
-        text_words = set(text_lower.split())
-        for entity_text in entity_texts:
-            entity_words = set(entity_text.lower().split())
-            # If there's significant word overlap
-            if len(text_words & entity_words) >= min(len(text_words), len(entity_words)) * 0.5:
-                return entity_text
-        
-        return None
-    
-    def _calculate_pattern_confidence(
-        self, 
-        rel_type: RelationshipType, 
-        pattern: str, 
-        match_text: str, 
-        source_entity: str, 
-        target_entity: str
-    ) -> float:
-        """Calculate confidence for pattern-based relationships"""
-        base_confidence = 0.8
-        
-        # Adjust based on relationship type (some patterns are more reliable)
-        type_confidence_map = {
-            RelationshipType.CAUSES: 0.9,
-            RelationshipType.PART_OF: 0.85,
-            RelationshipType.DEFINED_BY: 0.9,
-            RelationshipType.SIMILAR_TO: 0.75,
-            RelationshipType.OPPOSITE_OF: 0.8,
-            RelationshipType.EXAMPLE_OF: 0.8
-        }
-        
-        base_confidence = type_confidence_map.get(rel_type, 0.7)
-        
-        # Adjust based on match quality
-        if source_entity.lower() in match_text.lower() and target_entity.lower() in match_text.lower():
-            base_confidence += 0.1
-        
-        # Adjust based on entity quality (longer entities are often more specific)
-        if len(source_entity) > 10 or len(target_entity) > 10:
-            base_confidence += 0.05
-        
-        return min(1.0, base_confidence)
-    
-    async def _extract_cooccurrence(self, text: str, entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Extract relationships based on entity co-occurrence"""
-        relationships = []
-        
-        # Sort entities by position
-        sorted_entities = sorted(entities, key=lambda x: x["start"])
-        
-        for i, entity1 in enumerate(sorted_entities):
-            for entity2 in sorted_entities[i+1:]:
-                distance = entity2["start"] - entity1["end"]
-                
-                # Only consider entities within reasonable distance
-                if distance < 200:  # Within 200 characters
-                    confidence = self._calculate_cooccurrence_confidence(
-                        entity1, entity2, distance, text
-                    )
-                    
-                    if confidence > 0.3:  # Minimum threshold
-                        relationships.append({
-                            "source": entity1["text"],
-                            "target": entity2["text"],
-                            "type": RelationshipType.RELATED_TO,
-                            "confidence": confidence,
-                            "context": text[entity1["start"]:entity2["end"]],
-                            "source_method": "cooccurrence",
-                            "metadata": {
-                                "distance": distance,
-                                "sentence_boundary": self._crosses_sentence_boundary(
-                                    entity1, entity2, text
-                                )
-                            }
-                        })
-        
-        return relationships
-    
-    def _calculate_cooccurrence_confidence(
-        self, 
-        entity1: Dict[str, Any], 
-        entity2: Dict[str, Any], 
-        distance: int, 
-        text: str
-    ) -> float:
-        """Calculate confidence for co-occurrence relationships"""
-        base_confidence = 0.5
-        
-        # Closer entities have higher confidence
-        distance_factor = max(0.1, 1.0 - distance / 200)
-        base_confidence *= distance_factor
-        
-        # Same sentence increases confidence
-        if not self._crosses_sentence_boundary(entity1, entity2, text):
-            base_confidence += 0.2
-        
-        # Entity types influence confidence
-        type_bonus = self._get_type_relationship_bonus(entity1, entity2)
-        base_confidence += type_bonus
-        
-        return min(1.0, base_confidence)
-    
-    def _crosses_sentence_boundary(
-        self, 
-        entity1: Dict[str, Any], 
-        entity2: Dict[str, Any], 
-        text: str
-    ) -> bool:
-        """Check if entities cross sentence boundaries"""
-        between_text = text[entity1["end"]:entity2["start"]]
-        return any(punct in between_text for punct in '.!?')
-    
-    def _get_type_relationship_bonus(
-        self, 
-        entity1: Dict[str, Any], 
-        entity2: Dict[str, Any]
-    ) -> float:
-        """Get bonus based on entity type combinations"""
-        type1 = entity1.get("type", EntityType.OTHER)
-        type2 = entity2.get("type", EntityType.OTHER)
-        
-        # High-value type combinations
-        high_value_pairs = [
-            (EntityType.PERSON, EntityType.ORGANIZATION),
-            (EntityType.PERSON, EntityType.LOCATION),
-            (EntityType.ORGANIZATION, EntityType.LOCATION),
-            (EntityType.CONCEPT, EntityType.PERSON),
-            (EntityType.EVENT, EntityType.LOCATION),
-            (EntityType.EVENT, EntityType.PERSON)
-        ]
-        
-        if (type1, type2) in high_value_pairs or (type2, type1) in high_value_pairs:
-            return 0.2
-        
-        return 0.0
-    
-    def _find_matching_entity(self, text: str, entity_texts: List[str]) -> Optional[str]:
+    def _find_matching_entity(self, text: str, entity_map: Dict[str, Entity]) -> Optional[Entity]:
         """Find entity that matches the given text"""
         text_lower = text.lower().strip()
         
         # Exact match
-        for entity_text in entity_texts:
-            if entity_text.lower() == text_lower:
-                return entity_text
+        if text_lower in entity_map:
+            return entity_map[text_lower]
         
         # Partial match
-        for entity_text in entity_texts:
-            if entity_text.lower() in text_lower or text_lower in entity_text.lower():
-                return entity_text
+        for entity_name, entity in entity_map.items():
+            if entity_name in text_lower or text_lower in entity_name:
+                return entity
         
         return None
     
-    async def _extract_with_llm(self, text: str, entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Extract relationships using LLM assistance"""
-        relationships = []
-        
-        try:
-            entity_list = [e["text"] for e in entities]
-            prompt = f"""
-            Given the following entities from a text, identify relationships between them:
-            
-            Entities: {', '.join(entity_list)}
-            
-            Text: {text[:800]}
-            
-            Return relationships in JSON format with: source, target, relationship_type, confidence (0-1)
-            Relationship types: related_to, part_of, causes, similar_to, opposite_of, defined_by, example_of
-            """
-            
-            response = await self._query_llm(prompt)
-            if response:
-                llm_relationships = self._parse_llm_relationships(response, entity_list)
-                relationships.extend(llm_relationships)
-                
-        except Exception as e:
-            logger.warning(f"LLM relationship extraction failed: {str(e)}")
-        
-        return relationships
-    
-    async def _query_llm(self, prompt: str) -> Optional[str]:
-        """Query local LLM for relationship extraction"""
-        try:
-            response = requests.post(
-                "http://localhost:11434/api/generate",
-                json={
-                    "model": "llama2",
-                    "prompt": prompt,
-                    "stream": False
-                },
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                return response.json().get("response", "")
-        except Exception as e:
-            logger.warning(f"LLM query failed: {str(e)}")
-        
-        return None
-    
-    def _parse_llm_relationships(self, response: str, entity_list: List[str]) -> List[Dict[str, Any]]:
-        """Parse LLM response to extract relationships"""
-        relationships = []
-        
-        try:
-            json_match = re.search(r'\[.*\]', response, re.DOTALL)
-            if json_match:
-                relationship_data = json.loads(json_match.group())
-                
-                for item in relationship_data:
-                    if isinstance(item, dict) and all(k in item for k in ["source", "target"]):
-                        source = item["source"]
-                        target = item["target"]
-                        
-                        # Validate entities exist
-                        if source in entity_list and target in entity_list and source != target:
-                            rel_type = self._map_llm_relationship_type(
-                                item.get("relationship_type", "related_to")
-                            )
-                            
-                            relationships.append({
-                                "source": source,
-                                "target": target,
-                                "type": rel_type,
-                                "confidence": float(item.get("confidence", 0.7)),
-                                "context": "",
-                                "source_method": "llm",
-                                "metadata": {"llm_type": item.get("relationship_type")}
-                            })
-        except Exception as e:
-            logger.warning(f"Failed to parse LLM relationships: {str(e)}")
-        
-        return relationships
-    
-    def _map_llm_relationship_type(self, llm_type: str) -> RelationshipType:
-        """Map LLM relationship type to our schema"""
-        type_mapping = {
-            "related_to": RelationshipType.RELATED_TO,
-            "part_of": RelationshipType.PART_OF,
-            "causes": RelationshipType.CAUSES,
-            "similar_to": RelationshipType.SIMILAR_TO,
-            "opposite_of": RelationshipType.OPPOSITE_OF,
-            "defined_by": RelationshipType.DEFINED_BY,
-            "example_of": RelationshipType.EXAMPLE_OF
-        }
-        return type_mapping.get(llm_type.lower(), RelationshipType.RELATED_TO)
-    
-    async def _score_and_filter_relationships(
+    async def _extract_cooccurrence_relationships(
         self, 
-        relationships: List[Dict[str, Any]], 
-        text: str
-    ) -> List[Dict[str, Any]]:
-        """Score and filter relationships"""
-        # Remove duplicates
-        unique_relationships = {}
-        for rel in relationships:
-            key = (rel["source"], rel["target"], rel["type"])
-            if key not in unique_relationships or rel["confidence"] > unique_relationships[key]["confidence"]:
-                unique_relationships[key] = rel
+        text: str, 
+        entities: List[Entity], 
+        document_id: str
+    ) -> List[Relationship]:
+        """Extract relationships based on entity co-occurrence"""
+        relationships = []
         
-        # Filter by minimum confidence
-        filtered_relationships = [
-            rel for rel in unique_relationships.values() 
-            if rel["confidence"] >= 0.3
-        ]
+        # Split text into sentences
+        sentences = re.split(r'[.!?]+', text)
         
-        # Sort by confidence
-        return sorted(filtered_relationships, key=lambda x: x["confidence"], reverse=True)
+        for sentence in sentences:
+            # Find entities in this sentence
+            sentence_entities = []
+            for entity in entities:
+                if entity.name.lower() in sentence.lower():
+                    sentence_entities.append(entity)
+            
+            # Create co-occurrence relationships
+            for i, entity1 in enumerate(sentence_entities):
+                for entity2 in sentence_entities[i+1:]:
+                    relationship = Relationship(
+                        id=f"cooc_{hash(f'{entity1.id}_{entity2.id}') % 100000}",
+                        source_entity=entity1.id,
+                        target_entity=entity2.id,
+                        relationship_type="co_occurs",
+                        properties={
+                            "sentence": sentence.strip(),
+                            "co_occurrence_count": 1
+                        },
+                        confidence=0.6,  # Lower confidence for co-occurrence
+                        evidence=[sentence.strip()]
+                    )
+                    relationships.append(relationship)
+        
+        return relationships
+    
+    async def _extract_citation_relationships(
+        self, 
+        text: str, 
+        entities: List[Entity], 
+        document_id: str
+    ) -> List[Relationship]:
+        """Extract citation relationships"""
+        relationships = []
+        
+        # Find citation patterns
+        citation_pattern = r'\[(\d+(?:,\s*\d+)*)\]'
+        citations = re.finditer(citation_pattern, text)
+        
+        for citation in citations:
+            # Get context around citation
+            start = max(0, citation.start() - 100)
+            end = min(len(text), citation.end() + 100)
+            context = text[start:end]
+            
+            # Find entities in citation context
+            context_entities = []
+            for entity in entities:
+                if entity.name.lower() in context.lower():
+                    context_entities.append(entity)
+            
+            # Create citation relationships
+            for entity in context_entities:
+                relationship = Relationship(
+                    id=f"cite_{hash(f'{entity.id}_{citation.group()}') % 100000}",
+                    source_entity=entity.id,
+                    target_entity=f"ref_{citation.group(1)}",
+                    relationship_type="cites",
+                    properties={
+                        "citation_numbers": citation.group(1),
+                        "context": context
+                    },
+                    confidence=0.9,
+                    evidence=[context]
+                )
+                relationships.append(relationship)
+        
+        return relationships
 
-
-class GraphBuilder:
-    """Constructs and maintains knowledge graphs"""
+class KnowledgeGraphBuilder:
+    """Build and manage knowledge graphs from research documents"""
     
     def __init__(self):
-        self.graph = nx.DiGraph()
+        self.entity_extractor = EntityExtractor()
+        self.relationship_extractor = RelationshipExtractor()
+        self.graph = nx.MultiDiGraph()
+        self.entities = {}
+        self.relationships = {}
     
-    async def build_graph_from_entities_and_relationships(
-        self, 
-        entities: List[Dict[str, Any]], 
-        relationships: List[Dict[str, Any]]
-    ) -> nx.DiGraph:
-        """Build a NetworkX graph from entities and relationships"""
-        # Clear existing graph
-        self.graph.clear()
+    async def build_research_ontology(self, documents: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Build knowledge graph from research documents"""
         
-        # Add entities as nodes
-        for entity in entities:
-            entity_id = f"{entity.get('type', 'ENTITY')}:{entity['name']}"
-            self.graph.add_node(entity_id, **{
-                "name": entity["name"],
-                "type": entity.get("type", "ENTITY"),
-                "importance": entity.get("importance_score", 0.0),
-                "metadata": entity.get("metadata", {})
-            })
+        logger.info(f"🔨 Building knowledge graph from {len(documents)} documents...")
         
-        # Add relationships as edges
-        for rel in relationships:
-            # Find matching nodes by entity name
-            source_id = None
-            target_id = None
+        all_entities = []
+        all_relationships = []
+        
+        # Process each document
+        for doc in documents:
+            doc_id = doc.get("id", f"doc_{hash(doc.get('content', '')) % 10000}")
+            content = doc.get("content", "")
             
-            for node_id, node_data in self.graph.nodes(data=True):
-                if node_data["name"] == rel["source_entity_name"]:
-                    source_id = node_id
-                elif node_data["name"] == rel["target_entity_name"]:
-                    target_id = node_id
+            # Extract entities
+            entities = await self.entity_extractor.extract_entities(content, doc_id)
+            all_entities.extend(entities)
             
-            if source_id and target_id:
-                self.graph.add_edge(source_id, target_id, **{
-                    "relationship_type": rel["relationship_type"],
-                    "confidence": rel["confidence_score"],
-                    "context": rel.get("context", ""),
-                    "metadata": rel.get("metadata", {})
-                })
+            # Extract relationships
+            relationships = await self.relationship_extractor.extract_relationships(
+                content, entities, doc_id
+            )
+            all_relationships.extend(relationships)
         
-        return self.graph
+        # Build graph
+        await self._build_graph(all_entities, all_relationships)
+        
+        # Analyze graph structure
+        analysis = await self._analyze_graph_structure()
+        
+        logger.info(f"✅ Knowledge graph built: {len(self.entities)} entities, {len(self.relationships)} relationships")
+        
+        return {
+            "entities_count": len(self.entities),
+            "relationships_count": len(self.relationships),
+            "graph_analysis": analysis,
+            "build_timestamp": datetime.now().isoformat()
+        }
     
-    async def update_graph_with_new_document(
-        self, 
-        document_id: str, 
-        entities: List[Dict[str, Any]], 
-        relationships: List[Dict[str, Any]]
-    ) -> None:
-        """Update existing graph with new document data"""
-        # Add new entities
+    async def _build_graph(self, entities: List[Entity], relationships: List[Relationship]):
+        """Build NetworkX graph from entities and relationships"""
+        
+        # Add entities to graph and storage
         for entity in entities:
-            entity_id = f"{entity.get('type', 'ENTITY')}:{entity['name']}"
-            
-            if self.graph.has_node(entity_id):
-                # Update existing node
-                node_data = self.graph.nodes[entity_id]
-                node_data["importance"] = max(
-                    node_data.get("importance", 0.0),
-                    entity.get("importance_score", 0.0)
+            self.entities[entity.id] = entity
+            self.graph.add_node(
+                entity.id,
+                name=entity.name,
+                type=entity.type,
+                confidence=entity.confidence,
+                **entity.properties
+            )
+        
+        # Add relationships to graph and storage
+        for relationship in relationships:
+            if (relationship.source_entity in self.entities and 
+                relationship.target_entity in self.entities):
+                
+                self.relationships[relationship.id] = relationship
+                self.graph.add_edge(
+                    relationship.source_entity,
+                    relationship.target_entity,
+                    relationship_id=relationship.id,
+                    type=relationship.relationship_type,
+                    confidence=relationship.confidence,
+                    **relationship.properties
                 )
-                # Add document to sources
-                if "documents" not in node_data:
-                    node_data["documents"] = set()
-                node_data["documents"].add(document_id)
-            else:
-                # Add new node
-                self.graph.add_node(entity_id, **{
-                    "name": entity["name"],
-                    "type": entity.get("type", "ENTITY"),
-                    "importance": entity.get("importance_score", 0.0),
-                    "documents": {document_id},
-                    "metadata": entity.get("metadata", {})
-                })
-        
-        # Add new relationships
-        for rel in relationships:
-            # Find matching nodes by entity name
-            source_id = None
-            target_id = None
-            
-            for node_id, node_data in self.graph.nodes(data=True):
-                if node_data["name"] == rel["source_entity_name"]:
-                    source_id = node_id
-                elif node_data["name"] == rel["target_entity_name"]:
-                    target_id = node_id
-            
-            if source_id and target_id:
-                if self.graph.has_edge(source_id, target_id):
-                    # Update existing edge
-                    edge_data = self.graph.edges[source_id, target_id]
-                    edge_data["confidence"] = max(
-                        edge_data.get("confidence", 0.0),
-                        rel["confidence_score"]
-                    )
-                    # Add document to sources
-                    if "documents" not in edge_data:
-                        edge_data["documents"] = set()
-                    edge_data["documents"].add(document_id)
-                else:
-                    # Add new edge
-                    self.graph.add_edge(source_id, target_id, **{
-                        "relationship_type": rel["relationship_type"],
-                        "confidence": rel["confidence_score"],
-                        "context": rel.get("context", ""),
-                        "documents": {document_id},
-                        "metadata": rel.get("metadata", {})
-                    })
     
-    async def get_subgraph(self, entity_names: List[str], max_depth: int = 2) -> nx.DiGraph:
-        """Extract a subgraph around specific entities"""
-        if not entity_names:
-            return nx.DiGraph()
+    async def _analyze_graph_structure(self) -> Dict[str, Any]:
+        """Analyze knowledge graph structure"""
         
-        # Find all matching nodes
-        seed_nodes = []
-        for entity_name in entity_names:
-            for node_id in self.graph.nodes():
-                if entity_name.lower() in self.graph.nodes[node_id]["name"].lower():
-                    seed_nodes.append(node_id)
+        if len(self.graph.nodes()) == 0:
+            return {"error": "Empty graph"}
         
-        if not seed_nodes:
-            return nx.DiGraph()
+        # Basic graph metrics
+        analysis = {
+            "nodes": len(self.graph.nodes()),
+            "edges": len(self.graph.edges()),
+            "density": nx.density(self.graph),
+            "is_connected": nx.is_weakly_connected(self.graph)
+        }
         
-        # Get nodes within max_depth
-        subgraph_nodes = set(seed_nodes)
-        current_nodes = set(seed_nodes)
+        # Node degree analysis
+        degrees = dict(self.graph.degree())
+        if degrees:
+            analysis["degree_stats"] = {
+                "max_degree": max(degrees.values()),
+                "min_degree": min(degrees.values()),
+                "avg_degree": sum(degrees.values()) / len(degrees)
+            }
         
-        for depth in range(max_depth):
-            next_nodes = set()
-            for node in current_nodes:
-                # Add neighbors
-                neighbors = set(self.graph.predecessors(node)) | set(self.graph.successors(node))
-                next_nodes.update(neighbors)
-            
-            subgraph_nodes.update(next_nodes)
-            current_nodes = next_nodes
-            
-            if not next_nodes:
-                break
-        
-        return self.graph.subgraph(subgraph_nodes).copy()
-    
-    async def calculate_centrality_metrics(self) -> Dict[str, Dict[str, float]]:
-        """Calculate various centrality metrics for nodes"""
-        if not self.graph.nodes():
-            return {}
-        
+        # Find central nodes
         try:
-            metrics = {}
+            centrality = nx.degree_centrality(self.graph)
+            top_central = sorted(centrality.items(), key=lambda x: x[1], reverse=True)[:5]
             
-            # Degree centrality
-            degree_centrality = nx.degree_centrality(self.graph)
-            
-            # Betweenness centrality
-            betweenness_centrality = nx.betweenness_centrality(self.graph)
-            
-            # PageRank
-            pagerank = nx.pagerank(self.graph)
-            
-            # Combine metrics
-            for node in self.graph.nodes():
-                metrics[node] = {
-                    "degree_centrality": degree_centrality.get(node, 0.0),
-                    "betweenness_centrality": betweenness_centrality.get(node, 0.0),
-                    "pagerank": pagerank.get(node, 0.0)
+            analysis["most_central_entities"] = [
+                {
+                    "entity_id": entity_id,
+                    "name": self.entities[entity_id].name,
+                    "centrality": centrality_score
                 }
-            
-            return metrics
-        except Exception as e:
-            logger.error(f"Error calculating centrality metrics: {str(e)}")
-            return {}
-
-
-class GraphQueryEngine:
-    """Enables semantic queries over the knowledge graph"""
-    
-    def __init__(self, graph_builder: GraphBuilder):
-        self.graph_builder = graph_builder
-        self.graph = graph_builder.graph
-    
-    async def find_shortest_path(self, source_entity: str, target_entity: str) -> List[Dict[str, Any]]:
-        """Find shortest path between two entities"""
-        # Find matching nodes
-        source_nodes = self._find_matching_nodes(source_entity)
-        target_nodes = self._find_matching_nodes(target_entity)
+                for entity_id, centrality_score in top_central
+                if entity_id in self.entities
+            ]
+        except:
+            analysis["most_central_entities"] = []
         
-        if not source_nodes or not target_nodes:
+        # Entity type distribution
+        entity_types = Counter(entity.type for entity in self.entities.values())
+        analysis["entity_type_distribution"] = dict(entity_types)
+        
+        # Relationship type distribution
+        relationship_types = Counter(rel.relationship_type for rel in self.relationships.values())
+        analysis["relationship_type_distribution"] = dict(relationship_types)
+        
+        return analysis
+    
+    async def find_research_connections(self, query: str, max_results: int = 10) -> List[ResearchConnection]:
+        """Discover hidden connections between research topics"""
+        
+        # Find entities related to query
+        query_entities = await self._find_query_entities(query)
+        
+        if not query_entities:
             return []
         
-        shortest_paths = []
+        connections = []
         
-        for source_node in source_nodes:
-            for target_node in target_nodes:
+        # Find paths between query entities and other entities
+        for query_entity in query_entities:
+            # Find entities within 2-3 hops
+            nearby_entities = await self._find_nearby_entities(query_entity.id, max_distance=3)
+            
+            for target_entity_id in nearby_entities:
+                if target_entity_id == query_entity.id:
+                    continue
+                
+                # Find shortest path
                 try:
-                    path = nx.shortest_path(self.graph, source_node, target_node)
-                    path_info = []
+                    path = nx.shortest_path(self.graph, query_entity.id, target_entity_id)
                     
-                    for i in range(len(path) - 1):
-                        current_node = path[i]
-                        next_node = path[i + 1]
-                        edge_data = self.graph.edges[current_node, next_node]
-                        
-                        path_info.append({
-                            "from": self.graph.nodes[current_node]["name"],
-                            "to": self.graph.nodes[next_node]["name"],
-                            "relationship": edge_data["relationship_type"],
-                            "confidence": edge_data["confidence"]
-                        })
-                    
-                    shortest_paths.append({
-                        "path_length": len(path) - 1,
-                        "path": path_info,
-                        "total_confidence": sum(step["confidence"] for step in path_info) / len(path_info) if path_info else 0.0
-                    })
-                    
+                    if len(path) > 1:  # There's a connection
+                        connection = await self._analyze_connection_path(path, query)
+                        if connection:
+                            connections.append(connection)
+                
                 except nx.NetworkXNoPath:
                     continue
         
-        # Sort by path length and confidence
-        return sorted(shortest_paths, key=lambda x: (x["path_length"], -x["total_confidence"]))
+        # Sort by connection strength
+        connections.sort(key=lambda x: x.strength, reverse=True)
+        
+        return connections[:max_results]
     
-    async def find_entities_by_type(self, entity_type: str, min_importance: float = 0.0) -> List[Dict[str, Any]]:
-        """Find all entities of a specific type"""
+    async def _find_query_entities(self, query: str) -> List[Entity]:
+        """Find entities related to the query"""
+        query_lower = query.lower()
         matching_entities = []
         
-        for node_id, node_data in self.graph.nodes(data=True):
-            if (node_data.get("type", "").lower() == entity_type.lower() and 
-                node_data.get("importance", 0.0) >= min_importance):
-                
-                matching_entities.append({
-                    "id": node_id,
-                    "name": node_data["name"],
-                    "type": node_data["type"],
-                    "importance": node_data.get("importance", 0.0),
-                    "metadata": node_data.get("metadata", {})
-                })
-        
-        return sorted(matching_entities, key=lambda x: x["importance"], reverse=True)
-    
-    async def find_related_entities(
-        self, 
-        entity_name: str, 
-        relationship_types: List[str] = None, 
-        max_depth: int = 2,
-        min_confidence: float = 0.0
-    ) -> List[Dict[str, Any]]:
-        """Find entities related to a given entity"""
-        matching_nodes = self._find_matching_nodes(entity_name)
-        if not matching_nodes:
-            return []
-        
-        related_entities = []
-        
-        for source_node in matching_nodes:
-            # BFS to find related entities
-            visited = set()
-            queue = [(source_node, 0, 1.0)]  # (node, depth, confidence)
-            
-            while queue:
-                current_node, depth, path_confidence = queue.pop(0)
-                
-                if current_node in visited or depth >= max_depth:
-                    continue
-                
-                visited.add(current_node)
-                
-                # Check outgoing edges
-                for neighbor in self.graph.successors(current_node):
-                    edge_data = self.graph.edges[current_node, neighbor]
-                    edge_confidence = edge_data.get("confidence", 0.0)
-                    
-                    if edge_confidence < min_confidence:
-                        continue
-                    
-                    if relationship_types and edge_data.get("relationship_type") not in relationship_types:
-                        continue
-                    
-                    neighbor_data = self.graph.nodes[neighbor]
-                    combined_confidence = path_confidence * edge_confidence
-                    
-                    related_entities.append({
-                        "entity": neighbor_data["name"],
-                        "type": neighbor_data.get("type", "ENTITY"),
-                        "relationship": edge_data["relationship_type"],
-                        "confidence": combined_confidence,
-                        "depth": depth + 1,
-                        "context": edge_data.get("context", ""),
-                        "path_from_source": f"{self.graph.nodes[source_node]['name']} -> {neighbor_data['name']}"
-                    })
-                    
-                    queue.append((neighbor, depth + 1, combined_confidence))
-                
-                # Check incoming edges
-                for predecessor in self.graph.predecessors(current_node):
-                    edge_data = self.graph.edges[predecessor, current_node]
-                    edge_confidence = edge_data.get("confidence", 0.0)
-                    
-                    if edge_confidence < min_confidence:
-                        continue
-                    
-                    if relationship_types and edge_data.get("relationship_type") not in relationship_types:
-                        continue
-                    
-                    predecessor_data = self.graph.nodes[predecessor]
-                    combined_confidence = path_confidence * edge_confidence
-                    
-                    related_entities.append({
-                        "entity": predecessor_data["name"],
-                        "type": predecessor_data.get("type", "ENTITY"),
-                        "relationship": edge_data["relationship_type"],
-                        "confidence": combined_confidence,
-                        "depth": depth + 1,
-                        "context": edge_data.get("context", ""),
-                        "path_from_source": f"{predecessor_data['name']} -> {self.graph.nodes[source_node]['name']}"
-                    })
-                    
-                    queue.append((predecessor, depth + 1, combined_confidence))
-        
-        # Remove duplicates and sort by confidence
-        unique_entities = {}
-        for entity in related_entities:
-            key = entity["entity"]
-            if key not in unique_entities or entity["confidence"] > unique_entities[key]["confidence"]:
-                unique_entities[key] = entity
-        
-        return sorted(unique_entities.values(), key=lambda x: x["confidence"], reverse=True)
-    
-    async def query_by_pattern(self, pattern: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Query graph using pattern matching"""
-        results = []
-        
-        # Extract pattern components
-        source_type = pattern.get("source_type")
-        target_type = pattern.get("target_type")
-        relationship_type = pattern.get("relationship_type")
-        min_confidence = pattern.get("min_confidence", 0.0)
-        
-        # Find matching patterns
-        for source_node, target_node, edge_data in self.graph.edges(data=True):
-            source_data = self.graph.nodes[source_node]
-            target_data = self.graph.nodes[target_node]
-            
-            # Check if pattern matches
-            if source_type and source_data.get("type", "").lower() != source_type.lower():
-                continue
-            
-            if target_type and target_data.get("type", "").lower() != target_type.lower():
-                continue
-            
-            if relationship_type and edge_data.get("relationship_type", "").lower() != relationship_type.lower():
-                continue
-            
-            if edge_data.get("confidence", 0.0) < min_confidence:
-                continue
-            
-            results.append({
-                "source": {
-                    "name": source_data["name"],
-                    "type": source_data.get("type", "ENTITY"),
-                    "importance": source_data.get("importance", 0.0)
-                },
-                "target": {
-                    "name": target_data["name"],
-                    "type": target_data.get("type", "ENTITY"),
-                    "importance": target_data.get("importance", 0.0)
-                },
-                "relationship": edge_data["relationship_type"],
-                "confidence": edge_data["confidence"],
-                "context": edge_data.get("context", "")
-            })
-        
-        return sorted(results, key=lambda x: x["confidence"], reverse=True)
-    
-    async def get_graph_statistics(self) -> Dict[str, Any]:
-        """Get comprehensive graph statistics"""
-        if not self.graph.nodes():
-            return {
-                "total_nodes": 0,
-                "total_edges": 0,
-                "density": 0.0,
-                "connected_components": 0,
-                "average_clustering": 0.0
-            }
-        
-        try:
-            # Basic statistics
-            total_nodes = self.graph.number_of_nodes()
-            total_edges = self.graph.number_of_edges()
-            density = nx.density(self.graph)
-            
-            # Convert to undirected for some metrics
-            undirected_graph = self.graph.to_undirected()
-            connected_components = nx.number_connected_components(undirected_graph)
-            average_clustering = nx.average_clustering(undirected_graph)
-            
-            # Node type distribution
-            node_types = {}
-            for node_data in self.graph.nodes(data=True):
-                node_type = node_data[1].get("type", "UNKNOWN")
-                node_types[node_type] = node_types.get(node_type, 0) + 1
-            
-            # Relationship type distribution
-            relationship_types = {}
-            for edge_data in self.graph.edges(data=True):
-                rel_type = edge_data[2].get("relationship_type", "UNKNOWN")
-                relationship_types[rel_type] = relationship_types.get(rel_type, 0) + 1
-            
-            return {
-                "total_nodes": total_nodes,
-                "total_edges": total_edges,
-                "density": density,
-                "connected_components": connected_components,
-                "average_clustering": average_clustering,
-                "node_types": node_types,
-                "relationship_types": relationship_types,
-                "average_degree": sum(dict(self.graph.degree()).values()) / total_nodes if total_nodes > 0 else 0.0
-            }
-            
-        except Exception as e:
-            logger.error(f"Error calculating graph statistics: {str(e)}")
-            return {"error": str(e)}
-    
-    def _find_matching_nodes(self, entity_name: str) -> List[str]:
-        """Find nodes that match the given entity name"""
-        matching_nodes = []
-        entity_name_lower = entity_name.lower()
-        
-        for node_id, node_data in self.graph.nodes(data=True):
-            node_name_lower = node_data["name"].lower()
-            
+        for entity in self.entities.values():
             # Exact match
-            if node_name_lower == entity_name_lower:
-                matching_nodes.append(node_id)
-            # Partial match
-            elif entity_name_lower in node_name_lower or node_name_lower in entity_name_lower:
-                matching_nodes.append(node_id)
+            if query_lower in entity.name.lower():
+                matching_entities.append(entity)
+            # Partial match in properties
+            elif any(query_lower in str(prop).lower() for prop in entity.properties.values()):
+                matching_entities.append(entity)
         
-        return matching_nodes
-
-
-class EnhancedKnowledgeGraphService:
-    """Enhanced Knowledge Graph Service with entity extraction and relationship mapping"""
+        return matching_entities
     
-    def __init__(self):
-        self.graph_builder = GraphBuilder()
-        self.query_engine = GraphQueryEngine(self.graph_builder)
-        self.entity_extractor = EntityExtractor()
-        self.relationship_mapper = RelationshipMapper()
-        # Provide direct access to graph for backward compatibility
-        self.graph = self.graph_builder.graph
-    
-    async def initialize(self):
-        """Initialize knowledge graph service"""
-        logger.info("Enhanced Knowledge graph service initialized")
-    
-    async def add_document(self, document_data: Dict[str, Any]):
-        """Add document to enhanced knowledge graph with entity extraction and relationship mapping"""
+    async def _find_nearby_entities(self, entity_id: str, max_distance: int = 3) -> Set[str]:
+        """Find entities within max_distance hops"""
+        nearby = set()
+        
         try:
-            db = next(get_db())
-            
-            # Get document chunks
-            chunks = db.query(DocumentChunk).filter(
-                DocumentChunk.document_id == document_data["id"]
-            ).all()
-            
-            all_entities = []
-            all_relationships = []
-            
-            # Extract entities and relationships from each chunk
-            for chunk in chunks:
-                # Use enhanced entity extraction
-                entities = await self.entity_extractor.extract_entities(chunk.content)
-                relationships = await self.relationship_mapper.extract_relationships(
-                    chunk.content, entities
-                )
-                
-                # Store entities in database
-                for entity_data in entities:
-                    entity = await self._store_entity_in_db(
-                        entity_data, document_data["id"], chunk.id, db
-                    )
-                    if entity:
-                        all_entities.append(entity)
-                
-                # Store relationships in database
-                for rel_data in relationships:
-                    relationship = await self._store_relationship_in_db(
-                        rel_data, document_data["id"], all_entities, db
-                    )
-                    if relationship:
-                        all_relationships.append(relationship)
-            
-            # Update the in-memory graph using GraphBuilder
-            await self._update_graph_with_document_data(document_data["id"], all_entities, all_relationships)
-            
-            logger.info(f"Added document {document_data['id']} to enhanced knowledge graph with {len(all_entities)} entities and {len(all_relationships)} relationships")
-            
-        except Exception as e:
-            logger.error(f"Error adding document to knowledge graph: {str(e)}")
-        finally:
-            if 'db' in locals():
-                db.close()
+            # Use BFS to find entities within distance
+            distances = nx.single_source_shortest_path_length(
+                self.graph, entity_id, cutoff=max_distance
+            )
+            nearby.update(distances.keys())
+        except:
+            pass
+        
+        return nearby
     
-    async def _update_graph_with_document_data(
-        self, 
-        document_id: str, 
-        entities: List[Dict[str, Any]], 
-        relationships: List[Dict[str, Any]]
-    ):
-        """Update the in-memory graph with document data"""
-        # Convert entity data to format expected by GraphBuilder
-        entity_data = []
-        for entity in entities:
-            entity_data.append({
-                "name": entity["name"],
-                "type": entity["type"],
-                "importance_score": entity["importance_score"],
-                "metadata": entity.get("metadata", {})
-            })
+    async def _analyze_connection_path(self, path: List[str], query: str) -> Optional[ResearchConnection]:
+        """Analyze a connection path and create ResearchConnection"""
         
-        # Convert relationship data to format expected by GraphBuilder
-        relationship_data = []
-        for rel in relationships:
-            relationship_data.append({
-                "source_entity_name": rel["source_entity_name"],
-                "target_entity_name": rel["target_entity_name"],
-                "relationship_type": rel["relationship_type"],
-                "confidence_score": rel["confidence_score"],
-                "context": rel.get("context", ""),
-                "metadata": rel.get("metadata", {})
-            })
+        if len(path) < 2:
+            return None
         
-        # Update the graph
-        await self.graph_builder.update_graph_with_new_document(
-            document_id, entity_data, relationship_data
+        # Get entities in path
+        path_entities = [self.entities.get(entity_id) for entity_id in path]
+        path_entities = [e for e in path_entities if e is not None]
+        
+        if len(path_entities) < 2:
+            return None
+        
+        # Calculate connection strength based on path length and entity confidence
+        base_strength = 1.0 / len(path)  # Shorter paths are stronger
+        confidence_boost = sum(entity.confidence for entity in path_entities) / len(path_entities)
+        strength = base_strength * confidence_boost
+        
+        # Generate explanation
+        explanation = await self._generate_connection_explanation(path_entities, path)
+        
+        # Assess potential impact
+        impact = await self._assess_connection_impact(path_entities)
+        
+        return ResearchConnection(
+            connection_id=f"conn_{hash('_'.join(path)) % 100000}",
+            entities=path,
+            connection_type="research_path",
+            strength=strength,
+            explanation=explanation,
+            supporting_evidence=self._gather_supporting_evidence(path),
+            potential_impact=impact
         )
     
-    async def _store_entity_in_db(
+    async def _generate_connection_explanation(
         self, 
-        entity_data: Dict[str, Any], 
-        document_id: str, 
-        chunk_id: str, 
-        db
-    ) -> Optional[KnowledgeGraphEntity]:
-        """Store entity in database"""
-        try:
-            # Check if entity already exists
-            existing_entity = db.query(KnowledgeGraphEntity).filter(
-                KnowledgeGraphEntity.name == entity_data["text"],
-                KnowledgeGraphEntity.type == entity_data["type"].value
-            ).first()
-            
-            if existing_entity:
-                # Update importance score
-                existing_entity.importance_score = min(
-                    1.0, 
-                    existing_entity.importance_score + entity_data["confidence"] * 0.1
-                )
-                db.commit()
-                return existing_entity
-            else:
-                # Create new entity
-                entity = KnowledgeGraphEntity(
-                    name=entity_data["text"],
-                    type=entity_data["type"].value,
-                    description=f"Entity extracted from document {document_id}",
-                    importance_score=entity_data["confidence"],
-                    document_id=document_id,
-                    metadata={
-                        "extraction_source": entity_data["source"],
-                        "chunk_id": chunk_id,
-                        "confidence": entity_data["confidence"],
-                        **entity_data.get("metadata", {})
-                    }
-                )
-                
-                db.add(entity)
-                db.commit()
-                db.refresh(entity)
-                return entity
-                
-        except Exception as e:
-            logger.error(f"Error storing entity in database: {str(e)}")
-            db.rollback()
-            return None
+        path_entities: List[Entity], 
+        path: List[str]
+    ) -> str:
+        """Generate human-readable explanation of the connection"""
+        
+        if len(path_entities) < 2:
+            return "No clear connection found."
+        
+        explanation = f"Connection discovered between {path_entities[0].name} and {path_entities[-1].name}"
+        
+        if len(path_entities) > 2:
+            intermediate = ", ".join(entity.name for entity in path_entities[1:-1])
+            explanation += f" through {intermediate}"
+        
+        explanation += f". This connection suggests potential relationships in research areas involving {path_entities[0].type} and {path_entities[-1].type}."
+        
+        return explanation
     
-    async def _store_relationship_in_db(
-        self, 
-        rel_data: Dict[str, Any], 
-        document_id: str, 
-        entities: List[KnowledgeGraphEntity], 
-        db
-    ) -> Optional[KnowledgeGraphRelationship]:
-        """Store relationship in database"""
-        try:
-            # Find source and target entities
-            source_entity = None
-            target_entity = None
-            
-            for entity in entities:
-                if entity.name == rel_data["source"]:
-                    source_entity = entity
-                elif entity.name == rel_data["target"]:
-                    target_entity = entity
-            
-            if not source_entity or not target_entity:
-                return None
-            
-            # Check if relationship already exists
-            existing_rel = db.query(KnowledgeGraphRelationship).filter(
-                KnowledgeGraphRelationship.source_entity_id == source_entity.id,
-                KnowledgeGraphRelationship.target_entity_id == target_entity.id,
-                KnowledgeGraphRelationship.relationship_type == rel_data["type"].value
-            ).first()
-            
-            if existing_rel:
-                # Update confidence score
-                existing_rel.confidence_score = max(
-                    existing_rel.confidence_score,
-                    rel_data["confidence"]
-                )
-                db.commit()
-                return existing_rel
-            else:
-                # Create new relationship
-                relationship = KnowledgeGraphRelationship(
-                    source_entity_id=source_entity.id,
-                    target_entity_id=target_entity.id,
-                    relationship_type=rel_data["type"].value,
-                    confidence_score=rel_data["confidence"],
-                    context=rel_data.get("context", ""),
-                    metadata={
-                        "extraction_method": rel_data.get("source_method", "unknown"),
-                        "document_id": document_id,
-                        **rel_data.get("metadata", {})
-                    }
-                )
-                
-                db.add(relationship)
-                db.commit()
-                db.refresh(relationship)
-                return relationship
-                
-        except Exception as e:
-            logger.error(f"Error storing relationship in database: {str(e)}")
-            db.rollback()
-            return None
-
-    async def query_graph(self, query: str, user_id: str = None) -> Dict[str, Any]:
-        """Query the knowledge graph using semantic search"""
-        try:
-            # Parse query to extract entities and relationships
-            query_lower = query.lower()
-            
-            # Simple keyword extraction for entities
-            entities_in_query = []
-            for node_id, node_data in self.graph_builder.graph.nodes(data=True):
-                entity_name = node_data["name"].lower()
-                if entity_name in query_lower or any(word in entity_name for word in query_lower.split()):
-                    entities_in_query.append(node_data["name"])
-            
-            if not entities_in_query:
-                return {"results": [], "message": "No matching entities found in the knowledge graph"}
-            
-            # Find related entities for each found entity
-            all_results = []
-            for entity_name in entities_in_query[:3]:  # Limit to top 3 matches
-                related = await self.query_engine.find_related_entities(
-                    entity_name, max_depth=2, min_confidence=0.3
-                )
-                all_results.extend(related)
-            
-            # Remove duplicates and sort by confidence
-            unique_results = {}
-            for result in all_results:
-                key = result["entity"]
-                if key not in unique_results or result["confidence"] > unique_results[key]["confidence"]:
-                    unique_results[key] = result
-            
-            final_results = sorted(unique_results.values(), key=lambda x: x["confidence"], reverse=True)
-            
-            return {
-                "query": query,
-                "entities_found": entities_in_query,
-                "results": final_results[:10],  # Top 10 results
-                "total_results": len(final_results)
-            }
-            
-        except Exception as e:
-            logger.error(f"Error querying knowledge graph: {str(e)}")
-            return {"error": str(e), "results": []}
+    async def _assess_connection_impact(self, path_entities: List[Entity]) -> str:
+        """Assess the potential impact of the discovered connection"""
+        
+        entity_types = [entity.type for entity in path_entities]
+        
+        if "methods" in entity_types and "datasets" in entity_types:
+            return "High - Connection between methods and datasets could lead to new experimental approaches"
+        elif "concepts" in entity_types and "methods" in entity_types:
+            return "Medium - Theoretical concepts connected to practical methods may inspire new research directions"
+        elif "author" in entity_types:
+            return "Medium - Author connections may reveal collaboration opportunities or research lineages"
+        else:
+            return "Low - General connection that may provide contextual insights"
     
-    async def get_entity_connections(self, entity_id: str, depth: int = 2) -> List[Dict[str, Any]]:
-        """Get connections for a specific entity"""
+    def _gather_supporting_evidence(self, path: List[str]) -> List[str]:
+        """Gather supporting evidence for the connection"""
+        evidence = []
+        
+        # Get relationships along the path
+        for i in range(len(path) - 1):
+            source_id = path[i]
+            target_id = path[i + 1]
+            
+            # Find relationships between these entities
+            for rel in self.relationships.values():
+                if ((rel.source_entity == source_id and rel.target_entity == target_id) or
+                    (rel.source_entity == target_id and rel.target_entity == source_id)):
+                    evidence.extend(rel.evidence)
+        
+        return evidence[:5]  # Limit to top 5 pieces of evidence
+    
+    async def suggest_research_directions(self, user_interests: List[str]) -> List[Dict[str, Any]]:
+        """AI-powered research direction suggestions"""
+        
+        suggestions = []
+        
+        for interest in user_interests:
+            # Find entities related to this interest
+            related_entities = await self._find_query_entities(interest)
+            
+            if not related_entities:
+                continue
+            
+            # Find underexplored connections
+            for entity in related_entities[:3]:  # Top 3 most relevant
+                # Find entities that are 2-3 hops away (potential research gaps)
+                distant_entities = await self._find_research_gaps(entity.id)
+                
+                for gap_entity_id in distant_entities[:2]:  # Top 2 gaps
+                    gap_entity = self.entities.get(gap_entity_id)
+                    if gap_entity:
+                        suggestion = {
+                            "research_direction": f"Explore connections between {entity.name} and {gap_entity.name}",
+                            "rationale": f"Limited research found connecting {entity.type} with {gap_entity.type}",
+                            "potential_impact": "Medium-High",
+                            "starting_points": [entity.name, gap_entity.name],
+                            "suggested_methods": await self._suggest_research_methods(entity, gap_entity)
+                        }
+                        suggestions.append(suggestion)
+        
+        return suggestions[:10]  # Top 10 suggestions
+    
+    async def _find_research_gaps(self, entity_id: str) -> List[str]:
+        """Find entities that are connected but underexplored"""
+        
+        # Find entities at distance 2-3 (connected through intermediaries)
+        gaps = []
+        
         try:
-            db = next(get_db())
-            
-            # Get entity from database
-            entity = db.query(KnowledgeGraphEntity).filter(
-                KnowledgeGraphEntity.id == entity_id
-            ).first()
-            
-            if not entity:
-                return []
-            
-            # Use query engine to find related entities
-            related = await self.query_engine.find_related_entities(
-                entity.name, max_depth=depth, min_confidence=0.2
+            # Get all entities within distance 3
+            all_reachable = nx.single_source_shortest_path_length(
+                self.graph, entity_id, cutoff=3
             )
             
-            return related
-            
-        except Exception as e:
-            logger.error(f"Error getting entity connections: {str(e)}")
-            return []
-        finally:
-            if 'db' in locals():
-                db.close()
+            # Filter for entities at distance 2-3 with few direct connections
+            for target_id, distance in all_reachable.items():
+                if distance >= 2:
+                    # Check if there are few direct relationships
+                    direct_connections = len(list(self.graph.neighbors(target_id)))
+                    if direct_connections < 3:  # Underconnected
+                        gaps.append(target_id)
+        
+        except:
+            pass
+        
+        return gaps
     
-    async def build_full_graph_from_database(self) -> None:
-        """Build the complete in-memory graph from database"""
-        try:
-            db = next(get_db())
-            
-            # Get all entities
-            entities = db.query(KnowledgeGraphEntity).all()
-            
-            # Get all relationships
-            relationships = db.query(KnowledgeGraphRelationship).all()
-            
-            # Convert to format expected by GraphBuilder
-            entity_data = []
-            for entity in entities:
-                entity_data.append({
-                    "name": entity.name,
-                    "type": entity.type,
-                    "importance_score": entity.importance_score,
-                    "metadata": entity.entity_metadata or {}
-                })
-            
-            relationship_data = []
-            entity_lookup = {e.id: e for e in entities}
-            
-            for rel in relationships:
-                source_entity = entity_lookup.get(rel.source_entity_id)
-                target_entity = entity_lookup.get(rel.target_entity_id)
-                
-                if source_entity and target_entity:
-                    relationship_data.append({
-                        "source_entity_name": source_entity.name,
-                        "target_entity_name": target_entity.name,
-                        "relationship_type": rel.relationship_type,
-                        "confidence_score": rel.confidence_score,
-                        "context": rel.context or "",
-                        "metadata": rel.relationship_metadata or {}
-                    })
-            
-            # Build the graph
-            await self.graph_builder.build_graph_from_entities_and_relationships(
-                entity_data, relationship_data
-            )
-            
-            logger.info(f"Built complete knowledge graph with {len(entity_data)} entities and {len(relationship_data)} relationships")
-            
-        except Exception as e:
-            logger.error(f"Error building graph from database: {str(e)}")
-        finally:
-            if 'db' in locals():
-                db.close()
+    async def _suggest_research_methods(self, entity1: Entity, entity2: Entity) -> List[str]:
+        """Suggest research methods for exploring connection between entities"""
+        
+        methods = []
+        
+        # Based on entity types, suggest appropriate methods
+        if entity1.type == "concepts" and entity2.type == "methods":
+            methods.extend([
+                "Theoretical analysis and mathematical modeling",
+                "Comparative study of existing approaches",
+                "Proof-of-concept implementation"
+            ])
+        elif entity1.type == "datasets" and entity2.type == "methods":
+            methods.extend([
+                "Empirical evaluation and benchmarking",
+                "Cross-validation studies",
+                "Performance analysis across different metrics"
+            ])
+        elif "author" in [entity1.type, entity2.type]:
+            methods.extend([
+                "Literature review and citation analysis",
+                "Collaboration network analysis",
+                "Historical research development tracking"
+            ])
+        else:
+            methods.extend([
+                "Systematic literature review",
+                "Meta-analysis of existing research",
+                "Exploratory data analysis"
+            ])
+        
+        return methods
 
-    async def get_document_graph(self, document_id: str) -> Dict[str, Any]:
-        """Get enhanced knowledge graph for a specific document"""
-        try:
-            db = next(get_db())
-            
-            # Get entities from database
-            entities = db.query(KnowledgeGraphEntity).filter(
-                KnowledgeGraphEntity.document_id == document_id
-            ).all()
-            
-            # Get relationships from database
-            entity_ids = [e.id for e in entities]
-            relationships = db.query(KnowledgeGraphRelationship).filter(
-                KnowledgeGraphRelationship.source_entity_id.in_(entity_ids)
-            ).all()
-            
-            # Format response
-            nodes = []
-            for entity in entities:
-                nodes.append({
-                    "id": entity.id,
-                    "label": entity.name,
-                    "type": entity.type,
-                    "importance": entity.importance_score,
-                    "metadata": entity.entity_metadata
-                })
-            
-            edges = []
-            for rel in relationships:
-                edges.append({
-                    "source": rel.source_entity_id,
-                    "target": rel.target_entity_id,
-                    "relationship": rel.relationship_type,
-                    "weight": rel.confidence_score,
-                    "context": rel.context
-                })
-            
-            return {
-                "nodes": nodes,
-                "edges": edges,
-                "metadata": {
-                    "total_nodes": len(nodes),
-                    "total_edges": len(edges),
-                    "document_id": document_id
-                }
+# Global knowledge graph builder
+knowledge_graph_builder = KnowledgeGraphBuilder()
+
+# Convenience functions
+async def build_knowledge_graph(documents: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Build knowledge graph from documents"""
+    return await knowledge_graph_builder.build_research_ontology(documents)
+
+async def find_research_connections(query: str) -> List[ResearchConnection]:
+    """Find research connections for query"""
+    return await knowledge_graph_builder.find_research_connections(query)
+
+async def get_research_suggestions(interests: List[str]) -> List[Dict[str, Any]]:
+    """Get AI-powered research direction suggestions"""
+    return await knowledge_graph_builder.suggest_research_directions(interests)
+
+if __name__ == "__main__":
+    # Example usage
+    async def test_knowledge_graph():
+        print("🧪 Testing Knowledge Graph Builder...")
+        
+        # Mock documents
+        documents = [
+            {
+                "id": "doc1",
+                "content": "Machine learning algorithms like neural networks and SVM are used for classification tasks. BERT and GPT models have revolutionized natural language processing."
+            },
+            {
+                "id": "doc2", 
+                "content": "Deep learning methods outperform traditional approaches on ImageNet dataset. Convolutional neural networks achieve high accuracy in computer vision tasks."
+            },
+            {
+                "id": "doc3",
+                "content": "Smith et al. demonstrated that transfer learning improves performance. The study used CIFAR-10 dataset and achieved 95% accuracy."
             }
-            
-        except Exception as e:
-            logger.error(f"Error getting document graph: {str(e)}")
-            return {"nodes": [], "edges": [], "metadata": {}}
-        finally:
-            if 'db' in locals():
-                db.close()
-
-    async def get_graph_statistics(self) -> Dict[str, Any]:
-        """Get enhanced knowledge graph statistics"""
-        try:
-            db = next(get_db())
-            
-            from sqlalchemy import func
-            
-            # Get entity statistics
-            total_entities = db.query(KnowledgeGraphEntity).count()
-            entity_types = db.query(
-                KnowledgeGraphEntity.type,
-                func.count(KnowledgeGraphEntity.id)
-            ).group_by(KnowledgeGraphEntity.type).all()
-            
-            # Get relationship statistics
-            total_relationships = db.query(KnowledgeGraphRelationship).count()
-            relationship_types = db.query(
-                KnowledgeGraphRelationship.relationship_type,
-                func.count(KnowledgeGraphRelationship.id)
-            ).group_by(KnowledgeGraphRelationship.relationship_type).all()
-            
-            # Calculate average confidence scores
-            avg_entity_confidence = db.query(
-                func.avg(KnowledgeGraphEntity.importance_score)
-            ).scalar() or 0.0
-            
-            avg_relationship_confidence = db.query(
-                func.avg(KnowledgeGraphRelationship.confidence_score)
-            ).scalar() or 0.0
-            
-            return {
-                "total_entities": total_entities,
-                "total_relationships": total_relationships,
-                "entity_types": dict(entity_types),
-                "relationship_types": dict(relationship_types),
-                "average_entity_confidence": float(avg_entity_confidence),
-                "average_relationship_confidence": float(avg_relationship_confidence),
-                "graph_density": total_relationships / max(1, total_entities * (total_entities - 1)) if total_entities > 1 else 0.0
-            }
-            
-        except Exception as e:
-            logger.error(f"Error getting graph statistics: {str(e)}")
-            return {}
-        finally:
-            if 'db' in locals():
-                db.close()
-
-    async def find_related_entities(self, entity_name: str, max_depth: int = 2) -> List[Dict[str, Any]]:
-        """Find entities related to a given entity"""
-        try:
-            db = next(get_db())
-            
-            # Find the source entity
-            source_entity = db.query(KnowledgeGraphEntity).filter(
-                KnowledgeGraphEntity.name.ilike(f"%{entity_name}%")
-            ).first()
-            
-            if not source_entity:
-                return []
-            
-            from sqlalchemy import or_
-            
-            # Find direct relationships
-            relationships = db.query(KnowledgeGraphRelationship).filter(
-                or_(
-                    KnowledgeGraphRelationship.source_entity_id == source_entity.id,
-                    KnowledgeGraphRelationship.target_entity_id == source_entity.id
-                )
-            ).all()
-            
-            related_entities = []
-            for rel in relationships:
-                # Get the other entity in the relationship
-                other_entity_id = (
-                    rel.target_entity_id if rel.source_entity_id == source_entity.id 
-                    else rel.source_entity_id
-                )
-                
-                other_entity = db.query(KnowledgeGraphEntity).filter(
-                    KnowledgeGraphEntity.id == other_entity_id
-                ).first()
-                
-                if other_entity:
-                    related_entities.append({
-                        "entity": other_entity.name,
-                        "type": other_entity.type,
-                        "relationship": rel.relationship_type,
-                        "confidence": rel.confidence_score,
-                        "context": rel.context,
-                        "depth": 1
-                    })
-            
-            return sorted(related_entities, key=lambda x: x["confidence"], reverse=True)
-            
-        except Exception as e:
-            logger.error(f"Error finding related entities: {str(e)}")
-            return []
-        finally:
-            if 'db' in locals():
-                db.close()
+        ]
+        
+        # Build knowledge graph
+        result = await build_knowledge_graph(documents)
+        print(f"✅ Knowledge graph built:")
+        print(f"  - Entities: {result['entities_count']}")
+        print(f"  - Relationships: {result['relationships_count']}")
+        
+        # Find research connections
+        connections = await find_research_connections("machine learning")
+        print(f"✅ Found {len(connections)} research connections")
+        
+        if connections:
+            print(f"  - Top connection: {connections[0].explanation}")
+        
+        # Get research suggestions
+        suggestions = await get_research_suggestions(["neural networks", "computer vision"])
+        print(f"✅ Generated {len(suggestions)} research suggestions")
+        
+        if suggestions:
+            print(f"  - Top suggestion: {suggestions[0]['research_direction']}")
+    
+    asyncio.run(test_knowledge_graph())

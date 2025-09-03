@@ -1,0 +1,49 @@
+# Python analysis tools
+flake8>=6.0.0
+black>=23.0.0
+mypy>=1.5.0
+bandit[toml]>=1.7.5
+pylint>=2.17.0
+isort>=5.12.0
+
+# Additional flake8 plugins for comprehensive analysis
+flake8-bugbear>=23.0.0
+flake8-docstrings>=1.7.0
+flake8-import-order>=0.18.2
+flake8-bandit>=4.1.1
+flake8-broken-line>=0.6.0
+flake8-comprehensions>=3.14.0
+flake8-eradicate>=1.5.0
+flake8-isort>=6.0.0
+flake8-quotes>=3.3.2
+flake8-simplify>=0.20.0
+
+# Security and dependency analysis
+safety>=2.3.0
+pip-audit>=2.6.0
+
+# Code complexity analysis
+radon>=6.0.1
+xenon>=0.9.0
+
+# Documentation analysis
+pydocstyle>=6.3.0
+doc8>=1.1.1
+
+# Testing and coverage tools
+pytest>=7.4.0
+pytest-cov>=4.1.0
+coverage>=7.3.0
+
+# Performance profiling
+py-spy>=0.3.14
+memory-profiler>=0.61.0
+
+# Import sorting and organization
+isort>=5.12.0
+
+# Type checking enhancements
+types-requests>=2.31.0
+types-PyYAML>=6.0.12
+types-redis>=4.6.0
+types-setuptools>=68.0.0

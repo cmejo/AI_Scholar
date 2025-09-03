@@ -1,0 +1,51 @@
+This is BibTeX, Version 0.99d (TeX Live 2025)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: ai-scholar-comprehensive-research-platform.aux
+The style file: plain.bst
+Database file #1: references.bib
+Warning--I didn't find a database entry for "lawrence1999digital"
+Warning--I didn't find a database entry for "ley2002dblp"
+Warning--I didn't find a database entry for "bodenreider2004unified"
+Warning--I didn't find a database entry for "salatino2018computer"
+You've used 21 entries,
+            2118 wiz_defined-function locations,
+            625 strings with 8457 characters,
+and the built_in function-call counts, 7531 in all, are:
+= -- 708
+> -- 463
+< -- 3
++ -- 187
+- -- 162
+* -- 552
+:= -- 1304
+add.period$ -- 66
+call.type$ -- 21
+change.case$ -- 143
+chr.to.int$ -- 0
+cite$ -- 21
+duplicate$ -- 243
+empty$ -- 510
+format.name$ -- 162
+if$ -- 1518
+int.to.chr$ -- 0
+int.to.str$ -- 21
+missing$ -- 18
+newline$ -- 111
+num.names$ -- 42
+pop$ -- 143
+preamble$ -- 1
+purify$ -- 122
+quote$ -- 0
+skip$ -- 184
+stack$ -- 0
+substring$ -- 375
+swap$ -- 48
+text.length$ -- 3
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 84
+warning$ -- 0
+while$ -- 63
+width$ -- 23
+write$ -- 230
+(There were 4 warnings)

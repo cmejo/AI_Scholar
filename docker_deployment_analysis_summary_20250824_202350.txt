@@ -1,0 +1,47 @@
+
+Docker and Deployment Configuration Analysis Summary
+==================================================
+
+Analysis completed at: 2025-08-24 20:23:51
+
+Files Analyzed: 126
+Total Issues Found: 3479
+
+Issue Breakdown:
+- Critical: 1
+- High: 180
+- Medium: 3127
+- Low: 171
+- Info: 0
+
+Ubuntu Compatibility:
+- Ubuntu-specific issues: 188
+- Auto-fixable issues: 0
+
+Priority Issues Requiring Immediate Attention:
+
+CRITICAL ISSUES:
+- docker-compose.ubuntu.yml: Invalid compose file structure
+
+HIGH PRIORITY ISSUES:
+- docker-compose.ai-services.yml: Missing required field: version
+- docker-compose.minimal.yml: Missing required field: version
+- docker-compose.prod.yml: Missing required field: version
+- config/docker-compose.prod.yml: Service 'frontend' missing image or build
+- config/docker-compose.prod.yml: Service 'streamlit' missing image or build
+
+UBUNTU COMPATIBILITY ISSUES:
+- Dockerfile.backend: Missing apt cache cleanup
+- Dockerfile.backend: Missing apt cache cleanup
+- Dockerfile.nginx: Missing apt cache cleanup
+- Dockerfile.frontend: Missing apt cache cleanup
+- Dockerfile.backup: Missing apt cache cleanup
+
+Recommendations:
+1. Address all critical issues immediately
+2. Review Ubuntu-specific compatibility issues for deployment
+3. Consider implementing auto-fixes for simple issues
+4. Review security-related findings
+5. Update deployment scripts for Ubuntu compatibility
+
+For detailed analysis, see the full report files.

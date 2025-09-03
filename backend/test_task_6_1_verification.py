@@ -1,331 +1,472 @@
-#!/usr/bin/env python3
 """
-Verification script for Task 6.1: Implement LLM-assisted document tagging
+Verification tests for Task 6.1: Implement reference content analysis
+Tests the AI analysis service and endpoints for Zotero references
 """
 import asyncio
 import json
+import pytest
+from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 from sqlalchemy.orm import Session
 
-from core.database import get_db, init_db
-from services.auto_tagging_service import auto_tagging_service, AutoTaggingService
-from models.schemas import TagType, DocumentTagResponse
-
-async def verify_requirement_5_1():
-    """
-    Verify Requirement 5.1: Auto-Tagging and Metadata
-    
-    Requirements to verify:
-    1. WHEN documents are uploaded THEN the system SHALL generate LLM-assisted metadata tags
-    2. WHEN content is processed THEN the system SHALL perform trend analysis across document collections
-    3. WHEN reports are generated THEN the system SHALL create comparative analysis between documents
-    4. WHEN citations are needed THEN the system SHALL automatically generate proper citation formats
-    5. IF similar content is detected THEN the system SHALL suggest related tags and categories
-    """
-    print("🔍 Verifying Requirement 5.1: Auto-Tagging and Metadata")
-    print("=" * 60)
-    
-    # Initialize database
-    await init_db()
-    
-    # Test document content
-    test_content = """
-    Artificial Intelligence and Machine Learning in Healthcare
-    
-    This comprehensive study examines the application of artificial intelligence
-    and machine learning technologies in modern healthcare systems. The research
-    focuses on diagnostic imaging, predictive analytics, and personalized treatment
-    recommendations. Key findings include improved accuracy in medical diagnosis,
-    reduced treatment costs, and enhanced patient outcomes.
-    
-    The study covers deep learning algorithms, neural networks, and natural language
-    processing applications in electronic health records. Statistical analysis shows
-    a 25% improvement in diagnostic accuracy when AI systems are integrated with
-    traditional medical practices.
-    """
-    
-    db_gen = get_db()
-    db = next(db_gen)
-    
-    verification_results = {
-        "llm_assisted_tagging": False,
-        "topic_tags_generated": False,
-        "domain_tags_generated": False,
-        "complexity_tags_generated": False,
-        "sentiment_tags_generated": False,
-        "category_tags_generated": False,
-        "confidence_scoring": False,
-        "tag_validation": False,
-        "tag_consistency_check": False,
-        "service_initialization": False
-    }
-    
+# Test the service implementation
+def test_ai_analysis_service_import():
+    """Test that the AI analysis service can be imported"""
     try:
-        # 1. Verify service initialization
-        print("\n1️⃣ Testing service initialization...")
-        service = AutoTaggingService()
+        from services.zotero.zotero_ai_analysis_service import ZoteroAIAnalysisService
+        service = ZoteroAIAnalysisService()
         assert service is not None
-        assert hasattr(service, 'confidence_threshold')
-        assert hasattr(service, 'max_tags_per_type')
-        verification_results["service_initialization"] = True
-        print("✅ Service initialized correctly")
+        assert hasattr(service, 'analyze_reference_content')
+        assert hasattr(service, 'batch_analyze_references')
+        assert hasattr(service, 'get_analysis_results')
+        print("✓ AI Analysis Service imported successfully")
+    except ImportError as e:
+        print(f"✗ Failed to import AI Analysis Service: {e}")
+        raise
+
+
+def test_ai_analysis_endpoints_import():
+    """Test that the AI analysis endpoints can be imported"""
+    try:
+        from api.zotero_ai_analysis_endpoints import router
+        assert router is not None
         
-        # 2. Verify LLM-assisted tag generation
-        print("\n2️⃣ Testing LLM-assisted tag generation...")
-        document_id = "test_healthcare_doc"
+        # Check that key endpoints exist
+        routes = [route.path for route in router.routes]
+        expected_routes = [
+            "/zotero/ai-analysis/analyze/{item_id}",
+            "/zotero/ai-analysis/analyze/batch",
+            "/zotero/ai-analysis/results/{item_id}",
+            "/zotero/ai-analysis/supported-types",
+            "/zotero/ai-analysis/results/{item_id}",  # DELETE
+            "/zotero/ai-analysis/stats/{library_id}"
+        ]
         
-        try:
-            tags = await auto_tagging_service.generate_document_tags(
-                document_id=document_id,
-                content=test_content,
-                db=db
+        for expected_route in expected_routes:
+            # Check if any route matches the expected pattern
+            route_found = any(expected_route.replace("{item_id}", "item_id").replace("{library_id}", "library_id") 
+                            in route.replace("{", "").replace("}", "") for route in routes)
+            if not route_found:
+                print(f"Route pattern found in routes: {routes}")
+        
+        print("✓ AI Analysis Endpoints imported successfully")
+    except ImportError as e:
+        print(f"✗ Failed to import AI Analysis Endpoints: {e}")
+        raise
+
+
+@pytest.mark.asyncio
+async def test_analyze_reference_content_functionality():
+    """Test the core analyze_reference_content functionality"""
+    try:
+        from services.zotero.zotero_ai_analysis_service import ZoteroAIAnalysisService
+        from models.zotero_models import ZoteroItem
+        
+        service = ZoteroAIAnalysisService()
+        
+        # Create mock item
+        mock_item = ZoteroItem(
+            id="test_item_123",
+            library_id="test_lib_123",
+            zotero_item_key="ABCD1234",
+            item_type="journalArticle",
+            title="Machine Learning in Academic Research",
+            creators=[{"firstName": "John", "lastName": "Doe", "creatorType": "author"}],
+            publication_title="Journal of AI Research",
+            publication_year=2023,
+            abstract_note="This paper explores machine learning applications in research.",
+            tags=["machine learning", "research"],
+            item_metadata={}
+        )
+        
+        # Mock LLM responses
+        mock_topics_response = json.dumps({
+            "primary_topics": ["machine learning", "academic research"],
+            "secondary_themes": ["data analysis"],
+            "research_domain": "Computer Science",
+            "methodology": "experimental",
+            "confidence_score": 0.85
+        })
+        
+        mock_keywords_response = json.dumps({
+            "technical_keywords": ["neural networks", "algorithms"],
+            "general_keywords": ["research", "analysis"],
+            "author_keywords": ["machine learning"],
+            "suggested_keywords": ["artificial intelligence"],
+            "confidence_score": 0.80
+        })
+        
+        mock_summary_response = json.dumps({
+            "concise_summary": "This paper presents machine learning applications in research.",
+            "key_findings": ["ML improves efficiency", "Automated analysis"],
+            "methodology": "Experimental study",
+            "significance": "Demonstrates practical ML applications",
+            "limitations": "Limited to specific domains",
+            "confidence_score": 0.90
+        })
+        
+        # Mock dependencies
+        with patch('services.zotero.zotero_ai_analysis_service.get_db') as mock_get_db, \
+             patch.object(service, '_get_user_item', return_value=mock_item), \
+             patch.object(service, '_call_llm') as mock_call_llm, \
+             patch.object(service, '_store_analysis_results') as mock_store:
+            
+            # Configure LLM responses
+            mock_call_llm.side_effect = [
+                mock_topics_response,
+                mock_keywords_response,
+                mock_summary_response
+            ]
+            
+            # Test the analysis
+            result = await service.analyze_reference_content(
+                item_id="test_item_123",
+                user_id="test_user_123",
+                analysis_types=["topics", "keywords", "summary"]
             )
             
-            if tags and len(tags) > 0:
-                verification_results["llm_assisted_tagging"] = True
-                print(f"✅ Generated {len(tags)} tags using LLM assistance")
-                
-                # Verify different tag types are generated
-                tag_types = {tag.tag_type for tag in tags}
-                
-                if 'topic' in tag_types:
-                    verification_results["topic_tags_generated"] = True
-                    print("✅ Topic tags generated")
-                
-                if 'domain' in tag_types:
-                    verification_results["domain_tags_generated"] = True
-                    print("✅ Domain tags generated")
-                
-                if 'complexity' in tag_types:
-                    verification_results["complexity_tags_generated"] = True
-                    print("✅ Complexity tags generated")
-                
-                if 'sentiment' in tag_types:
-                    verification_results["sentiment_tags_generated"] = True
-                    print("✅ Sentiment tags generated")
-                
-                if 'category' in tag_types:
-                    verification_results["category_tags_generated"] = True
-                    print("✅ Category tags generated")
-                
-                # Verify confidence scoring
-                has_confidence_scores = all(
-                    hasattr(tag, 'confidence_score') and 
-                    0.0 <= tag.confidence_score <= 1.0 
-                    for tag in tags
-                )
-                
-                if has_confidence_scores:
-                    verification_results["confidence_scoring"] = True
-                    print("✅ Confidence scoring implemented")
-                    
-                    # Show sample tags with confidence scores
-                    print("\n📋 Sample generated tags:")
-                    for tag in tags[:5]:  # Show first 5 tags
-                        confidence_bar = "█" * int(tag.confidence_score * 10)
-                        print(f"  • {tag.tag_name} ({tag.tag_type}) - {tag.confidence_score:.2f} {confidence_bar}")
+            # Verify result structure
+            assert result["item_id"] == "test_item_123"
+            assert "analysis_timestamp" in result
+            assert result["analysis_types"] == ["topics", "keywords", "summary"]
+            assert "results" in result
             
-            else:
-                print("❌ No tags generated")
-                
-        except Exception as e:
-            print(f"❌ Tag generation failed: {str(e)}")
-        
-        # 3. Verify tag validation and consistency
-        print("\n3️⃣ Testing tag validation and consistency...")
-        try:
-            validation_result = await auto_tagging_service.validate_tag_consistency(
-                document_id=document_id,
-                db=db
-            )
+            # Verify topics analysis
+            topics = result["results"]["topics"]
+            assert "machine learning" in topics["primary_topics"]
+            assert topics["research_domain"] == "Computer Science"
+            assert topics["confidence_score"] == 0.85
             
-            if validation_result and 'consistency_score' in validation_result:
-                verification_results["tag_validation"] = True
-                print("✅ Tag validation implemented")
-                
-                if 'average_confidence' in validation_result:
-                    verification_results["tag_consistency_check"] = True
-                    print("✅ Tag consistency checking implemented")
-                    
-                    print(f"  Consistency Score: {validation_result['consistency_score']:.2f}")
-                    print(f"  Average Confidence: {validation_result['average_confidence']:.2f}")
-                    
-                    if validation_result.get('issues'):
-                        print(f"  Issues Found: {len(validation_result['issues'])}")
-                    
-                    if validation_result.get('recommendations'):
-                        print(f"  Recommendations: {len(validation_result['recommendations'])}")
+            # Verify keywords analysis
+            keywords = result["results"]["keywords"]
+            assert "neural networks" in keywords["technical_keywords"]
+            assert keywords["confidence_score"] == 0.80
             
-        except Exception as e:
-            print(f"❌ Tag validation failed: {str(e)}")
-        
-        # 4. Verify tag retrieval functionality
-        print("\n4️⃣ Testing tag retrieval...")
-        try:
-            retrieved_tags = await auto_tagging_service.get_document_tags(
-                document_id=document_id,
-                db=db
-            )
+            # Verify summary analysis
+            summary = result["results"]["summary"]
+            assert "machine learning applications" in summary["concise_summary"]
+            assert len(summary["key_findings"]) == 2
+            assert summary["confidence_score"] == 0.90
             
-            if retrieved_tags:
-                print(f"✅ Retrieved {len(retrieved_tags)} tags from database")
-                
-                # Test filtered retrieval
-                topic_tags = await auto_tagging_service.get_document_tags(
-                    document_id=document_id,
-                    db=db,
-                    tag_type="topic"
-                )
-                
-                if topic_tags:
-                    print(f"✅ Filtered retrieval working (found {len(topic_tags)} topic tags)")
+            # Verify LLM was called 3 times (once for each analysis type)
+            assert mock_call_llm.call_count == 3
             
-        except Exception as e:
-            print(f"❌ Tag retrieval failed: {str(e)}")
-        
-        # 5. Verify error handling
-        print("\n5️⃣ Testing error handling...")
-        try:
-            # Test with invalid document ID
-            empty_tags = await auto_tagging_service.get_document_tags(
-                document_id="non_existent_doc",
-                db=db
-            )
+            # Verify results were stored
+            mock_store.assert_called_once()
             
-            if empty_tags == []:
-                print("✅ Error handling for non-existent documents works")
-            
-        except Exception as e:
-            print(f"✅ Proper error handling: {str(e)}")
+        print("✓ Reference content analysis functionality works correctly")
         
     except Exception as e:
-        print(f"❌ Verification failed: {str(e)}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        db.close()
+        print(f"✗ Reference content analysis functionality failed: {e}")
+        raise
+
+
+@pytest.mark.asyncio
+async def test_batch_analysis_functionality():
+    """Test the batch analysis functionality"""
+    try:
+        from services.zotero.zotero_ai_analysis_service import ZoteroAIAnalysisService
+        
+        service = ZoteroAIAnalysisService()
+        
+        # Mock individual analysis results
+        mock_analysis_result = {
+            "item_id": "item_1",
+            "analysis_timestamp": datetime.utcnow().isoformat(),
+            "analysis_types": ["topics"],
+            "results": {"topics": {"primary_topics": ["test topic"]}}
+        }
+        
+        with patch.object(service, 'analyze_reference_content', return_value=mock_analysis_result) as mock_analyze:
+            result = await service.batch_analyze_references(
+                item_ids=["item_1", "item_2", "item_3"],
+                user_id="test_user_123",
+                analysis_types=["topics"]
+            )
+            
+            # Verify batch result structure
+            assert result["total_items"] == 3
+            assert result["successful"] == 3
+            assert result["failed"] == 0
+            assert len(result["results"]) == 3
+            assert len(result["errors"]) == 0
+            
+            # Verify individual analysis was called for each item
+            assert mock_analyze.call_count == 3
+            
+        print("✓ Batch analysis functionality works correctly")
+        
+    except Exception as e:
+        print(f"✗ Batch analysis functionality failed: {e}")
+        raise
+
+
+def test_content_extraction():
+    """Test content extraction from Zotero items"""
+    try:
+        from services.zotero.zotero_ai_analysis_service import ZoteroAIAnalysisService
+        from models.zotero_models import ZoteroItem
+        
+        service = ZoteroAIAnalysisService()
+        
+        # Test with full item
+        full_item = ZoteroItem(
+            id="test_item",
+            library_id="test_lib",
+            zotero_item_key="ABCD1234",
+            item_type="journalArticle",
+            title="Test Article",
+            creators=[
+                {"firstName": "John", "lastName": "Doe", "creatorType": "author"},
+                {"firstName": "Jane", "lastName": "Smith", "creatorType": "author"}
+            ],
+            publication_title="Test Journal",
+            publication_year=2023,
+            abstract_note="This is a test abstract with important content.",
+            tags=["test", "research"],
+            extra_fields={"DOI": "10.1000/test"},
+            item_metadata={}
+        )
+        
+        content = service._extract_item_content(full_item)
+        
+        # Verify content extraction
+        assert "Title: Test Article" in content
+        assert "Abstract: This is a test abstract" in content
+        assert "Authors: John Doe, Jane Smith" in content
+        assert "Publication: Test Journal" in content
+        assert "Year: 2023" in content
+        assert "Tags: test, research" in content
+        
+        # Test with minimal item
+        minimal_item = ZoteroItem(
+            id="test_item",
+            library_id="test_lib",
+            zotero_item_key="ABCD1234",
+            item_type="journalArticle",
+            title="Minimal Article",
+            creators=[],
+            tags=[],
+            item_metadata={}
+        )
+        
+        minimal_content = service._extract_item_content(minimal_item)
+        assert minimal_content == "Title: Minimal Article"
+        
+        print("✓ Content extraction works correctly")
+        
+    except Exception as e:
+        print(f"✗ Content extraction failed: {e}")
+        raise
+
+
+@pytest.mark.asyncio
+async def test_llm_integration():
+    """Test LLM integration functionality"""
+    try:
+        from services.zotero.zotero_ai_analysis_service import ZoteroAIAnalysisService
+        
+        service = ZoteroAIAnalysisService()
+        
+        # Mock successful LLM response
+        mock_response = Mock()
+        mock_response.json.return_value = {"response": "Test LLM response"}
+        mock_response.raise_for_status.return_value = None
+        
+        with patch('requests.post', return_value=mock_response) as mock_post:
+            result = await service._call_llm("Test prompt")
+            
+            assert result == "Test LLM response"
+            mock_post.assert_called_once()
+            
+            # Verify request parameters
+            call_args = mock_post.call_args
+            assert call_args[1]["json"]["model"] == service.model
+            assert call_args[1]["json"]["prompt"] == "Test prompt"
+            assert call_args[1]["json"]["stream"] is False
+            
+        print("✓ LLM integration works correctly")
+        
+    except Exception as e:
+        print(f"✗ LLM integration failed: {e}")
+        raise
+
+
+def test_analysis_result_parsing():
+    """Test parsing of LLM analysis results"""
+    try:
+        from services.zotero.zotero_ai_analysis_service import ZoteroAIAnalysisService
+        from models.zotero_models import ZoteroItem
+        
+        service = ZoteroAIAnalysisService()
+        
+        # Create test item
+        test_item = ZoteroItem(
+            id="test_item",
+            library_id="test_lib",
+            zotero_item_key="ABCD1234",
+            item_type="journalArticle",
+            title="Test Article",
+            abstract_note="Test abstract",
+            item_metadata={}
+        )
+        
+        # Test topic extraction parsing
+        topics_response = json.dumps({
+            "primary_topics": ["topic1", "topic2", "topic3"],
+            "secondary_themes": ["theme1", "theme2"],
+            "research_domain": "Test Domain",
+            "methodology": "experimental",
+            "confidence_score": 0.85
+        })
+        
+        async def run_topic_test():
+            with patch.object(service, '_call_llm', return_value=topics_response):
+                result = await service._extract_topics("test content", test_item)
+                
+                assert result["primary_topics"] == ["topic1", "topic2", "topic3"]
+                assert result["research_domain"] == "Test Domain"
+                assert result["confidence_score"] == 0.85
+                assert "extraction_timestamp" in result
+        
+        # Run the async test
+        asyncio.run(run_topic_test())
+        
+        # Test keyword extraction parsing
+        keywords_response = json.dumps({
+            "technical_keywords": ["keyword1", "keyword2"],
+            "general_keywords": ["general1", "general2"],
+            "author_keywords": ["author1"],
+            "suggested_keywords": ["suggested1"],
+            "confidence_score": 0.80
+        })
+        
+        async def run_keyword_test():
+            with patch.object(service, '_call_llm', return_value=keywords_response):
+                result = await service._extract_keywords("test content", test_item)
+                
+                assert result["technical_keywords"] == ["keyword1", "keyword2"]
+                assert result["general_keywords"] == ["general1", "general2"]
+                assert result["confidence_score"] == 0.80
+                assert "extraction_timestamp" in result
+        
+        asyncio.run(run_keyword_test())
+        
+        # Test summary generation parsing
+        summary_response = json.dumps({
+            "concise_summary": "Test summary of the content",
+            "key_findings": ["finding1", "finding2", "finding3"],
+            "methodology": "Test methodology",
+            "significance": "Test significance",
+            "limitations": "Test limitations",
+            "confidence_score": 0.90
+        })
+        
+        async def run_summary_test():
+            with patch.object(service, '_call_llm', return_value=summary_response):
+                result = await service._generate_summary("test content", test_item)
+                
+                assert result["concise_summary"] == "Test summary of the content"
+                assert len(result["key_findings"]) == 3
+                assert result["methodology"] == "Test methodology"
+                assert result["confidence_score"] == 0.90
+                assert "generation_timestamp" in result
+        
+        asyncio.run(run_summary_test())
+        
+        print("✓ Analysis result parsing works correctly")
+        
+    except Exception as e:
+        print(f"✗ Analysis result parsing failed: {e}")
+        raise
+
+
+def test_error_handling():
+    """Test error handling in analysis service"""
+    try:
+        from services.zotero.zotero_ai_analysis_service import ZoteroAIAnalysisService
+        from models.zotero_models import ZoteroItem
+        
+        service = ZoteroAIAnalysisService()
+        
+        # Test invalid JSON response handling
+        test_item = ZoteroItem(
+            id="test_item",
+            library_id="test_lib",
+            zotero_item_key="ABCD1234",
+            item_type="journalArticle",
+            title="Test Article",
+            item_metadata={}
+        )
+        
+        async def run_error_test():
+            # Test with invalid JSON
+            with patch.object(service, '_call_llm', return_value="invalid json"):
+                result = await service._extract_topics("test content", test_item)
+                
+                assert result["primary_topics"] == []
+                assert result["confidence_score"] == 0.0
+                assert "error" in result
+        
+        asyncio.run(run_error_test())
+        
+        # Test LLM service error handling
+        async def run_llm_error_test():
+            with patch('requests.post', side_effect=Exception("Connection error")):
+                try:
+                    await service._call_llm("test prompt")
+                    assert False, "Should have raised an exception"
+                except Exception as e:
+                    assert "LLM service unavailable" in str(e)
+        
+        asyncio.run(run_llm_error_test())
+        
+        print("✓ Error handling works correctly")
+        
+    except Exception as e:
+        print(f"✗ Error handling failed: {e}")
+        raise
+
+
+def run_all_tests():
+    """Run all verification tests"""
+    print("Running Task 6.1 Verification Tests...")
+    print("=" * 50)
     
-    # Summary
-    print(f"\n📊 VERIFICATION SUMMARY")
-    print("=" * 30)
-    
-    passed_checks = sum(verification_results.values())
-    total_checks = len(verification_results)
-    
-    for check, passed in verification_results.items():
-        status = "✅ PASS" if passed else "❌ FAIL"
-        print(f"{status} {check.replace('_', ' ').title()}")
-    
-    print(f"\n🎯 Overall Score: {passed_checks}/{total_checks} ({passed_checks/total_checks*100:.1f}%)")
-    
-    if passed_checks == total_checks:
-        print("🎉 ALL REQUIREMENTS VERIFIED SUCCESSFULLY!")
+    try:
+        # Test imports
+        test_ai_analysis_service_import()
+        test_ai_analysis_endpoints_import()
+        
+        # Test core functionality
+        asyncio.run(test_analyze_reference_content_functionality())
+        asyncio.run(test_batch_analysis_functionality())
+        
+        # Test supporting functionality
+        test_content_extraction()
+        asyncio.run(test_llm_integration())
+        test_analysis_result_parsing()
+        test_error_handling()
+        
+        print("=" * 50)
+        print("✓ All Task 6.1 verification tests passed!")
+        print("\nImplemented features:")
+        print("- ✓ Reference content analysis using LLMs")
+        print("- ✓ Topic extraction and keyword identification")
+        print("- ✓ Content summarization for individual references")
+        print("- ✓ Batch analysis functionality")
+        print("- ✓ Error handling and recovery")
+        print("- ✓ API endpoints for analysis operations")
+        print("- ✓ Comprehensive test coverage")
+        
         return True
-    else:
-        print("⚠️  Some requirements need attention")
+        
+    except Exception as e:
+        print("=" * 50)
+        print(f"✗ Task 6.1 verification failed: {e}")
         return False
 
-async def verify_implementation_completeness():
-    """Verify that all required components are implemented"""
-    print(f"\n🔧 Verifying Implementation Completeness")
-    print("=" * 40)
-    
-    implementation_checks = {
-        "AutoTaggingService class exists": False,
-        "generate_document_tags method": False,
-        "get_document_tags method": False,
-        "validate_tag_consistency method": False,
-        "topic tag generation": False,
-        "domain tag generation": False,
-        "complexity tag generation": False,
-        "sentiment tag generation": False,
-        "category tag generation": False,
-        "confidence scoring": False,
-        "global service instance": False
-    }
-    
-    try:
-        # Check class and methods exist
-        service = AutoTaggingService()
-        implementation_checks["AutoTaggingService class exists"] = True
-        
-        if hasattr(service, 'generate_document_tags'):
-            implementation_checks["generate_document_tags method"] = True
-        
-        if hasattr(service, 'get_document_tags'):
-            implementation_checks["get_document_tags method"] = True
-        
-        if hasattr(service, 'validate_tag_consistency'):
-            implementation_checks["validate_tag_consistency method"] = True
-        
-        if hasattr(service, '_generate_topic_tags'):
-            implementation_checks["topic tag generation"] = True
-        
-        if hasattr(service, '_generate_domain_tags'):
-            implementation_checks["domain tag generation"] = True
-        
-        if hasattr(service, '_generate_complexity_tags'):
-            implementation_checks["complexity tag generation"] = True
-        
-        if hasattr(service, '_generate_sentiment_tags'):
-            implementation_checks["sentiment tag generation"] = True
-        
-        if hasattr(service, '_generate_category_tags'):
-            implementation_checks["category tag generation"] = True
-        
-        if hasattr(service, 'confidence_threshold'):
-            implementation_checks["confidence scoring"] = True
-        
-        # Check global instance
-        if auto_tagging_service is not None:
-            implementation_checks["global service instance"] = True
-        
-    except Exception as e:
-        print(f"❌ Implementation check failed: {str(e)}")
-    
-    # Report results
-    passed_checks = sum(implementation_checks.values())
-    total_checks = len(implementation_checks)
-    
-    for check, passed in implementation_checks.items():
-        status = "✅ PASS" if passed else "❌ FAIL"
-        print(f"{status} {check}")
-    
-    print(f"\n🎯 Implementation Score: {passed_checks}/{total_checks} ({passed_checks/total_checks*100:.1f}%)")
-    
-    return passed_checks == total_checks
 
 if __name__ == "__main__":
-    print("🚀 Starting Task 6.1 Verification")
-    print("Task: Implement LLM-assisted document tagging")
-    print("Requirements: 5.1")
-    
-    try:
-        # Run requirement verification
-        requirement_passed = asyncio.run(verify_requirement_5_1())
-        
-        # Run implementation verification
-        implementation_complete = asyncio.run(verify_implementation_completeness())
-        
-        print(f"\n" + "="*60)
-        print("FINAL VERIFICATION RESULTS")
-        print("="*60)
-        
-        if requirement_passed and implementation_complete:
-            print("🎉 TASK 6.1 VERIFICATION: PASSED")
-            print("✅ All requirements satisfied")
-            print("✅ Implementation complete")
-            print("✅ Ready for production use")
-        else:
-            print("⚠️  TASK 6.1 VERIFICATION: NEEDS ATTENTION")
-            if not requirement_passed:
-                print("❌ Some requirements not met")
-            if not implementation_complete:
-                print("❌ Implementation incomplete")
-        
-    except KeyboardInterrupt:
-        print(f"\n⏹️  Verification interrupted by user")
-    except Exception as e:
-        print(f"\n💥 Verification failed with error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+    success = run_all_tests()
+    exit(0 if success else 1)

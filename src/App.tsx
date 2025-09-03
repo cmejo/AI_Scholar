@@ -10,8 +10,10 @@ import { EnhancedChatProvider } from './contexts/EnhancedChatContext';
 import { useMobileDetection } from './hooks/useMobileDetection';
 import { accessibilityService } from './services/accessibilityService';
 import { analyticsService } from './services/analyticsService';
+import { authService } from './services/authService';
 import { memoryService } from './services/memoryService';
 import { securityService } from './services/securityService';
+import { User } from './types/user';
 import { globalErrorHandler } from './utils/globalErrorHandler';
 
 // Enhanced lazy loading with performance monitoring
@@ -71,7 +73,7 @@ function App(): JSX.Element {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentView, setCurrentView] = useState<ViewType>('chat');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [user, setUser] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const { isMobile, isTablet } = useMobileDetection();
 
   useEffect(() => {
@@ -108,29 +110,39 @@ function App(): JSX.Element {
 
   const initializeEnterpriseFeatures = useCallback(async (): Promise<void> => {
     // Mock user authentication
-    const mockUser = {
-      id: 'user_admin',
-      email: 'admin@example.com',
-      name: 'Admin User',
-      role: 'admin'
-    };
-    setUser(mockUser);
+    // TODO: Replace with real authentication service
+    try {
+      const authenticatedUser = await authService.getCurrentUser();
+      if (authenticatedUser) {
+        setUser(authenticatedUser);
+      } else {
+        // Redirect to login or show auth modal
+        console.warn('No authenticated user found - redirecting to login');
+        // window.location.href = '/login';
+      }
+    } catch (error) {
+      console.error('Authentication failed:', error);
+      // Handle authentication error appropriately
+      setUser(null);
+    }
 
     // Initialize security service
     securityService.cleanupExpiredSessions();
 
-    // Log application start
-    analyticsService.logQuery({
-      id: `query_${Date.now()}`,
-      query: 'Application started',
-      userId: mockUser.id,
-      timestamp: new Date(),
-      responseTime: 0,
-      satisfaction: 1,
-      intent: 'system',
-      documentsUsed: [],
-      success: true
-    });
+    // Log application start (only if user is authenticated)
+    if (user) {
+      analyticsService.logQuery({
+        id: `query_${Date.now()}`,
+        query: 'Application started',
+        userId: user.id,
+        timestamp: new Date(),
+        responseTime: 0,
+        satisfaction: 1,
+        intent: 'system',
+        documentsUsed: [],
+        success: true
+      });
+    }
   }, []);
 
   const handleVoiceQuery = useCallback(async (query: string): Promise<string> => {

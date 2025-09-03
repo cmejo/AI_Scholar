@@ -1,0 +1,187 @@
+# Blue Environment Docker Compose Configuration
+# Used for blue-green deployments
+
+version: '3.8'
+
+services:
+  # Backend API Service (Blue)
+  backend-blue:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aischolar-backend-blue
+    environment:
+      - ENVIRONMENT=production
+      - DEPLOYMENT_SLOT=blue
+    env_file:
+      - .env.production
+      - config/deployment/production.env
+    ports:
+      - "8001:8000"  # Blue environment port
+    volumes:
+      - ./backend:/app
+      - zotero_attachments_blue:/app/data/zotero_attachments
+      - backend_logs_blue:/app/logs
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - aischolar-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Frontend Service (Blue)
+  frontend-blue:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: aischolar-frontend-blue
+    environment:
+      - NODE_ENV=production
+      - DEPLOYMENT_SLOT=blue
+      - REACT_APP_API_URL=http://backend-blue:8000
+    ports:
+      - "3001:3000"  # Blue environment port
+    volumes:
+      - ./frontend/build:/app/build
+    depends_on:
+      - backend-blue
+    networks:
+      - aischolar-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Celery Worker (Blue)
+  celery-worker-blue:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aischolar-celery-blue
+    command: celery -A app.celery worker --loglevel=info --concurrency=4
+    environment:
+      - ENVIRONMENT=production
+      - DEPLOYMENT_SLOT=blue
+    env_file:
+      - .env.production
+      - config/deployment/production.env
+    volumes:
+      - ./backend:/app
+      - zotero_attachments_blue:/app/data/zotero_attachments
+      - backend_logs_blue:/app/logs
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - aischolar-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Celery Beat Scheduler (Blue)
+  celery-beat-blue:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aischolar-celery-beat-blue
+    command: celery -A app.celery beat --loglevel=info
+    environment:
+      - ENVIRONMENT=production
+      - DEPLOYMENT_SLOT=blue
+    env_file:
+      - .env.production
+      - config/deployment/production.env
+    volumes:
+      - ./backend:/app
+      - backend_logs_blue:/app/logs
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - aischolar-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Nginx Load Balancer (Blue)
+  nginx-blue:
+    image: nginx:alpine
+    container_name: aischolar-nginx-blue
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./config/nginx/blue.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl/certs:ro
+      - nginx_logs_blue:/var/log/nginx
+    depends_on:
+      - backend-blue
+      - frontend-blue
+    networks:
+      - aischolar-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  zotero_attachments_blue:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /app/data/blue/zotero_attachments
+  backend_logs_blue:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /app/logs/blue
+  nginx_logs_blue:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/nginx/blue
+
+networks:
+  aischolar-network:
+    external: true
