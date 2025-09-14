@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persistent Authentication Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #8b5cf6, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+        .demo-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+        }
+        .login-form {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 16px;
+        }
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            margin-top: 2px;
+        }
+        .checkbox-label {
+            flex: 1;
+        }
+        .checkbox-label .main-text {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .checkbox-label .sub-text {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .btn {
+            background: linear-gradient(45deg, #8b5cf6, #06b6d4);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s ease;
+            width: 100%;
+        }
+        .btn:hover {
+            transform: scale(1.02);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status-panel {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid #22c55e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .status-panel.error {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+        }
+        .status-panel.warning {
+            background: rgba(245, 158, 11, 0.2);
+            border-color: #f59e0b;
+        }
+        .storage-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .storage-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .storage-box h4 {
+            margin: 0 0 10px 0;
+            color: #06b6d4;
+        }
+        .storage-item {
+            font-family: monospace;
+            font-size: 12px;
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .test-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        .test-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Persistent Authentication</h1>
+            <p>Enhanced login with "Remember me" functionality and automatic session management</p>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">💾</div>
+                <h3>Smart Storage</h3>
+                <p>Automatically chooses between persistent (localStorage) and session-only (sessionStorage) based on user preference.</p>
+                <ul>
+                    <li>✅ Remember me = Persistent storage</li>
+                    <li>✅ Session only = Temporary storage</li>
+                    <li>✅ Automatic cleanup on logout</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Auto Token Refresh</h3>
+                <p>Intelligent token refresh system that keeps users logged in seamlessly.</p>
+                <ul>
+                    <li>✅ Automatic refresh before expiry</li>
+                    <li>✅ Background token validation</li>
+                    <li>✅ Graceful error handling</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Security Features</h3>
+                <p>Enhanced security with proper token management and validation.</p>
+                <ul>
+                    <li>✅ Secure token storage</li>
+                    <li>✅ Expiry time tracking</li>
+                    <li>✅ Invalid token cleanup</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>🧪 Authentication Demo</h2>
+            
+            <div class="login-form">
+                <h3>Login Form</h3>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" placeholder="account@cmejo.com" value="account@cmejo.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" placeholder="Admin123!" value="Admin123!">
+                    </div>
+                    
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="rememberMe">
+                        <div class="checkbox-label">
+                            <div class="main-text">Remember me</div>
+                            <div class="sub-text" id="rememberMeText">Sign out when browser closes</div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn" id="loginBtn">Sign In</button>
+                </form>
+            </div>
+
+            <div class="status-panel" id="statusPanel" style="display: none;">
+                <div id="statusContent"></div>
+            </div>
+
+            <div class="storage-info">
+                <div class="storage-box">
+                    <h4>📦 localStorage</h4>
+                    <div id="localStorageContent">No auth data</div>
+                </div>
+                <div class="storage-box">
+                    <h4>🗂️ sessionStorage</h4>
+                    <div id="sessionStorageContent">No auth data</div>
+                </div>
+            </div>
+
+            <div class="test-buttons">
+                <button class="test-btn" onclick="checkAuthStatus()">Check Auth Status</button>
+                <button class="test-btn" onclick="simulateRefresh()">Simulate Page Refresh</button>
+                <button class="test-btn" onclick="simulateTokenExpiry()">Simulate Token Expiry</button>
+                <button class="test-btn" onclick="clearAllStorage()">Clear All Storage</button>
+                <button class="test-btn" onclick="testPersistence()">Test Persistence</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock authentication state
+        let isAuthenticated = false;
+        let currentUser = null;
+        let authTokens = null;
+
+        // DOM elements
+        const loginForm = document.getElementById('loginForm');
+        const rememberMeCheckbox = document.getElementById('rememberMe');
+        const rememberMeText = document.getElementById('rememberMeText');
+        const statusPanel = document.getElementById('statusPanel');
+        const statusContent = document.getElementById('statusContent');
+        const localStorageContent = document.getElementById('localStorageContent');
+        const sessionStorageContent = document.getElementById('sessionStorageContent');
+
+        // Update remember me text
+        rememberMeCheckbox.addEventListener('change', function() {
+            rememberMeText.textContent = this.checked 
+                ? 'Stay signed in until you sign out' 
+                : 'Sign out when browser closes';
+        });
+
+        // Login form handler
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const rememberMe = rememberMeCheckbox.checked;
+            
+            simulateLogin(email, password, rememberMe);
+        });
+
+        // Simulate login process
+        function simulateLogin(email, password, rememberMe) {
+            showStatus('Authenticating...', 'info');
+            
+            // Simulate API call delay
+            setTimeout(() => {
+                if (email === 'account@cmejo.com' && password === 'Admin123!') {
+                    // Successful login
+                    const tokens = {
+                        token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                        refreshToken: 'refresh_token_' + Date.now(),
+                        expiresAt: new Date(Date.now() + 3600000).toISOString() // 1 hour
+                    };
+                    
+                    const user = {
+                        id: '1',
+                        name: 'Demo User',
+                        email: email
+                    };
+                    
+                    storeAuthData(tokens, user, rememberMe);
+                    isAuthenticated = true;
+                    currentUser = user;
+                    authTokens = tokens;
+                    
+                    showStatus(`✅ Login successful! Storage type: ${rememberMe ? 'Persistent' : 'Session-only'}`, 'success');
+                } else {
+                    showStatus('❌ Invalid credentials. Use account@cmejo.com / Admin123!', 'error');
+                }
+                
+                updateStorageDisplay();
+            }, 1000);
+        }
+
+        // Store authentication data
+        function storeAuthData(tokens, user, rememberMe) {
+            const storage = rememberMe ? localStorage : sessionStorage;
+            
+            storage.setItem('auth_token', tokens.token);
+            storage.setItem('refresh_token', tokens.refreshToken);
+            storage.setItem('auth_expires_at', tokens.expiresAt);
+            storage.setItem('user_data', JSON.stringify(user));
+            
+            // Always store remember me preference in localStorage
+            localStorage.setItem('remember_me', rememberMe.toString());
+            
+            console.log('Auth data stored:', {
+                storage: rememberMe ? 'localStorage' : 'sessionStorage',
+                rememberMe,
+                expiresAt: tokens.expiresAt
+            });
+        }
+
+        // Check authentication status
+        function checkAuthStatus() {
+            const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+            const refreshToken = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+            const expiresAt = localStorage.getItem('auth_expires_at') || sessionStorage.getItem('auth_expires_at');
+            const rememberMe = localStorage.getItem('remember_me') === 'true';
+            
+            if (token && refreshToken) {
+                const isExpired = expiresAt ? new Date(expiresAt) < new Date() : false;
+                const storageType = localStorage.getItem('auth_token') ? 'localStorage' : 'sessionStorage';
+                
+                showStatus(`🔍 Auth Status: ${isExpired ? 'Expired' : 'Valid'} | Storage: ${storageType} | Remember: ${rememberMe}`, 
+                          isExpired ? 'warning' : 'success');
+            } else {
+                showStatus('🔍 Auth Status: Not authenticated', 'error');
+            }
+            
+            updateStorageDisplay();
+        }
+
+        // Simulate page refresh
+        function simulateRefresh() {
+            showStatus('🔄 Simulating page refresh...', 'info');
+            
+            setTimeout(() => {
+                // Check if auth data persists
+                const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+                const storageType = localStorage.getItem('auth_token') ? 'localStorage (persistent)' : 
+                                  sessionStorage.getItem('auth_token') ? 'sessionStorage (session-only)' : 'none';
+                
+                if (token) {
+                    showStatus(`✅ Auth data survived refresh! Found in: ${storageType}`, 'success');
+                } else {
+                    showStatus('❌ No auth data found after refresh', 'error');
+                }
+                
+                updateStorageDisplay();
+            }, 500);
+        }
+
+        // Simulate token expiry
+        function simulateTokenExpiry() {
+            const storage = localStorage.getItem('auth_token') ? localStorage : sessionStorage;
+            const pastDate = new Date(Date.now() - 3600000).toISOString(); // 1 hour ago
+            
+            if (storage.getItem('auth_token')) {
+                storage.setItem('auth_expires_at', pastDate);
+                showStatus('⏰ Token expiry simulated. Check auth status to see the effect.', 'warning');
+                updateStorageDisplay();
+            } else {
+                showStatus('❌ No token found to expire', 'error');
+            }
+        }
+
+        // Clear all storage
+        function clearAllStorage() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('auth_expires_at');
+            localStorage.removeItem('user_data');
+            localStorage.removeItem('remember_me');
+            
+            sessionStorage.removeItem('auth_token');
+            sessionStorage.removeItem('refresh_token');
+            sessionStorage.removeItem('auth_expires_at');
+            sessionStorage.removeItem('user_data');
+            
+            isAuthenticated = false;
+            currentUser = null;
+            authTokens = null;
+            
+            showStatus('🧹 All authentication storage cleared', 'info');
+            updateStorageDisplay();
+        }
+
+        // Test persistence across browser sessions
+        function testPersistence() {
+            const hasLocalStorage = !!localStorage.getItem('auth_token');
+            const hasSessionStorage = !!sessionStorage.getItem('auth_token');
+            const rememberMe = localStorage.getItem('remember_me') === 'true';
+            
+            let message = '🧪 Persistence Test Results:\n\n';
+            
+            if (hasLocalStorage) {
+                message += '✅ localStorage: Auth data will persist across browser restarts\n';
+            } else {
+                message += '❌ localStorage: No persistent auth data\n';
+            }
+            
+            if (hasSessionStorage) {
+                message += '⚠️ sessionStorage: Auth data will be lost when browser closes\n';
+            } else {
+                message += '❌ sessionStorage: No session auth data\n';
+            }
+            
+            message += `\nRemember Me Setting: ${rememberMe ? 'Enabled' : 'Disabled'}`;
+            
+            showStatus(message, hasLocalStorage ? 'success' : hasSessionStorage ? 'warning' : 'error');
+        }
+
+        // Show status message
+        function showStatus(message, type = 'info') {
+            statusPanel.style.display = 'block';
+            statusPanel.className = `status-panel ${type}`;
+            statusContent.innerHTML = message.replace(/\n/g, '<br>');
+        }
+
+        // Update storage display
+        function updateStorageDisplay() {
+            // localStorage content
+            const localItems = [];
+            ['auth_token', 'refresh_token', 'auth_expires_at', 'user_data', 'remember_me'].forEach(key => {
+                const value = localStorage.getItem(key);
+                if (value) {
+                    const displayValue = key.includes('token') ? value.substring(0, 20) + '...' : value;
+                    localItems.push(`<div class="storage-item">${key}: ${displayValue}</div>`);
+                }
+            });
+            localStorageContent.innerHTML = localItems.length ? localItems.join('') : 'No auth data';
+            
+            // sessionStorage content
+            const sessionItems = [];
+            ['auth_token', 'refresh_token', 'auth_expires_at', 'user_data'].forEach(key => {
+                const value = sessionStorage.getItem(key);
+                if (value) {
+                    const displayValue = key.includes('token') ? value.substring(0, 20) + '...' : value;
+                    sessionItems.push(`<div class="storage-item">${key}: ${displayValue}</div>`);
+                }
+            });
+            sessionStorageContent.innerHTML = sessionItems.length ? sessionItems.join('') : 'No auth data';
+        }
+
+        // Initialize display
+        updateStorageDisplay();
+        checkAuthStatus();
+    </script>
+</body>
+</html>

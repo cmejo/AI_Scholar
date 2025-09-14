@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug React Loading</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .debug-info {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .error {
+            background: #4a1a1a;
+            border: 1px solid #ff4444;
+        }
+        .success {
+            background: #1a4a1a;
+            border: 1px solid #44ff44;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 React Loading Debug</h1>
+    
+    <div class="debug-info">
+        <h3>Testing React Application Loading</h3>
+        <p>This page will help diagnose why the React app isn't rendering properly.</p>
+    </div>
+
+    <div class="debug-info">
+        <h3>Application Preview</h3>
+        <iframe src="http://localhost:8080" onload="checkIframe(this)"></iframe>
+    </div>
+
+    <div id="debug-results" class="debug-info">
+        <h3>Debug Results</h3>
+        <p>Loading...</p>
+    </div>
+
+    <script>
+        function checkIframe(iframe) {
+            setTimeout(() => {
+                try {
+                    const doc = iframe.contentDocument || iframe.contentWindow.document;
+                    const root = doc.getElementById('root');
+                    const debugDiv = document.getElementById('debug-results');
+                    
+                    if (root) {
+                        const hasContent = root.innerHTML.trim().length > 0;
+                        if (hasContent) {
+                            debugDiv.className = 'debug-info success';
+                            debugDiv.innerHTML = `
+                                <h3>✅ Debug Results - SUCCESS</h3>
+                                <p><strong>Root element found:</strong> Yes</p>
+                                <p><strong>Has content:</strong> Yes</p>
+                                <p><strong>Content length:</strong> ${root.innerHTML.length} characters</p>
+                                <p><strong>React app is rendering!</strong></p>
+                            `;
+                        } else {
+                            debugDiv.className = 'debug-info error';
+                            debugDiv.innerHTML = `
+                                <h3>❌ Debug Results - ISSUE FOUND</h3>
+                                <p><strong>Root element found:</strong> Yes</p>
+                                <p><strong>Has content:</strong> No</p>
+                                <p><strong>Issue:</strong> React app is not rendering into the root element</p>
+                                <p><strong>Possible causes:</strong></p>
+                                <ul>
+                                    <li>JavaScript errors preventing React from mounting</li>
+                                    <li>Missing dependencies or import errors</li>
+                                    <li>Build configuration issues</li>
+                                </ul>
+                            `;
+                        }
+                    } else {
+                        debugDiv.className = 'debug-info error';
+                        debugDiv.innerHTML = `
+                            <h3>❌ Debug Results - CRITICAL ERROR</h3>
+                            <p><strong>Root element found:</strong> No</p>
+                            <p><strong>Issue:</strong> HTML structure is incorrect</p>
+                        `;
+                    }
+                } catch (error) {
+                    const debugDiv = document.getElementById('debug-results');
+                    debugDiv.className = 'debug-info error';
+                    debugDiv.innerHTML = `
+                        <h3>❌ Debug Results - ACCESS ERROR</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Cause:</strong> Cross-origin restrictions or iframe loading issues</p>
+                    `;
+                }
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

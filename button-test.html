@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #ff0000;
+            color: white;
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .test-button {
+            padding: 30px 60px;
+            font-size: 24px;
+            margin: 20px;
+            border: 5px solid white;
+            border-radius: 10px;
+            cursor: pointer;
+            background-color: #000;
+            color: #fff;
+        }
+        
+        .test-div {
+            padding: 30px 60px;
+            font-size: 24px;
+            margin: 20px;
+            border: 5px solid black;
+            border-radius: 10px;
+            cursor: pointer;
+            background-color: #00ff00;
+            color: #000;
+            display: inline-block;
+        }
+        
+        .count {
+            font-size: 48px;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="font-size: 48px;">🔴 STANDALONE BUTTON TEST 🔴</h1>
+    <div class="count">Count: <span id="count">0</span></div>
+    
+    <button class="test-button" onclick="buttonClick()">
+        🔴 CLICK BUTTON 🔴
+    </button>
+    
+    <div class="test-div" onclick="divClick()">
+        🟢 CLICK DIV 🟢
+    </div>
+    
+    <div style="margin-top: 40px; text-align: center;">
+        <p>🚨 This is a standalone HTML file - no React, no frameworks</p>
+        <p>If these buttons don't work, there's a browser/system issue!</p>
+    </div>
+
+    <script>
+        let count = 0;
+        
+        function updateCount() {
+            document.getElementById('count').textContent = count;
+            console.log('Count updated to:', count);
+        }
+        
+        function buttonClick() {
+            console.log('BUTTON CLICKED!');
+            alert('BUTTON WORKS!');
+            count++;
+            updateCount();
+        }
+        
+        function divClick() {
+            console.log('DIV CLICKED!');
+            alert('DIV WORKS!');
+            count += 5;
+            updateCount();
+        }
+        
+        console.log('Standalone button test loaded');
+        
+        // Test if JavaScript is working
+        setTimeout(() => {
+            console.log('JavaScript is working - timer executed');
+        }, 1000);
+    </script>
+</body>
+</html>

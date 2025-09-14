@@ -1,336 +1,247 @@
+#!/usr/bin/env python3
 """
-Task 4.2 Verification Test
+Verification test for Task 4.2: Add research automation service
 
-This test specifically verifies that the implementation meets the requirements
-for Task 4.2: Implement advanced search functionality
-
-Requirements being tested:
-- 3.2: WHEN searching THEN the system SHALL support faceted search by author, year, publication, and tags
-- 3.3: WHEN displaying search results THEN the system SHALL rank results by relevance
-- 3.7: WHEN no results are found THEN the system SHALL provide helpful suggestions
-
-This test validates the actual service implementation.
+This test verifies that all requirements for task 4.2 are met:
+- Implement conditional import of research_automation service
+- Create service wrapper with graceful error handling
+- Add research automation health check and status monitoring
 """
 import asyncio
+import logging
 import sys
 import os
-from datetime import datetime
-from unittest.mock import Mock, AsyncMock, patch
 
 # Add the backend directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def test_requirement_3_2_faceted_search():
-    """
-    Test Requirement 3.2: Support faceted search by author, year, publication, and tags
-    """
-    print("Testing Requirement 3.2: Faceted Search Support...")
+async def verify_conditional_import():
+    """Verify conditional import of research_automation service"""
+    logger.info("=== Verifying Conditional Import ===")
     
-    # Import the search service
     try:
-        from services.zotero.zotero_search_service import ZoteroSearchService
-        from models.zotero_schemas import ZoteroSearchRequest
-        print("✓ Successfully imported search service and schemas")
-    except ImportError as e:
-        print(f"✗ Failed to import required modules: {e}")
-        return False
-    
-    # Test that ZoteroSearchRequest supports all required facet filters
-    try:
-        # Test that the schema supports all required facet fields
-        search_request = ZoteroSearchRequest(
-            query="test query",
-            library_id="lib-123",
-            collection_id="col-456", 
-            item_type="article",
-            tags=["machine learning", "AI"],
-            creators=["John Doe", "Jane Smith"],
-            publication_year_start=2020,
-            publication_year_end=2024,
-            limit=20,
-            offset=0,
-            sort_by="relevance",
-            sort_order="desc"
-        )
+        # Test that the service manager can handle missing dependencies gracefully
+        from core.service_manager import service_manager
         
-        # Verify all facet fields are present
-        assert hasattr(search_request, 'item_type'), "Missing item_type facet"
-        assert hasattr(search_request, 'tags'), "Missing tags facet"
-        assert hasattr(search_request, 'creators'), "Missing creators facet"
-        assert hasattr(search_request, 'publication_year_start'), "Missing publication year facet"
-        assert hasattr(search_request, 'publication_year_end'), "Missing publication year facet"
+        # The service should initialize even if dependencies are missing
+        success = await service_manager.initialize_research_automation_service()
         
-        print("✓ ZoteroSearchRequest supports all required facet fields")
-        
-        # Test facet values
-        assert search_request.item_type == "article"
-        assert "machine learning" in search_request.tags
-        assert "AI" in search_request.tags
-        assert "John Doe" in search_request.creators
-        assert "Jane Smith" in search_request.creators
-        assert search_request.publication_year_start == 2020
-        assert search_request.publication_year_end == 2024
-        
-        print("✓ Facet filters can be properly set and accessed")
-        
+        if success:
+            logger.info("✓ Conditional import working - service initialized despite missing dependencies")
+            return True
+        else:
+            logger.error("✗ Conditional import failed - service could not initialize")
+            return False
+            
     except Exception as e:
-        print(f"✗ Error testing faceted search schema: {e}")
+        logger.error(f"✗ Conditional import test failed: {e}")
         return False
-    
-    # Test that the service has methods for faceted search
-    try:
-        mock_db = Mock()
-        service = ZoteroSearchService(mock_db)
-        
-        # Check that service has required methods
-        assert hasattr(service, 'search_references'), "Missing search_references method"
-        assert hasattr(service, 'get_search_facets'), "Missing get_search_facets method"
-        assert hasattr(service, '_apply_faceted_filters'), "Missing _apply_faceted_filters method"
-        
-        print("✓ ZoteroSearchService has all required faceted search methods")
-        
-    except Exception as e:
-        print(f"✗ Error testing search service methods: {e}")
-        return False
-    
-    print("✓ Requirement 3.2 (Faceted Search) is properly implemented")
-    return True
 
-
-def test_requirement_3_3_relevance_ranking():
-    """
-    Test Requirement 3.3: Rank results by relevance
-    """
-    print("\nTesting Requirement 3.3: Relevance Ranking...")
+async def verify_service_wrapper():
+    """Verify service wrapper with graceful error handling"""
+    logger.info("=== Verifying Service Wrapper ===")
     
     try:
-        from services.zotero.zotero_search_service import ZoteroSearchService
-        from models.zotero_schemas import ZoteroSearchRequest
+        from core.service_manager import service_manager
         
-        mock_db = Mock()
-        service = ZoteroSearchService(mock_db)
+        # Get the service instance
+        service = service_manager.get_service("research_automation")
         
-        # Test that service has relevance ranking capability
-        assert hasattr(service, '_apply_sorting'), "Missing _apply_sorting method for relevance ranking"
-        print("✓ Service has relevance ranking method")
-        
-        # Test that search request supports relevance sorting
-        search_request = ZoteroSearchRequest(
-            query="machine learning",
-            sort_by="relevance",
-            sort_order="desc"
-        )
-        
-        assert search_request.sort_by == "relevance"
-        assert search_request.sort_order == "desc"
-        print("✓ Search request supports relevance sorting")
-        
-        # Test that the sorting method handles relevance
-        # We'll mock the query object to test the sorting logic
-        mock_query = Mock()
-        mock_query.order_by.return_value = mock_query
-        
-        # This should not raise an exception
-        try:
-            # We can't easily test the actual SQL generation without a real database,
-            # but we can verify the method exists and handles relevance sorting
-            print("✓ Relevance sorting logic is implemented")
-        except Exception as e:
-            print(f"✗ Error in relevance sorting: {e}")
+        if not service:
+            logger.error("✗ Service wrapper test failed - no service instance")
             return False
         
-    except Exception as e:
-        print(f"✗ Error testing relevance ranking: {e}")
-        return False
-    
-    print("✓ Requirement 3.3 (Relevance Ranking) is properly implemented")
-    return True
-
-
-def test_requirement_3_7_no_results_suggestions():
-    """
-    Test Requirement 3.7: Provide helpful suggestions when no results are found
-    """
-    print("\nTesting Requirement 3.7: No-Results Suggestions...")
-    
-    try:
-        from services.zotero.zotero_search_service import ZoteroSearchService
-        from models.zotero_schemas import ZoteroSearchResponse
+        # Test that the service has proper error handling
+        logger.info("Testing service wrapper methods...")
         
-        mock_db = Mock()
-        service = ZoteroSearchService(mock_db)
+        # Test health check method
+        health_result = await service.health_check()
+        if health_result and "status" in health_result:
+            logger.info("✓ Service wrapper health check method working")
+        else:
+            logger.error("✗ Service wrapper health check method failed")
+            return False
         
-        # Test that service has suggestion capability
-        assert hasattr(service, '_get_no_results_suggestions'), "Missing _get_no_results_suggestions method"
-        print("✓ Service has no-results suggestions method")
+        # Test get_status method
+        status = service.get_status()
+        if status and "status" in status:
+            logger.info("✓ Service wrapper get_status method working")
+        else:
+            logger.error("✗ Service wrapper get_status method failed")
+            return False
         
-        # Test that search response supports suggestions
+        # Test workflow methods with error handling
         try:
-            response = ZoteroSearchResponse(
-                items=[],
-                total_count=0,
-                query="test query",
-                filters_applied={},
-                processing_time=0.1,
-                suggestions=["Try broader terms", "Check spelling"]
+            workflow = await service.create_automated_workflow(
+                user_id="test",
+                name="test",
+                workflow_type="test",
+                description="test",
+                configuration={},
+                schedule_config={}
             )
-            
-            assert hasattr(response, 'suggestions'), "ZoteroSearchResponse missing suggestions field"
-            assert response.suggestions is not None
-            assert len(response.suggestions) == 2
-            print("✓ Search response supports suggestions field")
-            
+            if workflow:
+                logger.info("✓ Service wrapper workflow methods working")
+            else:
+                logger.error("✗ Service wrapper workflow methods failed")
+                return False
         except Exception as e:
-            print(f"✗ Error testing search response suggestions: {e}")
+            logger.error(f"✗ Service wrapper workflow methods failed: {e}")
             return False
         
-        # Test that the service method exists and can be called
-        try:
-            # Test the string similarity helper method
-            assert hasattr(service, '_calculate_string_similarity'), "Missing string similarity method"
-            
-            # Test similarity calculation
-            similarity = service._calculate_string_similarity("machine learning", "machine learn")
-            assert isinstance(similarity, float), "Similarity should return a float"
-            assert 0 <= similarity <= 1, "Similarity should be between 0 and 1"
-            print("✓ String similarity calculation works")
-            
-        except Exception as e:
-            print(f"✗ Error testing suggestion helper methods: {e}")
-            return False
-        
-    except Exception as e:
-        print(f"✗ Error testing no-results suggestions: {e}")
-        return False
-    
-    print("✓ Requirement 3.7 (No-Results Suggestions) is properly implemented")
-    return True
-
-
-def test_full_text_search_implementation():
-    """
-    Test that full-text search across all reference fields is implemented
-    """
-    print("\nTesting Full-Text Search Implementation...")
-    
-    try:
-        from services.zotero.zotero_search_service import ZoteroSearchService
-        
-        mock_db = Mock()
-        service = ZoteroSearchService(mock_db)
-        
-        # Test that service has full-text search capability
-        assert hasattr(service, '_apply_search_filters'), "Missing _apply_search_filters method"
-        print("✓ Service has full-text search filtering method")
-        
-        # The _apply_search_filters method should handle searching across multiple fields
-        # We can't test the actual SQL without a database, but we can verify the method exists
-        print("✓ Full-text search across all fields is implemented")
-        
-    except Exception as e:
-        print(f"✗ Error testing full-text search: {e}")
-        return False
-    
-    return True
-
-
-def test_search_endpoint_integration():
-    """
-    Test that the search endpoints properly integrate all functionality
-    """
-    print("\nTesting Search Endpoint Integration...")
-    
-    try:
-        from api.zotero_search_endpoints import router
-        from fastapi.testclient import TestClient
-        from fastapi import FastAPI
-        
-        # Create a test app
-        app = FastAPI()
-        app.include_router(router)
-        
-        # Verify that all required endpoints exist
-        routes = [route.path for route in app.routes]
-        
-        required_endpoints = [
-            "/api/zotero/search/",
-            "/api/zotero/search/facets",
-            "/api/zotero/search/suggestions",
-            "/api/zotero/search/similar/{reference_id}",
-            "/api/zotero/search/advanced"
-        ]
-        
-        for endpoint in required_endpoints:
-            # Check if any route matches the pattern (handling path parameters)
-            endpoint_exists = any(
-                endpoint.replace("{reference_id}", "test") in route or 
-                endpoint.split("{")[0] in route
-                for route in routes
-            )
-            assert endpoint_exists, f"Missing endpoint: {endpoint}"
-        
-        print("✓ All required search endpoints are implemented")
-        
-    except ImportError:
-        print("⚠ FastAPI test client not available, skipping endpoint integration test")
         return True
+        
     except Exception as e:
-        print(f"✗ Error testing search endpoints: {e}")
+        logger.error(f"✗ Service wrapper test failed: {e}")
         return False
-    
-    return True
 
-
-def main():
-    """Run all Task 4.2 verification tests"""
-    print("=" * 70)
-    print("TASK 4.2 VERIFICATION: IMPLEMENT ADVANCED SEARCH FUNCTIONALITY")
-    print("=" * 70)
+async def verify_health_check_monitoring():
+    """Verify research automation health check and status monitoring"""
+    logger.info("=== Verifying Health Check and Status Monitoring ===")
     
+    try:
+        from core.service_manager import service_manager
+        
+        # Test service manager health check
+        health = await service_manager.check_service_health("research_automation")
+        
+        if health and health.name == "research_automation":
+            logger.info(f"✓ Service manager health check working - status: {health.status.value}")
+        else:
+            logger.error("✗ Service manager health check failed")
+            return False
+        
+        # Test health status tracking
+        health_info = service_manager.get_service_health("research_automation")
+        
+        if health_info and "status" in health_info:
+            logger.info(f"✓ Health status tracking working - status: {health_info['status']}")
+        else:
+            logger.error("✗ Health status tracking failed")
+            return False
+        
+        # Test initialization summary includes research automation
+        summary = service_manager.get_initialization_summary()
+        
+        if "research_automation" in summary.get("initialization_order", []):
+            logger.info("✓ Service included in initialization summary")
+        else:
+            logger.error("✗ Service not found in initialization summary")
+            return False
+        
+        # Test health monitoring status
+        monitoring_status = service_manager.get_health_monitoring_status()
+        
+        if monitoring_status and "monitoring_enabled" in monitoring_status:
+            logger.info("✓ Health monitoring status available")
+        else:
+            logger.error("✗ Health monitoring status failed")
+            return False
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"✗ Health check and monitoring test failed: {e}")
+        return False
+
+async def verify_requirements_coverage():
+    """Verify that all requirements are covered"""
+    logger.info("=== Verifying Requirements Coverage ===")
+    
+    try:
+        # Requirement 1.1: Service import restoration
+        logger.info("Checking Requirement 1.1: Service import restoration")
+        from core.service_manager import service_manager
+        service = service_manager.get_service("research_automation")
+        if service:
+            logger.info("✓ Requirement 1.1: Service successfully imported and available")
+        else:
+            logger.error("✗ Requirement 1.1: Service not available")
+            return False
+        
+        # Requirement 1.2: Clear error messages
+        logger.info("Checking Requirement 1.2: Clear error messages")
+        # The service should provide clear status messages
+        status = service.get_status()
+        if status and "message" in status:
+            logger.info(f"✓ Requirement 1.2: Clear status messages available: {status['message']}")
+        else:
+            logger.error("✗ Requirement 1.2: No clear status messages")
+            return False
+        
+        # Requirement 1.4: Service availability
+        logger.info("Checking Requirement 1.4: Service availability")
+        health = await service_manager.check_service_health("research_automation")
+        if health and health.status.value in ["healthy", "degraded"]:
+            logger.info(f"✓ Requirement 1.4: Service is available with status: {health.status.value}")
+        else:
+            logger.error("✗ Requirement 1.4: Service not available")
+            return False
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"✗ Requirements coverage test failed: {e}")
+        return False
+
+async def main():
+    """Main verification function"""
+    logger.info("Starting Task 4.2 Verification: Add research automation service")
+    logger.info("=" * 60)
+    
+    # Run all verification tests
     tests = [
-        test_requirement_3_2_faceted_search,
-        test_requirement_3_3_relevance_ranking,
-        test_requirement_3_7_no_results_suggestions,
-        test_full_text_search_implementation,
-        test_search_endpoint_integration
+        ("Conditional Import", verify_conditional_import),
+        ("Service Wrapper", verify_service_wrapper),
+        ("Health Check & Monitoring", verify_health_check_monitoring),
+        ("Requirements Coverage", verify_requirements_coverage)
     ]
     
-    passed = 0
-    total = len(tests)
+    results = []
     
-    for test in tests:
+    for test_name, test_func in tests:
+        logger.info(f"\nRunning {test_name} verification...")
         try:
-            result = test()
+            result = await test_func()
+            results.append((test_name, result))
             if result:
-                passed += 1
-                print(f"✓ {test.__name__} passed")
+                logger.info(f"✓ {test_name} verification PASSED")
             else:
-                print(f"✗ {test.__name__} failed")
+                logger.error(f"✗ {test_name} verification FAILED")
         except Exception as e:
-            print(f"✗ {test.__name__} failed with exception: {e}")
+            logger.error(f"✗ {test_name} verification ERROR: {e}")
+            results.append((test_name, False))
     
-    print("\n" + "=" * 70)
-    print(f"VERIFICATION RESULTS: {passed}/{total} tests passed")
+    # Summary
+    logger.info("\n" + "=" * 60)
+    logger.info("TASK 4.2 VERIFICATION SUMMARY")
+    logger.info("=" * 60)
+    
+    passed = sum(1 for _, result in results if result)
+    total = len(results)
+    
+    for test_name, result in results:
+        status = "PASS" if result else "FAIL"
+        logger.info(f"{test_name}: {status}")
+    
+    logger.info(f"\nOverall: {passed}/{total} tests passed")
     
     if passed == total:
-        print("✅ TASK 4.2 IMPLEMENTATION VERIFIED SUCCESSFULLY!")
-        print("\n📋 IMPLEMENTATION SUMMARY:")
-        print("✓ Full-text search across all reference fields")
-        print("✓ Faceted search by author, year, publication, and tags (Requirement 3.2)")
-        print("✓ Search result ranking and relevance scoring (Requirement 3.3)")
-        print("✓ Helpful suggestions when no results found (Requirement 3.7)")
-        print("✓ Enhanced search endpoints with advanced features")
-        print("✓ Comprehensive error handling and performance optimization")
-        print("✓ Complete test coverage for all search scenarios")
-        
-        print("\n🎯 TASK 4.2 IS COMPLETE AND READY FOR USE!")
-        return True
+        logger.info("✓ Task 4.2 COMPLETED SUCCESSFULLY")
+        logger.info("All requirements have been implemented:")
+        logger.info("- ✓ Conditional import of research_automation service")
+        logger.info("- ✓ Service wrapper with graceful error handling")
+        logger.info("- ✓ Research automation health check and status monitoring")
+        return 0
     else:
-        print("❌ Some verification tests failed. Please check the implementation.")
-        return False
-
+        logger.error("✗ Task 4.2 INCOMPLETE")
+        logger.error(f"{total - passed} verification tests failed")
+        return 1
 
 if __name__ == "__main__":
-    success = main()
-    exit(0 if success else 1)
+    exit_code = asyncio.run(main())
+    sys.exit(exit_code)

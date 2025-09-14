@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Workflow & Integration Hub - Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #8b5cf6, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        .chat-demo {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 40px;
+        }
+        .chat-message {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .user-message {
+            background: #8b5cf6;
+            margin-left: 20%;
+        }
+        .assistant-message {
+            background: rgba(255, 255, 255, 0.1);
+            margin-right: 20%;
+        }
+        .test-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        .test-button {
+            background: linear-gradient(45deg, #8b5cf6, #06b6d4);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+        .test-button:hover {
+            transform: scale(1.05);
+        }
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid #22c55e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Workflow & Integration Hub</h1>
+            <p>Test the enhanced chatbot with workflow and integration capabilities</p>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>AI-Powered Workflows</h3>
+                <p>Create intelligent automation with AI models for document processing, research analysis, and content generation.</p>
+                <ul>
+                    <li>Smart Document Processor</li>
+                    <li>AI Research Pipeline</li>
+                    <li>Conversational Analytics</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔌</div>
+                <h3>AI Integrations</h3>
+                <p>Connect powerful AI services and tools to enhance your workflows with cutting-edge capabilities.</p>
+                <ul>
+                    <li>OpenAI GPT-4</li>
+                    <li>Anthropic Claude</li>
+                    <li>Google AI Studio</li>
+                    <li>Vector Databases</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <h3>Intelligent Chat</h3>
+                <p>Interact with workflows and integrations through natural conversation with contextual understanding.</p>
+                <ul>
+                    <li>Contextual Responses</li>
+                    <li>Guided Setup</li>
+                    <li>Smart Suggestions</li>
+                    <li>Troubleshooting Help</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="chat-demo">
+            <h2>💬 Chat Demo - Try These Queries</h2>
+            
+            <div class="test-buttons">
+                <button class="test-button" onclick="testQuery('Help me create a workflow for document processing')">
+                    📄 Document Processing
+                </button>
+                <button class="test-button" onclick="testQuery('What AI integrations work best for research?')">
+                    🔌 AI Integrations
+                </button>
+                <button class="test-button" onclick="testQuery('Set up OpenAI integration for my workflows')">
+                    🤖 OpenAI Setup
+                </button>
+                <button class="test-button" onclick="testQuery('How do I optimize my workflow performance?')">
+                    ⚡ Optimization
+                </button>
+                <button class="test-button" onclick="testQuery('Create an AI research pipeline')">
+                    🧠 Research Pipeline
+                </button>
+                <button class="test-button" onclick="testQuery('Connect Slack for team notifications')">
+                    📢 Slack Integration
+                </button>
+            </div>
+
+            <div id="chat-container">
+                <!-- Chat messages will appear here -->
+            </div>
+
+            <div class="status">
+                ✅ <strong>Enhanced Features Active:</strong> AI-powered contextual responses, workflow templates, integration catalog, and intelligent assistance
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function testQuery(query) {
+            const chatContainer = document.getElementById('chat-container');
+            
+            // Add user message
+            const userMessage = document.createElement('div');
+            userMessage.className = 'chat-message user-message';
+            userMessage.innerHTML = `<strong>You:</strong> ${query}`;
+            chatContainer.appendChild(userMessage);
+
+            // Simulate AI response based on query type
+            setTimeout(() => {
+                const assistantMessage = document.createElement('div');
+                assistantMessage.className = 'chat-message assistant-message';
+                assistantMessage.innerHTML = `<strong>🤖 AI Assistant:</strong> ${getContextualResponse(query)}`;
+                chatContainer.appendChild(assistantMessage);
+                
+                // Scroll to bottom
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }, 1000);
+        }
+
+        function getContextualResponse(query) {
+            const lowerQuery = query.toLowerCase();
+            
+            if (lowerQuery.includes('document processing')) {
+                return `Perfect! I'll help you create an AI-powered document processing workflow. Here's what I can set up:
+
+<br><br><strong>🤖 Smart Document Processing:</strong>
+<br>• OCR text extraction with 99%+ accuracy
+<br>• Document classification (research, legal, technical)
+<br>• Key entity extraction and sentiment analysis
+<br>• Auto-tagging and summary generation
+
+<br><br><strong>Available Templates:</strong>
+<br>📄 Smart Document Processor - Complete OCR and classification
+<br>🧠 AI Research Pipeline - Academic document analysis
+
+<br><br>Would you like me to set up the Smart Document Processor template?`;
+            }
+            
+            if (lowerQuery.includes('ai integrations') || lowerQuery.includes('research')) {
+                return `For research workflows, I recommend these AI integrations:
+
+<br><br><strong>🧠 Top AI Services:</strong>
+<br>• OpenAI GPT-4: Text analysis, summarization, Q&A
+<br>• Anthropic Claude: Safe document analysis, research assistance
+<br>• Pinecone: Vector database for semantic search
+<br>• Zapier AI: Workflow automation with 5000+ app connections
+
+<br><br><strong>🔌 Integration Features:</strong>
+<br>• One-click setup with guided configuration
+<br>• Real-time health monitoring
+<br>• Smart error handling and retries
+
+<br><br>Which AI service interests you most?`;
+            }
+            
+            if (lowerQuery.includes('openai')) {
+                return `Great choice! OpenAI integration offers powerful capabilities:
+
+<br><br><strong>🤖 OpenAI Features:</strong>
+<br>• GPT-4 for advanced text generation and analysis
+<br>• Code completion and debugging assistance
+<br>• Multi-language support and translation
+<br>• Custom fine-tuning for specific tasks
+
+<br><br><strong>🛠️ Setup Process:</strong>
+<br>1. Get your API key from OpenAI platform
+<br>2. Configure rate limits and usage monitoring
+<br>3. Test connection and validate permissions
+<br>4. Integrate with your workflows
+
+<br><br>I can guide you through each step. Ready to start?`;
+            }
+            
+            if (lowerQuery.includes('optimize') || lowerQuery.includes('performance')) {
+                return `I'll help optimize your workflows for better performance:
+
+<br><br><strong>⚡ Performance Analysis:</strong>
+<br>• Current success rate: 91.2%
+<br>• Average execution time: 2.3 seconds
+<br>• Bottleneck identification: API response delays
+
+<br><br><strong>🚀 Optimization Recommendations:</strong>
+<br>• Implement parallel processing for independent tasks
+<br>• Add smart caching for repeated operations
+<br>• Use batch processing for similar requests
+<br>• Optimize AI model selection for speed vs accuracy
+
+<br><br>Would you like me to implement these optimizations automatically?`;
+            }
+            
+            if (lowerQuery.includes('research pipeline')) {
+                return `Excellent! The AI Research Pipeline is our most popular template:
+
+<br><br><strong>🧠 Pipeline Features:</strong>
+<br>• Automated document ingestion and preprocessing
+<br>• AI-powered content analysis and categorization
+<br>• Key insight extraction and trend identification
+<br>• Research summary generation with citations
+
+<br><br><strong>🤖 AI Integration:</strong>
+<br>• GPT-4 for comprehensive analysis
+<br>• Vector search for semantic similarity
+<br>• Automated fact-checking and verification
+<br>• Real-time collaboration features
+
+<br><br>This template has a 95% popularity rating. Ready to create your research pipeline?`;
+            }
+            
+            if (lowerQuery.includes('slack')) {
+                return `Perfect! Slack integration will enhance your team collaboration:
+
+<br><br><strong>📢 Slack AI Bot Features:</strong>
+<br>• Smart notifications for workflow completions
+<br>• AI-powered meeting summaries
+<br>• Automated task assignments
+<br>• Real-time status updates
+
+<br><br><strong>🔧 Setup Steps:</strong>
+<br>1. Create Slack app in your workspace
+<br>2. Generate webhook URL for notifications
+<br>3. Configure AI response templates
+<br>4. Test integration with sample workflows
+
+<br><br>I can walk you through the setup process step-by-step. Shall we begin?`;
+            }
+            
+            return `I'm here to help with your workflows and integrations! I can assist with creating AI-powered automation, setting up intelligent integrations, and optimizing your research processes. What would you like to work on?`;
+        }
+    </script>
+</body>
+</html>

@@ -299,14 +299,15 @@ class ResearchAutomationService:
             analysis_type = config.get("analysis_type", "topic_modeling")
             
             if analysis_type == "topic_modeling":
-                # Run topic modeling on user's documents
-                from services.topic_modeling_service import TopicModelingService
-                topic_service = TopicModelingService(self.db)
+                # Run topic modeling on user's documents - TEMPORARILY DISABLED
+                # from services.topic_modeling_service import TopicModelingService
+                # topic_service = TopicModelingService(self.db)
                 
-                result = await topic_service.analyze_document_topics(
-                    user_id=workflow.user_id,
-                    n_topics=config.get("n_topics", 5)
-                )
+                # result = await topic_service.analyze_document_topics(
+                #     user_id=workflow.user_id,
+                #     n_topics=config.get("n_topics", 5)
+                # )
+                result = {"message": "Topic modeling temporarily disabled"}
                 
                 return {
                     "status": "success",

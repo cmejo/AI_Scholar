@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Scholar - React Working Version</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        const WorkingApp = () => {
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [currentUser, setCurrentUser] = useState(null);
+            const [currentView, setCurrentView] = useState('chat');
+            const [messages, setMessages] = useState([]);
+            const [messageInput, setMessageInput] = useState('');
+
+            const addMessage = (sender, content, type = '') => {
+                setMessages(prev => [...prev, { sender, content, type }]);
+            };
+
+            const loginUser = async () => {
+                if (isAuthenticated) {
+                    setCurrentView('profile');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('http://localhost:8080/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email: 'admin@redditaeo.com',
+                            password: 'Admin123!'
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        localStorage.setItem('auth_token', data.access_token);
+                        localStorage.setItem('refresh_token', data.refresh_token);
+
+                        setIsAuthenticated(true);
+                        setCurrentUser(data.user);
+
+                        addMessage('System', '✅ Successfully logged in! You now have access to all features.', 'success');
+                    } else {
+                        const errorText = await response.text();
+                        addMessage('System', `❌ Login failed: ${errorText}`, 'error');
+                    }
+                } catch (error) {
+                    addMessage('System', `❌ Login error: ${error.message}`, 'error');
+                }
+            };
+
+            const logoutUser = () => {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('refresh_token');
+                setIsAuthenticated(false);
+                setCurrentUser(null);
+
+                addMessage('System', '👋 Logged out successfully.', 'success');
+                setCurrentView('chat');
+            };
+
+            const sendMessage = async () => {
+                if (!messageInput.trim()) return;
+
+                addMessage('You', messageInput);
+                const message = messageInput;
+                setMessageInput('');
+
+                setTimeout(() => {
+                    const responses = [
+                        `I received your message: "${message}". This is a working React version!`,
+                        `Thanks for your question about "${message}". The React app is working perfectly!`,
+                        `Interesting point about "${message}". React components are rendering correctly!`,
+                        `Great question! "${message}" - This demonstrates React with working authentication.`
+                    ];
+                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                    addMessage('AI Scholar', randomResponse);
+                }, 1000);
+            };
+
+            const showView = (viewName) => {
+                setCurrentView(viewName);
+            };
+
+            useEffect(() => {
+                const token = localStorage.getItem('auth_token');
+                if (token && token !== 'null' && token.length > 10) {
+                    fetch('http://localhost:8080/api/auth/profile', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }).then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        throw new Error('Token invalid');
+                    }).then(user => {
+                        setIsAuthenticated(true);
+                        setCurrentUser(user);
+                        addMessage('System', '✅ Welcome back! You are already logged in.', 'success');
+                    }).catch(() => {
+                        localStorage.removeItem('auth_token');
+                        localStorage.removeItem('refresh_token');
+                    });
+                }
+            }, []);
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            };
+
+            return React.createElement('div', {
+                style: {
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+                    color: 'white',
+                    minHeight: '100vh',
+                    margin: 0,
+                    padding: 0
+                }
+            }, [
+                // Header
+                React.createElement('div', {
+                    key: 'header',
+                    style: {
+                        background: 'rgba(0,0,0,0.3)',
+                        padding: '1rem 2rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderBottom: '1px solid rgba(255,255,255,0.1)'
+                    }
+                }, [
+                    React.createElement('div', {
+                        key: 'logo',
+                        style: { fontSize: '1.5rem', fontWeight: 'bold', color: '#6366f1' }
+                    }, '🚀 AI Scholar - React Working!'),
+                    React.createElement('div', {
+                        key: 'status',
+                        style: {
+                            background: 'rgba(0,0,0,0.5)',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '20px',
+                            fontSize: '0.9rem'
+                        }
+                    }, `Auth: ${isAuthenticated ? 'YES' : 'NO'} | User: ${currentUser?.name || 'None'}`)
+                ]),
+
+                // Main Content
+                React.createElement('div', {
+                    key: 'main',
+                    style: { display: 'flex', height: 'calc(100vh - 80px)' }
+                }, [
+                    // Sidebar
+                    React.createElement('div', {
+                        key: 'sidebar',
+                        style: {
+                            width: '250px',
+                            background: 'rgba(0,0,0,0.2)',
+                            padding: '2rem 1rem',
+                            borderRight: '1px solid rgba(255,255,255,0.1)'
+                        }
+                    }, ['chat', 'profile', 'analytics', 'documents', 'settings'].map(view =>
+                        React.createElement('div', {
+                            key: view,
+                            onClick: () => showView(view),
+                            style: {
+                                padding: '0.75rem 1rem',
+                                margin: '0.5rem 0',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                transition: 'background 0.3s',
+                                background: currentView === view ? 'rgba(99, 102, 241, 0.3)' : 'transparent'
+                            }
+                        }, `${view === 'chat' ? '💬' : view === 'profile' ? '👤' : view === 'analytics' ? '📊' : view === 'documents' ? '📄' : '⚙️'} ${view.charAt(0).toUpperCase() + view.slice(1)}`)
+                    )),
+
+                    // Content Area
+                    React.createElement('div', {
+                        key: 'content',
+                        style: { flex: 1, padding: '2rem', overflowY: 'auto' }
+                    }, [
+                        currentView === 'chat' && React.createElement('div', {
+                            key: 'chat-content',
+                            style: { maxWidth: '800px', margin: '0 auto' }
+                        }, [
+                            React.createElement('div', {
+                                key: 'welcome',
+                                style: {
+                                    background: 'rgba(0,0,0,0.3)',
+                                    padding: '1rem',
+                                    margin: '1rem 0',
+                                    borderRadius: '12px',
+                                    borderLeft: '4px solid #6366f1'
+                                }
+                            }, React.createElement('div', {}, [
+                                React.createElement('strong', { key: 'label' }, 'AI Scholar: '),
+                                'Hello! This is a working React version with authentication. Click the red login button!'
+                            ])),
+                            
+                            ...messages.map((msg, index) =>
+                                React.createElement('div', {
+                                    key: `msg-${index}`,
+                                    style: {
+                                        background: 'rgba(0,0,0,0.3)',
+                                        padding: '1rem',
+                                        margin: '1rem 0',
+                                        borderRadius: '12px',
+                                        borderLeft: '4px solid #6366f1',
+                                        color: msg.type === 'success' ? '#10b981' : msg.type === 'error' ? '#ef4444' : 'white'
+                                    }
+                                }, [
+                                    React.createElement('strong', { key: 'sender' }, `${msg.sender}: `),
+                                    msg.content
+                                ])
+                            )
+                        ]),
+
+                        currentView === 'profile' && React.createElement('div', {
+                            key: 'profile-content',
+                            style: {
+                                background: 'rgba(0,0,0,0.3)',
+                                padding: '2rem',
+                                borderRadius: '12px',
+                                margin: '2rem 0'
+                            }
+                        }, [
+                            React.createElement('h2', { key: 'title' }, '👤 User Profile'),
+                            isAuthenticated && currentUser ? React.createElement('div', { key: 'user-info' }, [
+                                React.createElement('h3', { key: 'welcome' }, `Welcome, ${currentUser.name}!`),
+                                React.createElement('p', { key: 'email' }, React.createElement('strong', {}, 'Email: '), currentUser.email),
+                                React.createElement('p', { key: 'role' }, React.createElement('strong', {}, 'Role: '), currentUser.role),
+                                React.createElement('button', {
+                                    key: 'logout',
+                                    onClick: logoutUser,
+                                    style: {
+                                        padding: '0.75rem 1.5rem',
+                                        background: '#dc2626',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        marginTop: '1rem'
+                                    }
+                                }, 'Logout')
+                            ]) : React.createElement('p', { key: 'login-prompt' }, 'Please log in to view your profile.')
+                        ])
+                    ])
+                ]),
+
+                // Input Area
+                React.createElement('div', {
+                    key: 'input-area',
+                    style: {
+                        position: 'fixed',
+                        bottom: 0,
+                        left: '250px',
+                        right: 0,
+                        background: 'rgba(0,0,0,0.8)',
+                        padding: '1rem 2rem',
+                        borderTop: '1px solid rgba(255,255,255,0.1)'
+                    }
+                }, React.createElement('div', {
+                    style: {
+                        maxWidth: '800px',
+                        margin: '0 auto',
+                        display: 'flex',
+                        gap: '1rem'
+                    }
+                }, [
+                    React.createElement('input', {
+                        key: 'input',
+                        type: 'text',
+                        value: messageInput,
+                        onChange: (e) => setMessageInput(e.target.value),
+                        onKeyPress: handleKeyPress,
+                        placeholder: 'Ask me anything about research...',
+                        style: {
+                            flex: 1,
+                            padding: '0.75rem',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            borderRadius: '8px',
+                            background: 'rgba(255,255,255,0.1)',
+                            color: 'white'
+                        }
+                    }),
+                    React.createElement('button', {
+                        key: 'send',
+                        onClick: sendMessage,
+                        style: {
+                            padding: '0.75rem 1.5rem',
+                            background: '#6366f1',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                        }
+                    }, 'Send')
+                ])),
+
+                // Login Button
+                React.createElement('button', {
+                    key: 'login-btn',
+                    onClick: loginUser,
+                    style: {
+                        background: '#dc2626',
+                        position: 'fixed',
+                        top: '20px',
+                        right: '20px',
+                        zIndex: 1000,
+                        padding: '0.75rem 1.5rem',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer'
+                    }
+                }, isAuthenticated ? '👤 Profile' : '🔧 Login')
+            ]);
+        };
+
+        ReactDOM.render(React.createElement(WorkingApp), document.getElementById('root'));
+    </script>
+</body>
+</html>

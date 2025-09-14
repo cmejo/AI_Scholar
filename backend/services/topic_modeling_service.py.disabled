@@ -16,9 +16,6 @@ from sklearn.cluster import KMeans, DBSCAN
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, desc
@@ -31,15 +28,33 @@ from models.schemas import DocumentTagCreate, AnalyticsEventCreate
 
 logger = logging.getLogger(__name__)
 
-# Download required NLTK data
-try:
-    nltk.data.find('tokenizers/punkt')
-    nltk.data.find('corpora/stopwords')
-    nltk.data.find('corpora/wordnet')
-except LookupError:
-    nltk.download('punkt')
-    nltk.download('stopwords')
-    nltk.download('wordnet')
+# NLTK data initialization function (called lazily)
+def _ensure_nltk_data():
+    """Ensure NLTK data is available"""
+    import os
+    nltk_data_path = '/app/nltk_data'
+    if not os.path.exists(nltk_data_path):
+        os.makedirs(nltk_data_path)
+    nltk.data.path.append(nltk_data_path)
+    
+    # Download required datasets if not available
+    datasets = [
+        ('tokenizers/punkt', 'punkt'),
+        ('corpora/stopwords', 'stopwords'),
+        ('corpora/wordnet', 'wordnet')
+    ]
+    
+    for path, name in datasets:
+        try:
+            nltk.data.find(path)
+        except LookupError:
+            try:
+                nltk.download(name, download_dir=nltk_data_path, quiet=True)
+            except Exception as e:
+                logger.warning(f"Failed to download NLTK data {name}: {e}")
+
+# Global flag to track NLTK initialization
+_nltk_initialized = False
 
 @dataclass
 class TopicInfo:
@@ -88,8 +103,33 @@ class TopicModelingService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.lemmatizer = WordNetLemmatizer()
-        self.stop_words = set(stopwords.words('english'))
+        self.lemmatizer = None
+        self.stop_words = None
+        
+        # Model parameters
+        self.n_topics = 10
+        self.n_clusters = 8
+        self.min_df = 2
+        self.max_df = 0.8
+        self.random_state = 42
+        
+    def _initialize_nltk(self):
+        """Initialize NLTK components lazily"""
+        global _nltk_initialized
+        if not _nltk_initialized:
+            try:
+                _ensure_nltk_data()
+                from nltk.stem import WordNetLemmatizer
+                from nltk.corpus import stopwords
+                self.lemmatizer = WordNetLemmatizer()
+                self.stop_words = set(stopwords.words('english'))
+                _nltk_initialized = True
+                logger.info("NLTK components initialized successfully")
+            except Exception as e:
+                logger.warning(f"NLTK initialization failed, using fallback: {e}")
+                self.lemmatizer = None
+                self.stop_words = set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those'])
+                _nltk_initialized = True
         
         # Model parameters
         self.n_topics = 10
@@ -110,6 +150,10 @@ class TopicModelingService:
         """
         try:
             logger.info(f"Starting topic modeling analysis for user {user_id}")
+            
+            # Initialize NLTK components if not already done
+            if self.stop_words is None:
+                self._initialize_nltk()
             
             # Set number of topics
             if n_topics:
@@ -241,8 +285,14 @@ class TopicModelingService:
             # Convert to lowercase
             text = text.lower()
             
-            # Tokenize
-            tokens = word_tokenize(text)
+            # Tokenize - use NLTK if available, otherwise simple split
+            try:
+                from nltk.tokenize import word_tokenize
+                tokens = word_tokenize(text)
+            except Exception:
+                # Fallback to simple tokenization
+                import re
+                tokens = re.findall(r'\b[a-zA-Z]+\b', text)
             
             # Remove stopwords and non-alphabetic tokens
             tokens = [
@@ -250,8 +300,12 @@ class TopicModelingService:
                 if token.isalpha() and token not in self.stop_words and len(token) > 2
             ]
             
-            # Lemmatize
-            tokens = [self.lemmatizer.lemmatize(token) for token in tokens]
+            # Lemmatize if available
+            if self.lemmatizer:
+                try:
+                    tokens = [self.lemmatizer.lemmatize(token) for token in tokens]
+                except Exception:
+                    pass  # Use tokens as-is if lemmatization fails
             
             return " ".join(tokens)
             

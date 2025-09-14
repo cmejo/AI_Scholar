@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultra Simple Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #0f0f0f;
+            color: white;
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border: 2px solid;
+        }
+        .success { border-color: #10b981; background: #064e3b; }
+        .error { border-color: #ef4444; background: #7f1d1d; }
+        .info { border-color: #3b82f6; background: #1e3a8a; }
+        iframe {
+            width: 100%;
+            height: 500px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Ultra Simple React Test</h1>
+    
+    <div id="test-results"></div>
+    
+    <div class="status info">
+        <h2>🎯 What We're Testing</h2>
+        <p>This is the most basic React component possible. If this doesn't work, the issue is fundamental.</p>
+        <ul>
+            <li>No complex imports</li>
+            <li>No external dependencies</li>
+            <li>Just basic React rendering</li>
+            <li>Simple inline styles</li>
+        </ul>
+    </div>
+    
+    <div class="status">
+        <h2>🖥️ Live Test</h2>
+        <iframe src="http://localhost:8080" title="Ultra Simple Test"></iframe>
+    </div>
+    
+    <script>
+        const resultsDiv = document.getElementById('test-results');
+        
+        function addResult(type, message) {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `<h3>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'} ${message}</h3>`;
+            resultsDiv.appendChild(div);
+        }
+        
+        // Test basic connectivity
+        fetch('http://localhost:8080')
+            .then(response => response.text())
+            .then(html => {
+                console.log('HTML Response:', html);
+                
+                if (html.includes('Ultra Simple Test')) {
+                    addResult('success', 'React component is rendering! The ultra simple test works.');
+                } else if (html.includes('<div id="root">')) {
+                    addResult('error', 'HTML loads but React is not rendering. Check browser console for JavaScript errors.');
+                } else {
+                    addResult('error', 'HTML structure is wrong. Build process may have failed.');
+                }
+                
+                // Check for JavaScript bundle
+                const scriptMatch = html.match(/src="([^"]*\.js)"/);
+                if (scriptMatch) {
+                    addResult('info', `JavaScript bundle found: ${scriptMatch[1]}`);
+                } else {
+                    addResult('error', 'No JavaScript bundle found in HTML');
+                }
+            })
+            .catch(error => {
+                addResult('error', `Failed to connect to localhost:8080: ${error.message}`);
+            });
+    </script>
+</body>
+</html>

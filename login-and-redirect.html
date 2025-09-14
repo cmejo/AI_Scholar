@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login to React App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+            text-align: center;
+        }
+        .login-container {
+            background: #2a2a2a;
+            padding: 40px;
+            border-radius: 12px;
+            border: 2px solid #6366f1;
+            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+        }
+        .login-button {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px;
+            box-shadow: 0 4px 16px rgba(220, 38, 38, 0.4);
+            transition: all 0.3s ease;
+        }
+        .login-button:hover {
+            background: linear-gradient(135deg, #b91c1c, #991b1b);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.6);
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #374151;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success { background: #065f46; border: 1px solid #10b981; }
+        .error { background: #7f1d1d; border: 1px solid #ef4444; }
+        .loading { background: #1e3a8a; border: 1px solid #3b82f6; }
+        h1 { color: #6366f1; margin-bottom: 10px; }
+        h2 { color: #10b981; margin-bottom: 30px; }
+        .subtitle { color: #9ca3af; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>🚀 AI Scholar</h1>
+        <h2>React Authentication</h2>
+        <p class="subtitle">Click the button below to log in and access the React application</p>
+        
+        <button class="login-button" onclick="loginAndRedirect()">
+            🔧 Login & Open React App
+        </button>
+        
+        <div id="status" class="status">
+            Ready to login. Click the button above to authenticate and redirect to the React app.
+        </div>
+    </div>
+
+    <script>
+        async function loginAndRedirect() {
+            const statusDiv = document.getElementById('status');
+            const button = document.querySelector('.login-button');
+            
+            // Update UI to show loading
+            button.disabled = true;
+            button.textContent = '🔄 Logging in...';
+            statusDiv.className = 'status loading';
+            statusDiv.textContent = 'Authenticating with backend...';
+            
+            try {
+                // Step 1: Login
+                const response = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@redditaeo.com',
+                        password: 'Admin123!'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Login failed: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Step 2: Store tokens
+                localStorage.setItem('auth_token', data.access_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
+                
+                // Step 3: Update UI
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = `✅ Login Successful!
+User: ${data.user.name} (${data.user.email})
+Role: ${data.user.role}
+Tokens stored in localStorage.
+
+Redirecting to React app in 2 seconds...`;
+                
+                button.textContent = '✅ Success! Redirecting...';
+                
+                // Step 4: Redirect to React app
+                setTimeout(() => {
+                    window.location.href = 'http://localhost:8080/';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                statusDiv.className = 'status error';
+                statusDiv.innerHTML = `❌ Login Failed: ${error.message}
+
+Please check:
+- Backend is running (http://localhost:8080/api/auth/login)
+- Database is accessible
+- User credentials are correct
+
+Try refreshing the page and clicking the button again.`;
+                
+                button.disabled = false;
+                button.textContent = '🔧 Try Again';
+            }
+        }
+
+        // Check if already logged in
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('auth_token');
+            if (token && token !== 'null' && token !== 'undefined' && token.length > 10) {
+                document.getElementById('status').innerHTML = `ℹ️ You appear to already be logged in.
+Token found in localStorage.
+
+<button onclick="window.location.href='http://localhost:8080/'" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-top: 10px;">
+Go to React App
+</button>
+
+<button onclick="localStorage.clear(); window.location.reload();" style="background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-top: 10px; margin-left: 10px;">
+Clear & Login Again
+</button>`;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Simple App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        .success { background: #2d5a2d; border-color: #4a8a4a; }
+        .error { background: #5a2d2d; border-color: #8a4a4a; }
+        .info { background: #2d4a5a; border-color: #4a6a8a; }
+        .test-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #6b46c1;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 10px 10px 10px 0;
+            font-weight: bold;
+        }
+        .test-link:hover {
+            background: #7c3aed;
+        }
+        iframe {
+            width: 100%;
+            height: 700px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Simple App with RAG Test</h1>
+    
+    <div class="status info">
+        <h2>📋 Test Status</h2>
+        <p>Testing the simplified AI Scholar app with integrated RAG functionality.</p>
+        <p><strong>Expected:</strong> App loads, sidebar shows "Scientific RAG" option, RAG interface works.</p>
+    </div>
+    
+    <div class="status">
+        <h2>🔗 Quick Links</h2>
+        <a href="http://localhost:8080" target="_blank" class="test-link">🚀 Main App</a>
+        <a href="http://localhost:3003/react-rag-app.html" target="_blank" class="test-link">🧪 RAG Demo</a>
+    </div>
+    
+    <div class="status">
+        <h2>✅ What to Look For</h2>
+        <ol>
+            <li><strong>App Loads:</strong> No white screen, interface appears</li>
+            <li><strong>Sidebar Navigation:</strong> Left sidebar with menu items</li>
+            <li><strong>RAG Option:</strong> "Scientific RAG" with brain icon (🧠)</li>
+            <li><strong>RAG Interface:</strong> Query input, model selection, corpus stats</li>
+            <li><strong>Functionality:</strong> Can ask questions and get responses</li>
+        </ol>
+    </div>
+    
+    <div class="status">
+        <h2>🖥️ Live App Preview</h2>
+        <p>The main app should load below. If you see content (not white screen), the fix worked!</p>
+        <iframe src="http://localhost:8080" title="AI Scholar Main App"></iframe>
+    </div>
+    
+    <div class="status success">
+        <h2>🎯 Success Criteria</h2>
+        <ul>
+            <li>✅ App loads without white screen</li>
+            <li>✅ Sidebar shows navigation menu</li>
+            <li>✅ "Scientific RAG" option visible with brain icon</li>
+            <li>✅ Clicking RAG opens the query interface</li>
+            <li>✅ Can submit queries and get responses</li>
+        </ul>
+        <p><strong>If all criteria are met, the RAG integration is successful!</strong></p>
+    </div>
+    
+    <script>
+        // Simple connectivity test
+        fetch('http://localhost:8080')
+            .then(response => {
+                if (response.ok) {
+                    console.log('✅ Main app is accessible');
+                    document.title = '✅ Simple App Test - Connected';
+                } else {
+                    console.log('❌ Main app returned error:', response.status);
+                    document.title = '❌ Simple App Test - Error';
+                }
+            })
+            .catch(error => {
+                console.log('❌ Failed to connect to main app:', error);
+                document.title = '❌ Simple App Test - Failed';
+            });
+    </script>
+</body>
+</html>

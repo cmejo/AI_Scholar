@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Auth Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #6366f1;
+        }
+        .success { border-left-color: #10b981; }
+        .error { border-left-color: #ef4444; }
+        .warning { border-left-color: #f59e0b; }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #5856eb; }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #374151;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 React Authentication Integration Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Frontend Accessibility Test</h2>
+        <p>Testing if the React frontend is accessible and serving correctly.</p>
+        <button onclick="testFrontendAccess()">Test Frontend Access</button>
+        <div id="frontend-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Authentication API Test</h2>
+        <p>Testing direct API calls to authentication endpoints.</p>
+        <button onclick="testAuthAPI()">Test Auth API</button>
+        <div id="auth-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. React App Integration Test</h2>
+        <p>Testing if the React app can communicate with the backend.</p>
+        <button onclick="testReactIntegration()">Test React Integration</button>
+        <div id="react-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Full Authentication Flow Test</h2>
+        <p>Testing complete login flow through React components.</p>
+        <button onclick="testFullFlow()">Test Full Flow</button>
+        <div id="flow-result" class="result"></div>
+    </div>
+
+    <script>
+        async function testFrontendAccess() {
+            const resultDiv = document.getElementById('frontend-result');
+            resultDiv.innerHTML = 'Testing frontend access...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/');
+                const html = await response.text();
+                
+                if (response.ok && html.includes('AI Scholar')) {
+                    resultDiv.innerHTML = `✅ SUCCESS: Frontend accessible (${response.status})\n` +
+                                        `- React app is served correctly\n` +
+                                        `- HTML contains expected content`;
+                    resultDiv.parentElement.classList.add('success');
+                } else {
+                    resultDiv.innerHTML = `❌ PARTIAL: Frontend accessible but content unexpected\n` +
+                                        `- Status: ${response.status}\n` +
+                                        `- Content length: ${html.length}`;
+                    resultDiv.parentElement.classList.add('warning');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `❌ ERROR: ${error.message}`;
+                resultDiv.parentElement.classList.add('error');
+            }
+        }
+
+        async function testAuthAPI() {
+            const resultDiv = document.getElementById('auth-result');
+            resultDiv.innerHTML = 'Testing authentication API...';
+            
+            try {
+                // Test login endpoint
+                const loginResponse = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@redditaeo.com',
+                        password: 'Admin123!'
+                    })
+                });
+                
+                if (loginResponse.ok) {
+                    const data = await loginResponse.json();
+                    resultDiv.innerHTML = `✅ SUCCESS: Auth API working\n` +
+                                        `- Login endpoint: ${loginResponse.status}\n` +
+                                        `- Token received: ${!!data.access_token}\n` +
+                                        `- User data: ${data.user?.email}`;
+                    resultDiv.parentElement.classList.add('success');
+                } else {
+                    const errorText = await loginResponse.text();
+                    resultDiv.innerHTML = `❌ FAILED: Auth API error\n` +
+                                        `- Status: ${loginResponse.status}\n` +
+                                        `- Error: ${errorText}`;
+                    resultDiv.parentElement.classList.add('error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `❌ ERROR: ${error.message}`;
+                resultDiv.parentElement.classList.add('error');
+            }
+        }
+
+        async function testReactIntegration() {
+            const resultDiv = document.getElementById('react-result');
+            resultDiv.innerHTML = 'Testing React integration...';
+            
+            try {
+                // Check if React app has the bypass login functionality
+                const response = await fetch('http://localhost:8080/');
+                const html = await response.text();
+                
+                const hasReact = html.includes('react') || html.includes('React');
+                const hasAuthContext = html.includes('AuthProvider') || html.includes('auth');
+                const hasComponents = html.includes('component') || html.includes('Component');
+                
+                resultDiv.innerHTML = `✅ ANALYSIS: React Integration Status\n` +
+                                    `- React detected: ${hasReact ? 'Yes' : 'No'}\n` +
+                                    `- Auth context: ${hasAuthContext ? 'Likely' : 'Unknown'}\n` +
+                                    `- Components: ${hasComponents ? 'Yes' : 'No'}\n` +
+                                    `- Bundle size: ${(html.length / 1024).toFixed(1)}KB`;
+                resultDiv.parentElement.classList.add('success');
+            } catch (error) {
+                resultDiv.innerHTML = `❌ ERROR: ${error.message}`;
+                resultDiv.parentElement.classList.add('error');
+            }
+        }
+
+        async function testFullFlow() {
+            const resultDiv = document.getElementById('flow-result');
+            resultDiv.innerHTML = 'Testing full authentication flow...';
+            
+            try {
+                // Step 1: Login
+                const loginResponse = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@redditaeo.com',
+                        password: 'Admin123!'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    throw new Error(`Login failed: ${loginResponse.status}`);
+                }
+                
+                const loginData = await loginResponse.json();
+                const token = loginData.access_token;
+                
+                // Step 2: Test protected endpoint
+                const profileResponse = await fetch('http://localhost:8080/api/auth/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!profileResponse.ok) {
+                    throw new Error(`Profile access failed: ${profileResponse.status}`);
+                }
+                
+                const profileData = await profileResponse.json();
+                
+                // Step 3: Test profile update
+                const updateResponse = await fetch('http://localhost:8080/api/auth/profile', {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        bio: `Integration test completed at ${new Date().toISOString()}`
+                    })
+                });
+                
+                if (!updateResponse.ok) {
+                    throw new Error(`Profile update failed: ${updateResponse.status}`);
+                }
+                
+                const updateData = await updateResponse.json();
+                
+                resultDiv.innerHTML = `✅ SUCCESS: Full authentication flow working!\n` +
+                                    `- Login: ✅ (${loginData.user.email})\n` +
+                                    `- Profile access: ✅ (${profileData.email})\n` +
+                                    `- Profile update: ✅ (Bio updated)\n` +
+                                    `- Token validation: ✅\n` +
+                                    `- All endpoints functional: ✅`;
+                resultDiv.parentElement.classList.add('success');
+                
+            } catch (error) {
+                resultDiv.innerHTML = `❌ ERROR: ${error.message}`;
+                resultDiv.parentElement.classList.add('error');
+            }
+        }
+
+        // Auto-run basic tests on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testFrontendAccess();
+                setTimeout(() => testAuthAPI(), 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

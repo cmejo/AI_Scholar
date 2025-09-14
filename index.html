@@ -3,11 +3,100 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Production-Ready RAG Chatbot</title>
+    
+    <!-- Enhanced Viewport for Phase 7 Mobile Optimization -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+    
+    <title>AI Scholar - Enterprise Research Assistant</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Enhanced SEO Meta Tags -->
+    <meta name="description" content="AI Scholar is an enterprise-grade research assistant with advanced security, workflow automation, and integration capabilities. Features include RAG technology, document analysis, and intelligent search." />
+    <meta name="keywords" content="AI research assistant, enterprise AI, RAG technology, document analysis, workflow automation, security monitoring, integration hub, scientific research, machine learning, artificial intelligence" />
+    <meta name="author" content="cmejo" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Enhanced Open Graph Meta Tags -->
+    <meta property="og:title" content="AI Scholar - Enterprise Research Assistant" />
+    <meta property="og:description" content="Enterprise-grade AI research assistant with advanced security, workflow automation, and seamless integrations." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://github.com/cmejo/AI_Scholar" />
+    <meta property="og:site_name" content="AI Scholar" />
+    <meta property="og:image" content="/icons/icon-512x512.png" />
+    
+    <!-- Enhanced Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="AI Scholar - Enterprise Research Assistant" />
+    <meta name="twitter:description" content="Enterprise AI research assistant with security monitoring, workflow automation, and advanced integrations." />
+    <meta name="twitter:image" content="/icons/icon-512x512.png" />
+    
+    <!-- PWA and Mobile Optimization -->
+    <meta name="theme-color" content="#10b981" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AI Scholar" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="AI Scholar" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
+    
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-TileColor" content="#10b981" />
+    <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    
+    <!-- Performance Optimization -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="//api.openai.com" />
+    <link rel="dns-prefetch" href="//huggingface.co" />
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    
+    <!-- Accessibility -->
+    <meta name="color-scheme" content="dark light" />
+    
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "AI Scholar",
+      "description": "Enterprise-grade AI research assistant with advanced security, workflow automation, and integration capabilities",
+      "applicationCategory": "ProductivityApplication",
+      "operatingSystem": "Web Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "cmejo"
+      },
+      "featureList": [
+        "AI-powered document analysis",
+        "Enterprise security monitoring",
+        "Workflow automation",
+        "Third-party integrations",
+        "Real-time analytics",
+        "Voice interface",
+        "Mobile optimization"
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

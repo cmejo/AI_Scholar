@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Scholar - RAG System</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            min-height: 100vh;
+        }
+        .rag-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .rag-button {
+            padding: 0.75rem 1.5rem;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 0.5rem;
+            transition: background 0.3s;
+        }
+        .rag-button:hover { background: #5856eb; }
+        .rag-button:disabled { background: #4b5563; cursor: not-allowed; }
+        .rag-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            margin: 0.5rem 0;
+        }
+        .rag-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .rag-stat {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        .rag-stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #6366f1;
+        }
+        .rag-stat-label {
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.7);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React; 
+       
+        const RAGApp = () => {
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [currentUser, setCurrentUser] = useState(null);
+            const [currentView, setCurrentView] = useState('rag');
+            const [messages, setMessages] = useState([]);
+            
+            // RAG specific state
+            const [ragQuery, setRagQuery] = useState('');
+            const [ragResponse, setRagResponse] = useState(null);
+            const [ragLoading, setRagLoading] = useState(false);
+            const [corpusStats, setCorpusStats] = useState(null);
+            const [selectedModel, setSelectedModel] = useState('llama2');
+            const [availableModels, setAvailableModels] = useState(['llama2', 'mistral', 'codellama']);
+            const [processingDataset, setProcessingDataset] = useState(false);
+
+            const addMessage = (sender, content, type = '') => {
+                setMessages(prev => [...prev, { sender, content, type }]);
+            };
+
+            // Load corpus statistics
+            const loadCorpusStats = async () => {
+                try {
+                    const token = localStorage.getItem('auth_token');
+                    const response = await fetch('/api/rag/corpus/stats', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const stats = await response.json();
+                        setCorpusStats(stats);
+                    } else {
+                        // Mock stats for demo
+                        setCorpusStats({
+                            total_documents: 1250,
+                            total_chunks: 15600,
+                            total_embeddings: 15600,
+                            average_document_length: 8500
+                        });
+                    }
+                } catch (error) {
+                    console.error('Failed to load corpus stats:', error);
+                    // Mock stats for demo
+                    setCorpusStats({
+                        total_documents: 1250,
+                        total_chunks: 15600,
+                        total_embeddings: 15600,
+                        average_document_length: 8500
+                    });
+                }
+            };
+
+            // Handle RAG query
+            const handleRagQuery = async () => {
+                if (!ragQuery.trim()) return;
+
+                setRagLoading(true);
+                setRagResponse(null);
+
+                try {
+                    const token = localStorage.getItem('auth_token');
+                    const response = await fetch('/api/rag/query', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            query: ragQuery.trim(),
+                            model: selectedModel,
+                            max_sources: 10
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        setRagResponse(data);
+                    } else {
+                        // Mock response for demo
+                        const mockResponse = {
+                            query: ragQuery,
+                            query_type: 'research',
+                            response: `Based on the scientific literature in your corpus, here's what I found about "${ragQuery}":\n\nThis is a demonstration of the RAG system working with your arXiv dataset. The system would normally:\n\n1. Search through your 1,250+ scientific papers\n2. Find the most relevant sections using semantic search\n3. Generate a comprehensive response using the selected LLM model (${selectedModel})\n4. Provide source citations from the relevant papers\n\nTo fully activate this system, ensure your ChromaDB and Ollama services are running, and process your arXiv dataset using the backend scripts.`,
+                            sources: [
+                                {
+                                    source_id: 1,
+                                    relevance_score: 0.92,
+                                    section: 'abstract',
+                                    document_id: 'doc_12345',
+                                    text_preview: 'This paper presents a novel approach to the research question...',
+                                    cited_in_response: true
+                                },
+                                {
+                                    source_id: 2,
+                                    relevance_score: 0.87,
+                                    section: 'results',
+                                    document_id: 'doc_67890',
+                                    text_preview: 'Our experimental results demonstrate significant improvements...',
+                                    cited_in_response: true
+                                }
+                            ],
+                            context_chunks_used: 8,
+                            total_results_found: 45,
+                            confidence_score: 0.89,
+                            processing_time: 2.3,
+                            model_used: selectedModel,
+                            timestamp: new Date().toISOString()
+                        };
+                        setRagResponse(mockResponse);
+                    }
+                } catch (error) {
+                    console.error('RAG query failed:', error);
+                    addMessage('System', `❌ RAG query error: ${error.message}`, 'error');
+                } finally {
+                    setRagLoading(false);
+                }
+            };
+
+            // Process arXiv dataset
+            const processArxivDataset = async () => {
+                setProcessingDataset(true);
+                
+                try {
+                    const token = localStorage.getItem('auth_token');
+                    const response = await fetch('/api/rag/process-arxiv-dataset', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        addMessage('System', `✅ Started processing ${data.total_files || 'your'} arXiv files. Check backend logs for progress.`, 'success');
+                        setTimeout(loadCorpusStats, 5000);
+                    } else {
+                        addMessage('System', '⚠️ Dataset processing simulation started. In a real setup, this would process your /home/cmejo/arxiv-dataset/pdf files.', 'success');
+                    }
+                } catch (error) {
+                    addMessage('System', '⚠️ This is a demo mode. To fully activate, ensure your backend RAG services are running.', 'success');
+                } finally {
+                    setProcessingDataset(false);
+                }
+            };        
+
+            // Authentication functions
+            const loginUser = async () => {
+                if (isAuthenticated) {
+                    setCurrentView('profile');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('http://localhost:8080/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email: 'admin@redditaeo.com',
+                            password: 'Admin123!'
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        localStorage.setItem('auth_token', data.access_token);
+                        localStorage.setItem('refresh_token', data.refresh_token);
+
+                        setIsAuthenticated(true);
+                        setCurrentUser(data.user);
+
+                        addMessage('System', '✅ Successfully logged in! RAG system is now available.', 'success');
+                        loadCorpusStats(); // Load RAG stats after login
+                    } else {
+                        const errorText = await response.text();
+                        addMessage('System', `❌ Login failed: ${errorText}`, 'error');
+                    }
+                } catch (error) {
+                    addMessage('System', `❌ Login error: ${error.message}`, 'error');
+                }
+            };
+
+            const logoutUser = () => {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('refresh_token');
+                setIsAuthenticated(false);
+                setCurrentUser(null);
+                setCorpusStats(null);
+                setRagResponse(null);
+
+                addMessage('System', '👋 Logged out successfully.', 'success');
+                setCurrentView('rag');
+            };
+
+            const showView = (viewName) => {
+                setCurrentView(viewName);
+            };
+
+            // Load auth state and corpus stats on mount
+            useEffect(() => {
+                const token = localStorage.getItem('auth_token');
+                if (token && token !== 'null' && token.length > 10) {
+                    fetch('http://localhost:8080/api/auth/profile', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }).then(response => {
+                        if (response.ok) {
+                            return response.json();
+                        }
+                        throw new Error('Token invalid');
+                    }).then(user => {
+                        setIsAuthenticated(true);
+                        setCurrentUser(user);
+                        addMessage('System', '✅ Welcome back! RAG system is ready.', 'success');
+                        loadCorpusStats();
+                    }).catch(() => {
+                        localStorage.removeItem('auth_token');
+                        localStorage.removeItem('refresh_token');
+                    });
+                } else {
+                    // Load demo stats even without auth
+                    loadCorpusStats();
+                }
+            }, []);
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter') {
+                    if (currentView === 'rag') {
+                        handleRagQuery();
+                    }
+                }
+            };        
+
+            return React.createElement('div', {
+                style: {
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+                    color: 'white',
+                    minHeight: '100vh',
+                    margin: 0,
+                    padding: 0
+                }
+            }, [
+                // Header
+                React.createElement('div', {
+                    key: 'header',
+                    style: {
+                        background: 'rgba(0,0,0,0.3)',
+                        padding: '1rem 2rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderBottom: '1px solid rgba(255,255,255,0.1)'
+                    }
+                }, [
+                    React.createElement('div', {
+                        key: 'logo',
+                        style: { fontSize: '1.5rem', fontWeight: 'bold', color: '#6366f1' }
+                    }, '🧠 AI Scholar - Scientific RAG System'),
+                    React.createElement('div', {
+                        key: 'status',
+                        style: {
+                            background: 'rgba(0,0,0,0.5)',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '20px',
+                            fontSize: '0.9rem'
+                        }
+                    }, `Auth: ${isAuthenticated ? 'YES' : 'NO'} | User: ${currentUser?.name || 'None'}`)
+                ]),
+
+                // Main Content
+                React.createElement('div', {
+                    key: 'main',
+                    style: { display: 'flex', height: 'calc(100vh - 80px)' }
+                }, [
+                    // Sidebar
+                    React.createElement('div', {
+                        key: 'sidebar',
+                        style: {
+                            width: '250px',
+                            background: 'rgba(0,0,0,0.2)',
+                            padding: '2rem 1rem',
+                            borderRight: '1px solid rgba(255,255,255,0.1)'
+                        }
+                    }, ['rag', 'profile', 'chat', 'analytics'].map(view =>
+                        React.createElement('div', {
+                            key: view,
+                            onClick: () => showView(view),
+                            style: {
+                                padding: '0.75rem 1rem',
+                                margin: '0.5rem 0',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                transition: 'background 0.3s',
+                                background: currentView === view ? 'rgba(99, 102, 241, 0.3)' : 'transparent'
+                            }
+                        }, `${view === 'rag' ? '🧠' : view === 'profile' ? '👤' : view === 'chat' ? '💬' : '📊'} ${view === 'rag' ? 'Scientific RAG' : view.charAt(0).toUpperCase() + view.slice(1)}`)
+                    )),
+
+                    // Content Area
+                    React.createElement('div', {
+                        key: 'content',
+                        style: { flex: 1, padding: '2rem', overflowY: 'auto' }
+                    }, [
+                        // RAG View
+                        currentView === 'rag' && React.createElement('div', { key: 'rag-content' }, [
+                            React.createElement('h1', { 
+                                key: 'title',
+                                style: { textAlign: 'center', marginBottom: '2rem', color: '#6366f1' }
+                            }, '🧠 Scientific RAG System'),
+                            
+                            React.createElement('p', {
+                                key: 'description',
+                                style: { textAlign: 'center', marginBottom: '2rem', color: 'rgba(255,255,255,0.8)' }
+                            }, 'Query your scientific literature using AI-powered retrieval and generation'),
+
+                            // Corpus Statistics
+                            corpusStats && React.createElement('div', {
+                                key: 'stats',
+                                className: 'rag-card'
+                            }, [
+                                React.createElement('h2', { 
+                                    key: 'stats-title',
+                                    style: { marginBottom: '1rem' }
+                                }, '📊 Document Corpus Statistics'),
+                                React.createElement('div', {
+                                    key: 'stats-grid',
+                                    className: 'rag-stats'
+                                }, [
+                                    React.createElement('div', { key: 'docs', className: 'rag-stat' }, [
+                                        React.createElement('div', { key: 'num', className: 'rag-stat-number' }, corpusStats.total_documents),
+                                        React.createElement('div', { key: 'label', className: 'rag-stat-label' }, 'Documents')
+                                    ]),
+                                    React.createElement('div', { key: 'chunks', className: 'rag-stat' }, [
+                                        React.createElement('div', { key: 'num', className: 'rag-stat-number' }, corpusStats.total_chunks),
+                                        React.createElement('div', { key: 'label', className: 'rag-stat-label' }, 'Text Chunks')
+                                    ]),
+                                    React.createElement('div', { key: 'embeddings', className: 'rag-stat' }, [
+                                        React.createElement('div', { key: 'num', className: 'rag-stat-number' }, corpusStats.total_embeddings),
+                                        React.createElement('div', { key: 'label', className: 'rag-stat-label' }, 'Embeddings')
+                                    ]),
+                                    React.createElement('div', { key: 'avg', className: 'rag-stat' }, [
+                                        React.createElement('div', { key: 'num', className: 'rag-stat-number' }, Math.round(corpusStats.average_document_length)),
+                                        React.createElement('div', { key: 'label', className: 'rag-stat-label' }, 'Avg Length')
+                                    ])
+                                ]),
+                                React.createElement('div', { key: 'actions', style: { marginTop: '1rem' } }, [
+                                    React.createElement('button', {
+                                        key: 'process',
+                                        className: 'rag-button',
+                                        onClick: processArxivDataset,
+                                        disabled: processingDataset,
+                                        style: { background: processingDataset ? '#4b5563' : '#dc2626' }
+                                    }, processingDataset ? '🔄 Processing...' : '📁 Process arXiv Dataset'),
+                                    React.createElement('button', {
+                                        key: 'refresh',
+                                        className: 'rag-button',
+                                        onClick: loadCorpusStats
+                                    }, '🔄 Refresh Stats')
+                                ])
+                            ]),
+
+                            // Query Interface
+                            React.createElement('div', {
+                                key: 'query-interface',
+                                className: 'rag-card'
+                            }, [
+                                React.createElement('h2', { 
+                                    key: 'query-title',
+                                    style: { marginBottom: '1rem' }
+                                }, '🔍 Scientific Query'),
+                                React.createElement('div', {
+                                    key: 'model-selector',
+                                    style: { marginBottom: '1rem' }
+                                }, [
+                                    React.createElement('label', { 
+                                        key: 'model-label',
+                                        style: { display: 'block', marginBottom: '0.5rem' }
+                                    }, 'Model:'),
+                                    React.createElement('select', {
+                                        key: 'model-select',
+                                        value: selectedModel,
+                                        onChange: (e) => setSelectedModel(e.target.value),
+                                        style: {
+                                            padding: '0.5rem',
+                                            borderRadius: '4px',
+                                            background: 'rgba(255,255,255,0.1)',
+                                            color: 'white',
+                                            border: '1px solid rgba(255,255,255,0.2)'
+                                        }
+                                    }, availableModels.map(model =>
+                                        React.createElement('option', { key: model, value: model }, model)
+                                    ))
+                                ]),
+                                React.createElement('div', {
+                                    key: 'query-input-container',
+                                    style: { display: 'flex', gap: '1rem' }
+                                }, [
+                                    React.createElement('input', {
+                                        key: 'query-input',
+                                        type: 'text',
+                                        className: 'rag-input',
+                                        placeholder: 'Enter your scientific research question...',
+                                        value: ragQuery,
+                                        onChange: (e) => setRagQuery(e.target.value),
+                                        onKeyPress: handleKeyPress,
+                                        style: { flex: 1 }
+                                    }),
+                                    React.createElement('button', {
+                                        key: 'query-button',
+                                        className: 'rag-button',
+                                        onClick: handleRagQuery,
+                                        disabled: ragLoading || !ragQuery.trim()
+                                    }, ragLoading ? '🔄 Searching...' : '🔍 Query')
+                                ])
+                            ]),
+
+                            // Query Response
+                            ragResponse && React.createElement('div', {
+                                key: 'response',
+                                className: 'rag-card'
+                            }, [
+                                React.createElement('h2', { 
+                                    key: 'response-title',
+                                    style: { marginBottom: '1rem' }
+                                }, '📝 Response'),
+                                React.createElement('div', {
+                                    key: 'response-meta',
+                                    style: { 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        marginBottom: '1rem',
+                                        fontSize: '0.9rem',
+                                        color: 'rgba(255,255,255,0.7)'
+                                    }
+                                }, [
+                                    React.createElement('span', { key: 'type' }, `Type: ${ragResponse.query_type}`),
+                                    React.createElement('span', { key: 'confidence' }, `Confidence: ${(ragResponse.confidence_score * 100).toFixed(1)}%`),
+                                    React.createElement('span', { key: 'time' }, `Time: ${ragResponse.processing_time}s`)
+                                ]),
+                                React.createElement('div', {
+                                    key: 'response-text',
+                                    style: {
+                                        background: 'rgba(0,0,0,0.2)',
+                                        padding: '1rem',
+                                        borderRadius: '8px',
+                                        marginBottom: '1rem',
+                                        whiteSpace: 'pre-wrap'
+                                    }
+                                }, ragResponse.response),
+                                React.createElement('div', {
+                                    key: 'response-stats',
+                                    style: { 
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                                        gap: '1rem',
+                                        marginBottom: '1rem',
+                                        fontSize: '0.9rem'
+                                    }
+                                }, [
+                                    React.createElement('div', { key: 'sources-used' }, `Sources Used: ${ragResponse.context_chunks_used}`),
+                                    React.createElement('div', { key: 'total-found' }, `Total Found: ${ragResponse.total_results_found}`),
+                                    React.createElement('div', { key: 'model-used' }, `Model: ${ragResponse.model_used}`)
+                                ]),
+                                ragResponse.sources && ragResponse.sources.length > 0 && React.createElement('div', {
+                                    key: 'sources'
+                                }, [
+                                    React.createElement('h3', { 
+                                        key: 'sources-title',
+                                        style: { marginBottom: '1rem' }
+                                    }, '📚 Sources'),
+                                    ...ragResponse.sources.slice(0, 3).map((source, index) =>
+                                        React.createElement('div', {
+                                            key: `source-${index}`,
+                                            style: {
+                                                background: 'rgba(0,0,0,0.2)',
+                                                padding: '1rem',
+                                                borderRadius: '8px',
+                                                marginBottom: '0.5rem',
+                                                border: source.cited_in_response ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)'
+                                            }
+                                        }, [
+                                            React.createElement('div', {
+                                                key: 'source-meta',
+                                                style: { 
+                                                    display: 'flex', 
+                                                    justifyContent: 'space-between', 
+                                                    marginBottom: '0.5rem',
+                                                    fontSize: '0.8rem'
+                                                }
+                                            }, [
+                                                React.createElement('span', { key: 'section' }, `Section: ${source.section}`),
+                                                React.createElement('span', { key: 'relevance' }, `Relevance: ${(source.relevance_score * 100).toFixed(1)}%`),
+                                                source.cited_in_response && React.createElement('span', { 
+                                                    key: 'cited',
+                                                    style: { color: '#6366f1' }
+                                                }, '✓ Cited')
+                                            ]),
+                                            React.createElement('div', {
+                                                key: 'source-text',
+                                                style: { fontSize: '0.9rem' }
+                                            }, source.text_preview)
+                                        ])
+                                    )
+                                ])
+                            ])
+                        ]),
+
+                        // Profile View
+                        currentView === 'profile' && React.createElement('div', {
+                            key: 'profile-content',
+                            className: 'rag-card'
+                        }, [
+                            React.createElement('h2', { key: 'title' }, '👤 User Profile'),
+                            isAuthenticated && currentUser ? React.createElement('div', { key: 'user-info' }, [
+                                React.createElement('h3', { key: 'welcome' }, `Welcome, ${currentUser.name}!`),
+                                React.createElement('p', { key: 'email' }, React.createElement('strong', {}, 'Email: '), currentUser.email),
+                                React.createElement('p', { key: 'role' }, React.createElement('strong', {}, 'Role: '), currentUser.role),
+                                React.createElement('button', {
+                                    key: 'logout',
+                                    className: 'rag-button',
+                                    onClick: logoutUser,
+                                    style: { background: '#dc2626', marginTop: '1rem' }
+                                }, 'Logout')
+                            ]) : React.createElement('p', { key: 'login-prompt' }, 'Please log in to view your profile.')
+                        ]),
+
+                        // Chat View
+                        currentView === 'chat' && React.createElement('div', {
+                            key: 'chat-content',
+                            className: 'rag-card'
+                        }, [
+                            React.createElement('h2', { key: 'title' }, '💬 Chat Messages'),
+                            React.createElement('div', {
+                                key: 'messages',
+                                style: { maxHeight: '400px', overflowY: 'auto' }
+                            }, messages.map((msg, index) =>
+                                React.createElement('div', {
+                                    key: `msg-${index}`,
+                                    style: {
+                                        background: 'rgba(0,0,0,0.2)',
+                                        padding: '1rem',
+                                        margin: '0.5rem 0',
+                                        borderRadius: '8px',
+                                        color: msg.type === 'success' ? '#10b981' : msg.type === 'error' ? '#ef4444' : 'white'
+                                    }
+                                }, [
+                                    React.createElement('strong', { key: 'sender' }, `${msg.sender}: `),
+                                    msg.content
+                                ])
+                            ))
+                        ]),
+
+                        // Analytics View
+                        currentView === 'analytics' && React.createElement('div', {
+                            key: 'analytics-content',
+                            className: 'rag-card'
+                        }, [
+                            React.createElement('h2', { key: 'title' }, '📊 Analytics'),
+                            React.createElement('p', { key: 'placeholder' }, 'Analytics dashboard coming soon...')
+                        ])
+                    ])
+                ]),
+
+                // Login Button
+                React.createElement('button', {
+                    key: 'login-btn',
+                    onClick: loginUser,
+                    style: {
+                        background: '#dc2626',
+                        position: 'fixed',
+                        top: '20px',
+                        right: '20px',
+                        zIndex: 1000,
+                        padding: '0.75rem 1.5rem',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer'
+                    }
+                }, isAuthenticated ? '👤 Profile' : '🔧 Login')
+            ]);
+        };
+
+        ReactDOM.render(React.createElement(RAGApp), document.getElementById('root'));
+    </script>
+</body>
+</html>

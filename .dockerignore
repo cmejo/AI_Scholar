@@ -104,7 +104,6 @@ venv/
 env/
 ENV/
 
-# Package manager files (will be copied separately)
-package-lock.json
+# Package manager files (yarn and pnpm lock files not needed)
 yarn.lock
 pnpm-lock.yaml

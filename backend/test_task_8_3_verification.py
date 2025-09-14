@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from sqlalchemy.orm import Session
 from core.database import SessionLocal, Document, DocumentChunk, User, DocumentTag, AnalyticsEvent
-from services.topic_modeling_service import TopicModelingService, TopicInfo, DocumentCluster, TopicTrend
+# from services.topic_modeling_service import TopicModelingService, TopicInfo, DocumentCluster, TopicTrend
 import uuid
 
 async def verify_topic_modeling_service():

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug React Auth</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .debug-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #6366f1;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #5856eb; }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #374151;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug React Authentication</h1>
+    
+    <div class="debug-section">
+        <h2>1. Check React App Loading</h2>
+        <p>Let's see what's actually being served by the React app.</p>
+        <button onclick="checkReactApp()">Check React App</button>
+        <div id="react-check" class="result"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>2. Test Direct Authentication</h2>
+        <p>Test the authentication API directly and add bypass button manually.</p>
+        <button onclick="testDirectAuth()">Test Auth + Add Bypass</button>
+        <div id="auth-test" class="result"></div>
+    </div>
+
+    <div class="debug-section">
+        <h2>3. Manual Bypass Login</h2>
+        <p>Manually perform the bypass login that should be in the React app.</p>
+        <button onclick="manualBypass()" style="background: #dc2626;">🔧 Manual Bypass Login</button>
+        <div id="bypass-result" class="result"></div>
+    </div>
+
+    <script>
+        async function checkReactApp() {
+            const resultDiv = document.getElementById('react-check');
+            resultDiv.innerHTML = 'Checking React app...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/');
+                const html = await response.text();
+                
+                // Look for specific patterns
+                const hasReactRoot = html.includes('id="root"');
+                const hasJSBundle = html.includes('.js');
+                const hasCSSBundle = html.includes('.css');
+                const hasTestButton = html.includes('TEST BUTTON');
+                const hasBypassButton = html.includes('Bypass') || html.includes('bypass');
+                
+                resultDiv.innerHTML = `React App Analysis:
+- Has React root div: ${hasReactRoot}
+- Has JS bundle: ${hasJSBundle}
+- Has CSS bundle: ${hasCSSBundle}
+- Has test button: ${hasTestButton}
+- Has bypass button: ${hasBypassButton}
+- HTML length: ${html.length} chars
+- Response status: ${response.status}
+
+First 500 chars of HTML:
+${html.substring(0, 500)}...`;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `Error: ${error.message}`;
+            }
+        }
+
+        async function testDirectAuth() {
+            const resultDiv = document.getElementById('auth-test');
+            resultDiv.innerHTML = 'Testing authentication...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@redditaeo.com',
+                        password: 'Admin123!'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `✅ Authentication Working!
+- Status: ${response.status}
+- Token received: ${!!data.access_token}
+- User: ${data.user?.name} (${data.user?.email})
+- Role: ${data.user?.role}
+
+Now adding bypass button to React app...`;
+                    
+                    // Try to add bypass button to the React app
+                    addBypassButtonToReactApp(data.access_token, data.refresh_token, data.user);
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `❌ Auth failed: ${response.status}\n${errorText}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function manualBypass() {
+            const resultDiv = document.getElementById('bypass-result');
+            resultDiv.innerHTML = 'Performing manual bypass login...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@redditaeo.com',
+                        password: 'Admin123!'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Store tokens in localStorage (same as React app would do)
+                    localStorage.setItem('auth_token', data.access_token);
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                    
+                    resultDiv.innerHTML = `✅ Manual Bypass Successful!
+- Tokens stored in localStorage
+- User: ${data.user.name}
+- Email: ${data.user.email}
+- Role: ${data.user.role}
+
+Now refresh the React app at http://localhost:8080/ 
+The app should detect the stored tokens and log you in automatically!`;
+                    
+                    // Open React app in new tab
+                    setTimeout(() => {
+                        window.open('http://localhost:8080/', '_blank');
+                    }, 2000);
+                    
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `❌ Manual bypass failed: ${response.status}\n${errorText}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        function addBypassButtonToReactApp(token, refreshToken, user) {
+            // This would inject a bypass button into the React app
+            // But since it's a SPA, we'll just store the tokens and tell user to refresh
+            localStorage.setItem('auth_token', token);
+            localStorage.setItem('refresh_token', refreshToken);
+            
+            setTimeout(() => {
+                alert('Tokens stored! Now open http://localhost:8080/ in a new tab - you should be logged in automatically!');
+            }, 1000);
+        }
+
+        // Auto-run the React check
+        window.addEventListener('load', () => {
+            setTimeout(checkReactApp, 500);
+        });
+    </script>
+</body>
+</html>

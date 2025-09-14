@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug React App</title>
+</head>
+<body>
+    <div id="root"></div>
+    <div id="debug" style="position: fixed; top: 10px; left: 10px; background: yellow; color: black; padding: 10px; z-index: 9999;">
+        Loading...
+    </div>
+    
+    <script>
+        window.addEventListener('error', function(e) {
+            document.getElementById('debug').innerHTML = 'Error: ' + e.message + ' at ' + e.filename + ':' + e.lineno;
+        });
+        
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (document.getElementById('root').innerHTML === '') {
+                    document.getElementById('debug').innerHTML = 'React app did not render';
+                } else {
+                    document.getElementById('debug').innerHTML = 'React app rendered successfully';
+                }
+            }, 2000);
+        });
+    </script>
+    
+    <script type="module" crossorigin src="/assets/index-Bl5v5tbc.js"></script>
+    <link rel="stylesheet" crossorigin href="/css/index-D_bNGNxH.css">
+</body>
+</html>

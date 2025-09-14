@@ -18,14 +18,14 @@ interface MonitoringOptions {
 
 export function createMonitoredLazyComponent<T = {}>(
   loader: LoadableComponent<T>,
-  options: MonitoringOptions
+  componentName: string,
+  options?: Partial<MonitoringOptions>
 ): ComponentType<T> {
   const {
-    componentName,
     timeout = 10000,
     retries = 3,
     preload = false,
-  } = options;
+  } = options || {};
 
   // Preload if requested
   if (preload) {
@@ -322,5 +322,4 @@ export function initializeCodeSplitting() {
   }
 }
 
-// Export for use in main app
-export { ComponentPerformanceTracker, ComponentPreloader };
+// Classes are already exported above

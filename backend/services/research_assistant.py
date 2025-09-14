@@ -22,7 +22,7 @@ from core.database import (
     AnalyticsEvent
 )
 from services.multimodal_processor import MultiModalProcessor, ContentType
-from services.topic_modeling_service import TopicModelingService
+# from services.topic_modeling_service import TopicModelingService
 from services.knowledge_graph import EnhancedKnowledgeGraphService
 from models.schemas import AnalyticsEventCreate
 
@@ -110,7 +110,7 @@ class ResearchAssistant:
     def __init__(self, db: Session):
         self.db = db
         self.multimodal_processor = MultiModalProcessor(db)
-        self.topic_service = TopicModelingService(db)
+        # self.topic_service = TopicModelingService(db)
         self.kg_service = EnhancedKnowledgeGraphService()
         
         # Research templates and patterns

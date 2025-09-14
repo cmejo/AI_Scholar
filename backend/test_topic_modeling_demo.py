@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from sqlalchemy.orm import Session
 from core.database import SessionLocal, Document, DocumentChunk, User, init_db
-from services.topic_modeling_service import TopicModelingService
+# from services.topic_modeling_service import TopicModelingService
 import uuid
 
 async def create_sample_data(db: Session):

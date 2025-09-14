@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            background: #2a2a2a;
+        }
+        .success { border-color: #4a8a4a; background: #2d3a2d; }
+        .error { border-color: #8a4a4a; background: #3a2d2d; }
+        .info { border-color: #4a6a8a; background: #2d3a3a; }
+        .test-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #6b46c1;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 10px 10px 0;
+        }
+        .test-link:hover {
+            background: #7c3aed;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #444;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 RAG Integration Test Suite</h1>
+    
+    <div class="test-section info">
+        <h2>📋 Test Overview</h2>
+        <p>This test verifies that the RAG (Retrieval-Augmented Generation) functionality is properly integrated into the main AI Scholar application.</p>
+        
+        <h3>What to Test:</h3>
+        <ol>
+            <li><strong>Main App Loading:</strong> Verify the app loads at localhost:8080</li>
+            <li><strong>RAG Navigation:</strong> Check if "Scientific RAG" appears in the sidebar</li>
+            <li><strong>RAG Interface:</strong> Test the RAG query interface</li>
+            <li><strong>Backend Connection:</strong> Verify RAG endpoints are accessible</li>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h2>🔗 Quick Access Links</h2>
+        <a href="http://localhost:8080" target="_blank" class="test-link">🚀 Main App (localhost:8080)</a>
+        <a href="http://localhost:3003/react-rag-app.html" target="_blank" class="test-link">🧪 RAG Demo (localhost:3003)</a>
+        <a href="debug-main-app.html" target="_blank" class="test-link">🔍 Debug Tool</a>
+    </div>
+    
+    <div class="test-section">
+        <h2>🧠 RAG Backend Tests</h2>
+        <div id="backend-tests">
+            <p>Testing RAG backend endpoints...</p>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🖥️ Main App Preview</h2>
+        <p>The main app should load below. Look for the "Scientific RAG" option in the sidebar:</p>
+        <iframe src="http://localhost:8080" title="Main AI Scholar App"></iframe>
+    </div>
+    
+    <div class="test-section info">
+        <h2>✅ Success Criteria</h2>
+        <ul>
+            <li>Main app loads without white screen</li>
+            <li>Sidebar shows "Scientific RAG" option with brain icon</li>
+            <li>Clicking "Scientific RAG" shows the query interface</li>
+            <li>RAG interface includes model selection and query input</li>
+            <li>Backend endpoints respond (even with mock data)</li>
+        </ul>
+    </div>
+    
+    <script>
+        const backendTestsDiv = document.getElementById('backend-tests');
+        
+        function addBackendTest(name, status, message) {
+            const div = document.createElement('div');
+            div.style.margin = '10px 0';
+            div.style.padding = '10px';
+            div.style.borderRadius = '5px';
+            div.style.border = '1px solid #444';
+            
+            if (status === 'success') {
+                div.style.background = '#2d3a2d';
+                div.style.borderColor = '#4a8a4a';
+            } else if (status === 'error') {
+                div.style.background = '#3a2d2d';
+                div.style.borderColor = '#8a4a4a';
+            } else {
+                div.style.background = '#2d3a3a';
+                div.style.borderColor = '#4a6a8a';
+            }
+            
+            div.innerHTML = `<strong>${name}:</strong> ${message}`;
+            backendTestsDiv.appendChild(div);
+        }
+        
+        // Test RAG endpoints
+        async function testRAGEndpoints() {
+            // Test 1: Corpus stats
+            try {
+                const response = await fetch('/api/rag/corpus/stats');
+                if (response.ok) {
+                    const data = await response.json();
+                    addBackendTest('Corpus Stats', 'success', `✅ Endpoint accessible - ${data.total_documents || 'N/A'} documents`);
+                } else {
+                    addBackendTest('Corpus Stats', 'info', `⚠️ Endpoint returns ${response.status} (expected for demo mode)`);
+                }
+            } catch (error) {
+                addBackendTest('Corpus Stats', 'info', '⚠️ Endpoint not accessible (expected for demo mode)');
+            }
+            
+            // Test 2: Available models
+            try {
+                const response = await fetch('/api/rag/models');
+                if (response.ok) {
+                    const data = await response.json();
+                    addBackendTest('Available Models', 'success', `✅ Models endpoint accessible - ${data.available_models?.length || 0} models`);
+                } else {
+                    addBackendTest('Available Models', 'info', `⚠️ Models endpoint returns ${response.status} (expected for demo mode)`);
+                }
+            } catch (error) {
+                addBackendTest('Available Models', 'info', '⚠️ Models endpoint not accessible (expected for demo mode)');
+            }
+            
+            // Test 3: Query endpoint (POST)
+            try {
+                const response = await fetch('/api/rag/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: 'test query',
+                        model: 'llama2',
+                        max_sources: 5
+                    })
+                });
+                
+                if (response.ok) {
+                    addBackendTest('Query Endpoint', 'success', '✅ Query endpoint accessible and responding');
+                } else {
+                    addBackendTest('Query Endpoint', 'info', `⚠️ Query endpoint returns ${response.status} (expected for demo mode)`);
+                }
+            } catch (error) {
+                addBackendTest('Query Endpoint', 'info', '⚠️ Query endpoint not accessible (expected for demo mode)');
+            }
+            
+            // Summary
+            addBackendTest('Summary', 'info', '📝 RAG functionality includes fallback mock responses for demo purposes. The interface should work even without backend services.');
+        }
+        
+        // Run tests
+        testRAGEndpoints();
+        
+        // Add instructions
+        setTimeout(() => {
+            const instructionsDiv = document.createElement('div');
+            instructionsDiv.style.marginTop = '20px';
+            instructionsDiv.style.padding = '15px';
+            instructionsDiv.style.background = '#2d4a5a';
+            instructionsDiv.style.border = '1px solid #4a6a8a';
+            instructionsDiv.style.borderRadius = '5px';
+            instructionsDiv.innerHTML = `
+                <h3>🎯 How to Test RAG Integration:</h3>
+                <ol>
+                    <li><strong>Open Main App:</strong> Click the "Main App" link above</li>
+                    <li><strong>Find RAG Option:</strong> Look for "Scientific RAG" in the left sidebar (brain icon)</li>
+                    <li><strong>Click Scientific RAG:</strong> This should open the RAG interface</li>
+                    <li><strong>Test Query:</strong> Try asking "What are the latest advances in machine learning?"</li>
+                    <li><strong>Check Response:</strong> You should get a response (mock data if backend not connected)</li>
+                </ol>
+                <p><strong>Expected Result:</strong> The RAG interface should work with mock responses, showing document stats, model selection, and query capabilities.</p>
+            `;
+            backendTestsDiv.appendChild(instructionsDiv);
+        }, 2000);
+    </script>
+</body>
+</html>

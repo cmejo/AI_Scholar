@@ -23,7 +23,7 @@ from core.database import (
     User, UserProfile, KGEntity, KGRelationship
 )
 from services.knowledge_graph import KnowledgeGraphService
-from services.topic_modeling_service import TopicModelingService
+# from services.topic_modeling_service import TopicModelingService
 from services.advanced_analytics import AdvancedAnalyticsService
 
 logger = logging.getLogger(__name__)
@@ -105,7 +105,7 @@ class SemanticSearchV2Service:
     def __init__(self, db: Session):
         self.db = db
         self.kg_service = KnowledgeGraphService(db)
-        self.topic_service = TopicModelingService(db)
+        # self.topic_service = TopicModelingService(db)
         self.analytics_service = AdvancedAnalyticsService(db)
         
         # Search enhancement configurations

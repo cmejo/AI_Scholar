@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Rendering Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .status {
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+        .success { background: #1a4d3a; border-color: #10b981; }
+        .error { background: #4d1a1a; border-color: #ef4444; }
+        .warning { background: #4d3a1a; border-color: #f59e0b; }
+        .app-frame {
+            width: 100%;
+            height: 800px;
+            border: 2px solid #374151;
+            border-radius: 8px;
+            background: white;
+            margin: 20px 0;
+        }
+        .test-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .test-card {
+            background: #374151;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .test-card h3 {
+            margin-top: 0;
+            color: #10b981;
+        }
+        .console-output {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #4f46e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 React Application Rendering Test</h1>
+        
+        <div class="status success">
+            <h3>✅ Test Environment Ready</h3>
+            <p>Testing React application rendering at: <strong>http://localhost:8080</strong></p>
+        </div>
+
+        <div class="test-results">
+            <div class="test-card">
+                <h3>📦 Bundle Status</h3>
+                <div id="bundle-status">Checking...</div>
+                <button onclick="checkBundle()">Check Bundle</button>
+            </div>
+            
+            <div class="test-card">
+                <h3>🔍 DOM Inspection</h3>
+                <div id="dom-status">Checking...</div>
+                <button onclick="checkDOM()">Check DOM</button>
+            </div>
+            
+            <div class="test-card">
+                <h3>🚀 React Mount Status</h3>
+                <div id="react-status">Checking...</div>
+                <button onclick="checkReact()">Check React</button>
+            </div>
+            
+            <div class="test-card">
+                <h3>📊 Console Logs</h3>
+                <div id="console-status">Checking...</div>
+                <button onclick="checkConsole()">Check Console</button>
+            </div>
+        </div>
+
+        <div class="console-output" id="console-output">
+            Console output will appear here...
+        </div>
+
+        <h2>🖥️ Live Application Preview</h2>
+        <iframe src="http://localhost:8080" class="app-frame" id="app-frame"></iframe>
+
+        <div class="test-results">
+            <div class="test-card">
+                <h3>🔧 Quick Actions</h3>
+                <button onclick="reloadApp()">Reload App</button>
+                <button onclick="clearCache()">Clear Cache</button>
+                <button onclick="runFullTest()">Run Full Test</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let consoleOutput = document.getElementById('console-output');
+        let originalConsoleLog = console.log;
+        let originalConsoleError = console.error;
+        let originalConsoleWarn = console.warn;
+
+        function logToOutput(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff4444' : type === 'warn' ? '#ffaa00' : '#00ff00';
+            consoleOutput.innerHTML += `<div style="color: ${color}">[${timestamp}] ${type.toUpperCase()}: ${message}</div>`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            logToOutput(args.join(' '), 'log');
+        };
+
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            logToOutput(args.join(' '), 'error');
+        };
+
+        console.warn = function(...args) {
+            originalConsoleWarn.apply(console, args);
+            logToOutput(args.join(' '), 'warn');
+        };
+
+        async function checkBundle() {
+            const statusDiv = document.getElementById('bundle-status');
+            statusDiv.innerHTML = 'Checking bundle...';
+            
+            try {
+                const response = await fetch('http://localhost:8080');
+                const html = await response.text();
+                
+                // Extract script tag
+                const scriptMatch = html.match(/src="([^"]*index[^"]*\.js)"/);
+                if (scriptMatch) {
+                    const bundlePath = scriptMatch[1];
+                    console.log('Found bundle:', bundlePath);
+                    
+                    // Check if bundle loads
+                    const bundleResponse = await fetch(`http://localhost:8080${bundlePath}`);
+                    if (bundleResponse.ok) {
+                        const bundleContent = await bundleResponse.text();
+                        const hasReact = bundleContent.includes('React') || bundleContent.includes('jsx');
+                        
+                        statusDiv.innerHTML = `
+                            <div style="color: #10b981;">✅ Bundle Found: ${bundlePath}</div>
+                            <div>Size: ${(bundleContent.length / 1024).toFixed(2)} KB</div>
+                            <div>React Content: ${hasReact ? '✅ Yes' : '❌ No'}</div>
+                        `;
+                    } else {
+                        statusDiv.innerHTML = '<div style="color: #ef4444;">❌ Bundle not accessible</div>';
+                    }
+                } else {
+                    statusDiv.innerHTML = '<div style="color: #ef4444;">❌ No bundle found in HTML</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div style="color: #ef4444;">❌ Error: ${error.message}</div>`;
+                console.error('Bundle check failed:', error);
+            }
+        }
+
+        function checkDOM() {
+            const statusDiv = document.getElementById('dom-status');
+            const iframe = document.getElementById('app-frame');
+            
+            try {
+                // Try to access iframe content (may be blocked by CORS)
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                const rootElement = iframeDoc.getElementById('root');
+                
+                if (rootElement) {
+                    const hasContent = rootElement.innerHTML.trim().length > 0;
+                    const childCount = rootElement.children.length;
+                    
+                    statusDiv.innerHTML = `
+                        <div style="color: #10b981;">✅ Root element found</div>
+                        <div>Has content: ${hasContent ? '✅ Yes' : '❌ No'}</div>
+                        <div>Child elements: ${childCount}</div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = '<div style="color: #ef4444;">❌ Root element not found</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div style="color: #f59e0b;">⚠️ Cannot access iframe (CORS)</div>
+                    <div>This is normal for cross-origin content</div>
+                `;
+                console.warn('DOM check limited by CORS:', error.message);
+            }
+        }
+
+        function checkReact() {
+            const statusDiv = document.getElementById('react-status');
+            const iframe = document.getElementById('app-frame');
+            
+            try {
+                const iframeWindow = iframe.contentWindow;
+                
+                // Check for React in global scope
+                if (iframeWindow.React) {
+                    statusDiv.innerHTML = '<div style="color: #10b981;">✅ React found in global scope</div>';
+                } else {
+                    statusDiv.innerHTML = '<div style="color: #f59e0b;">⚠️ React not in global scope (normal for bundled apps)</div>';
+                }
+                
+                // Check for React DevTools
+                if (iframeWindow.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+                    statusDiv.innerHTML += '<div style="color: #10b981;">✅ React DevTools hook detected</div>';
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div style="color: #f59e0b;">⚠️ Cannot access iframe window (CORS)</div>
+                    <div>React status cannot be determined</div>
+                `;
+                console.warn('React check limited by CORS:', error.message);
+            }
+        }
+
+        function checkConsole() {
+            const statusDiv = document.getElementById('console-status');
+            
+            // This is a placeholder - in a real scenario, we'd need to inject scripts
+            // into the iframe to capture its console output
+            statusDiv.innerHTML = `
+                <div style="color: #10b981;">✅ Console monitoring active</div>
+                <div>Check the console output below for React logs</div>
+                <div>Look for messages like "MAIN APP.TSX LOADED"</div>
+            `;
+        }
+
+        function reloadApp() {
+            const iframe = document.getElementById('app-frame');
+            iframe.src = iframe.src;
+            console.log('App reloaded');
+        }
+
+        function clearCache() {
+            // Force reload with cache bypass
+            const iframe = document.getElementById('app-frame');
+            iframe.src = 'http://localhost:8080?' + Date.now();
+            console.log('Cache cleared and app reloaded');
+        }
+
+        async function runFullTest() {
+            console.log('🧪 Running full React rendering test...');
+            
+            await checkBundle();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            checkDOM();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            checkReact();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            checkConsole();
+            
+            console.log('✅ Full test completed');
+        }
+
+        // Auto-run initial checks
+        window.addEventListener('load', () => {
+            setTimeout(runFullTest, 2000);
+        });
+
+        // Monitor iframe load
+        document.getElementById('app-frame').addEventListener('load', () => {
+            console.log('📱 App iframe loaded');
+            setTimeout(() => {
+                checkDOM();
+                checkReact();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

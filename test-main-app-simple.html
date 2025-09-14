@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Main App - Simple</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
+        .success { background: #2d5a2d; border-color: #4a8a4a; }
+        .error { background: #5a2d2d; border-color: #8a4a4a; }
+        .info { background: #2d4a5a; border-color: #4a6a8a; }
+        .warning { background: #5a5a2d; border-color: #8a8a4a; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Main App Test Results</h1>
+    
+    <div id="test-results"></div>
+    
+    <h2>Manual Test</h2>
+    <p>Open <a href="http://localhost:8080" target="_blank" style="color: #6bcf7f;">http://localhost:8080</a> in a new tab and check:</p>
+    <ul>
+        <li>Does the page load?</li>
+        <li>Is there a white screen or content?</li>
+        <li>Check browser console (F12) for errors</li>
+        <li>Look for the RAG option in the sidebar</li>
+    </ul>
+    
+    <script>
+        const resultsDiv = document.getElementById('test-results');
+        
+        function addResult(type, title, message) {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}:</strong> ${message}`;
+            resultsDiv.appendChild(div);
+        }
+        
+        // Test 1: Basic connectivity
+        addResult('info', 'Test 1', 'Testing basic connectivity to localhost:8080...');
+        
+        fetch('http://localhost:8080')
+            .then(response => {
+                if (response.ok) {
+                    addResult('success', 'Test 1 Result', '✅ Main app server is responding');
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            })
+            .then(html => {
+                // Test 2: HTML structure
+                addResult('info', 'Test 2', 'Checking HTML structure...');
+                
+                if (html.includes('<div id="root">')) {
+                    addResult('success', 'Test 2a', '✅ React root element found');
+                } else {
+                    addResult('error', 'Test 2a', '❌ React root element missing');
+                }
+                
+                if (html.includes('index-') && html.includes('.js')) {
+                    addResult('success', 'Test 2b', '✅ JavaScript bundle referenced');
+                } else {
+                    addResult('error', 'Test 2b', '❌ JavaScript bundle missing');
+                }
+                
+                if (html.includes('Production-Ready RAG Chatbot')) {
+                    addResult('success', 'Test 2c', '✅ Correct page title found');
+                } else {
+                    addResult('warning', 'Test 2c', '⚠️ Unexpected page title');
+                }
+                
+                // Test 3: Try to load the JavaScript bundle
+                addResult('info', 'Test 3', 'Testing JavaScript bundle...');
+                
+                const scriptMatch = html.match(/src="([^"]*index[^"]*\.js)"/);
+                if (scriptMatch) {
+                    const scriptUrl = 'http://localhost:8080' + scriptMatch[1];
+                    
+                    fetch(scriptUrl)
+                        .then(response => {
+                            if (response.ok) {
+                                addResult('success', 'Test 3', '✅ JavaScript bundle loads successfully');
+                                
+                                // Test 4: Check if it's the right app
+                                return response.text();
+                            } else {
+                                throw new Error(`HTTP ${response.status}`);
+                            }
+                        })
+                        .then(jsContent => {
+                            if (jsContent.includes('ScientificRAG') || jsContent.includes('RAG')) {
+                                addResult('success', 'Test 4', '✅ RAG functionality detected in bundle');
+                            } else {
+                                addResult('warning', 'Test 4', '⚠️ RAG functionality not clearly detected');
+                            }
+                            
+                            if (jsContent.includes('AI Scholar')) {
+                                addResult('success', 'Test 5', '✅ AI Scholar app detected');
+                            } else {
+                                addResult('warning', 'Test 5', '⚠️ AI Scholar branding not detected');
+                            }
+                            
+                            // Final recommendation
+                            addResult('info', 'Recommendation', 'If all tests pass but you see a white screen, check browser console (F12) for JavaScript errors. The app should be working.');
+                        })
+                        .catch(error => {
+                            addResult('error', 'Test 3', `❌ JavaScript bundle failed to load: ${error.message}`);
+                        });
+                } else {
+                    addResult('error', 'Test 3', '❌ Could not find JavaScript bundle URL');
+                }
+            })
+            .catch(error => {
+                addResult('error', 'Test 1 Result', `❌ Failed to connect: ${error.message}`);
+            });
+    </script>
+</body>
+</html>

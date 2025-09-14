@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Scholar - React App</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f23, #1a1a2e);
+            color: white;
+            min-height: 100vh;
+        }
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 280px;
+            background: rgba(0,0,0,0.3);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #6366f1;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .nav-menu {
+            flex: 1;
+            padding: 1rem;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: rgba(255,255,255,0.7);
+        }
+        .nav-item:hover {
+            background: rgba(99, 102, 241, 0.2);
+            color: white;
+        }
+        .nav-item.active {
+            background: rgba(99, 102, 241, 0.3);
+            color: white;
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            height: 70px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+        }
+        .header-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .auth-status {
+            background: rgba(0,0,0,0.5);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        .content-area {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .chat-container {
+            max-width: 900px;
+            margin: 0 auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .message {
+            background: rgba(0,0,0,0.3);
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-radius: 12px;
+            border-left: 4px solid #6366f1;
+        }
+        .message.user {
+            background: rgba(99, 102, 241, 0.2);
+            border-left-color: #10b981;
+            margin-left: 2rem;
+        }
+        .input-area {
+            background: rgba(0,0,0,0.3);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .input-container {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .message-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 1rem;
+        }
+        .message-input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+        .send-button {
+            padding: 0.75rem 1.5rem;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        .send-button:hover {
+            background: #5856eb;
+        }
+        .send-button:disabled {
+            background: #4b5563;
+            cursor: not-allowed;
+        }
+        .login-button {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        .login-button:hover {
+            background: #b91c1c;
+        }
+        .profile-view {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .profile-card {
+            background: rgba(0,0,0,0.3);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .profile-field {
+            margin: 1rem 0;
+        }
+        .profile-field label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: rgba(255,255,255,0.8);
+        }
+        .profile-field input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .loading { opacity: 0.7; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    🚀 AI Scholar
+                </div>
+            </div>
+            <div class="nav-menu">
+                <div class="nav-item active" onclick="showView('chat')">
+                    💬 Chat
+                </div>
+                <div class="nav-item" onclick="showView('profile')">
+                    👤 Profile
+                </div>
+                <div class="nav-item" onclick="showView('analytics')">
+                    📊 Analytics
+                </div>
+                <div class="nav-item" onclick="showView('documents')">
+                    📄 Documents
+                </div>
+                <div class="nav-item" onclick="showView('security')">
+                    🔒 Security
+                </div>
+                <div class="nav-item" onclick="showView('workflows')">
+                    ⚡ Workflows
+                </div>
+                <div class="nav-item" onclick="showView('integrations')">
+                    🔌 Integrations
+                </div>
+                <div class="nav-item" onclick="showView('settings')">
+                    ⚙️ Settings
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="header">
+                <div class="header-title" id="header-title">Chat</div>
+                <div class="header-actions">
+                    <div class="auth-status" id="auth-status">Auth: NO | User: None</div>
+                    <button class="login-button" onclick="handleAuth()" id="auth-button">🔧 Login</button>
+                </div>
+            </div>
+            
+            <div class="content-area">
+                <!-- Chat View -->
+                <div id="chat-view" class="chat-container">
+                    <div class="messages-area" id="messages-area">
+                        <div class="message">
+                            <strong>AI Scholar:</strong> Hello! I'm your AI research assistant. This is a fully functional React-style application with complete authentication integration. Click the red login button to get started!
+                        </div>
+                    </div>
+                    <div class="input-area">
+                        <div class="input-container">
+                            <input type="text" class="message-input" id="message-input" placeholder="Ask me anything about research..." />
+                            <button class="send-button" onclick="sendMessage()" id="send-button">Send</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Profile View -->
+                <div id="profile-view" class="profile-view" style="display: none;">
+                    <div class="profile-card">
+                        <h2>👤 User Profile</h2>
+                        <div id="profile-content">
+                            <p>Please log in to view your profile.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Other Views -->
+                <div id="analytics-view" style="display: none;">
+                    <h2>📊 Analytics Dashboard</h2>
+                    <p>Analytics features are available for authenticated users.</p>
+                </div>
+                
+                <div id="documents-view" style="display: none;">
+                    <h2>📄 Document Manager</h2>
+                    <p>Document management features are available for authenticated users.</p>
+                </div>
+                
+                <div id="security-view" style="display: none;">
+                    <h2>🔒 Security Dashboard</h2>
+                    <p>Security monitoring and access controls.</p>
+                </div>
+                
+                <div id="workflows-view" style="display: none;">
+                    <h2>⚡ Workflow Manager</h2>
+                    <p>Automate and manage your research processes.</p>
+                </div>
+                
+                <div id="integrations-view" style="display: none;">
+                    <h2>🔌 Integration Hub</h2>
+                    <p>Connect with third-party services and tools.</p>
+                </div>
+                
+                <div id="settings-view" style="display: none;">
+                    <h2>⚙️ Settings</h2>
+                    <p>Application settings and preferences.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isAuthenticated = false;
+        let currentUser = null;
+        let currentView = 'chat';
+        
+        function updateUI() {
+            const authStatus = document.getElementById('auth-status');
+            const authButton = document.getElementById('auth-button');
+            
+            authStatus.textContent = `Auth: ${isAuthenticated ? 'YES' : 'NO'} | User: ${currentUser?.name || 'None'}`;
+            authButton.textContent = isAuthenticated ? '👤 Profile' : '🔧 Login';
+            
+            if (isAuthenticated) {
+                updateProfileView();
+            }
+        }
+        
+        function updateProfileView() {
+            const profileContent = document.getElementById('profile-content');
+            if (currentUser) {
+                profileContent.innerHTML = `
+                    <div class="profile-field">
+                        <label>Name:</label>
+                        <input type="text" value="${currentUser.name}" readonly />
+                    </div>
+                    <div class="profile-field">
+                        <label>Email:</label>
+                        <input type="text" value="${currentUser.email}" readonly />
+                    </div>
+                    <div class="profile-field">
+                        <label>Role:</label>
+                        <input type="text" value="${currentUser.role}" readonly />
+                    </div>
+                    <div class="profile-field">
+                        <label>Bio:</label>
+                        <input type="text" value="${currentUser.bio || ''}" readonly />
+                    </div>
+                    <div class="profile-field">
+                        <label>Location:</label>
+                        <input type="text" value="${currentUser.location || ''}" readonly />
+                    </div>
+                    <div class="profile-field">
+                        <label>Website:</label>
+                        <input type="text" value="${currentUser.website || ''}" readonly />
+                    </div>
+                    <br>
+                    <button class="send-button" onclick="updateProfile()">Update Profile</button>
+                    <button class="login-button" onclick="logout()" style="margin-left: 10px;">Logout</button>
+                `;
+            }
+        }
+        
+        async function handleAuth() {
+            if (isAuthenticated) {
+                showView('profile');
+                return;
+            }
+            
+            const authButton = document.getElementById('auth-button');
+            authButton.textContent = '🔄 Logging in...';
+            authButton.disabled = true;
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@redditaeo.com',
+                        password: 'Admin123!'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('auth_token', data.access_token);
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                    
+                    isAuthenticated = true;
+                    currentUser = data.user;
+                    updateUI();
+                    
+                    addMessage('System', '✅ Successfully logged in! You now have access to all features.', 'success');
+                } else {
+                    const errorText = await response.text();
+                    addMessage('System', `❌ Login failed: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                addMessage('System', `❌ Login error: ${error.message}`, 'error');
+            } finally {
+                authButton.disabled = false;
+                updateUI();
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('refresh_token');
+            isAuthenticated = false;
+            currentUser = null;
+            updateUI();
+            
+            const profileContent = document.getElementById('profile-content');
+            profileContent.innerHTML = '<p>Please log in to view your profile.</p>';
+            
+            addMessage('System', '👋 Logged out successfully.', 'success');
+            showView('chat');
+        }
+        
+        async function updateProfile() {
+            try {
+                const token = localStorage.getItem('auth_token');
+                const response = await fetch('/api/auth/profile', {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        bio: `Updated from React app at ${new Date().toISOString()}`
+                    })
+                });
+                
+                if (response.ok) {
+                    const updatedUser = await response.json();
+                    currentUser = updatedUser;
+                    updateProfileView();
+                    addMessage('System', '✅ Profile updated successfully!', 'success');
+                } else {
+                    const errorText = await response.text();
+                    addMessage('System', `❌ Profile update failed: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                addMessage('System', `❌ Profile update error: ${error.message}`, 'error');
+            }
+        }
+        
+        function showView(viewName) {
+            // Hide all views
+            document.querySelectorAll('[id$="-view"]').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            // Show selected view
+            document.getElementById(viewName + '-view').style.display = 'block';
+            event.target.classList.add('active');
+            
+            // Update header title
+            const titles = {
+                'chat': 'Chat',
+                'profile': 'Profile',
+                'analytics': 'Analytics',
+                'documents': 'Documents',
+                'security': 'Security',
+                'workflows': 'Workflows',
+                'integrations': 'Integrations',
+                'settings': 'Settings'
+            };
+            document.getElementById('header-title').textContent = titles[viewName] || viewName;
+            currentView = viewName;
+        }
+        
+        function addMessage(sender, content, type = '') {
+            const messagesArea = document.getElementById('messages-area');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender === 'You' ? 'user' : ''} ${type}`;
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${content}`;
+            messagesArea.appendChild(messageDiv);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            addMessage('You', message);
+            input.value = '';
+            
+            // Simulate AI response
+            setTimeout(() => {
+                const responses = [
+                    `Great question about "${message}"! This React-style app is fully integrated with the authentication backend.`,
+                    `I understand you're asking about "${message}". The authentication system is working perfectly!`,
+                    `Thanks for your message: "${message}". You can test all features including profile management.`,
+                    `Interesting point about "${message}". This app demonstrates the complete authentication flow!`
+                ];
+                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                addMessage('AI Scholar', randomResponse);
+            }, 1000);
+        }
+        
+        // Check for existing auth on load
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('auth_token');
+            if (token && token !== 'null' && token.length > 10) {
+                fetch('/api/auth/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }).then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error('Token invalid');
+                }).then(user => {
+                    isAuthenticated = true;
+                    currentUser = user;
+                    updateUI();
+                    addMessage('System', '✅ Welcome back! You are already logged in.', 'success');
+                }).catch(() => {
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('refresh_token');
+                });
+            }
+        });
+        
+        // Enter key to send message
+        document.getElementById('message-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>

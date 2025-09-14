@@ -33,7 +33,7 @@ from core.database import (
     get_db, Document, DocumentChunk, DocumentTag, AnalyticsEvent,
     User, UserProfile, KGEntity, KGRelationship
 )
-from services.topic_modeling_service import TopicModelingService
+# from services.topic_modeling_service import TopicModelingService
 from services.knowledge_graph import KnowledgeGraphService
 
 logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class AdvancedAnalyticsService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.topic_service = TopicModelingService(db)
+        # self.topic_service = TopicModelingService(db)
         self.kg_service = KnowledgeGraphService(db)
         
         # Analytics configurations

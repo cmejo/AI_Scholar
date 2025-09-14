@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Scholar - Simple Login Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .bypass-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #dc2626;
+            color: white;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 9999;
+        }
+        
+        .bypass-btn:hover {
+            background: #b91c1c;
+        }
+        
+        .status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        
+        .content {
+            margin-top: 60px;
+        }
+        
+        .profile-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        
+        .btn {
+            background: #059669;
+            color: white;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            background: #047857;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Scholar - Authentication Test</h1>
+    
+    <button id="bypassBtn" class="bypass-btn" onclick="bypassLogin()">
+        🔧 Bypass Login (Test)
+    </button>
+    
+    <div class="status" id="status">
+        Auth: NO | User: None
+    </div>
+    
+    <div class="content">
+        <div id="loginPrompt">
+            <h2>Please log in</h2>
+            <p>Click the red "Bypass Login" button in the top-right corner to test the authentication.</p>
+        </div>
+        
+        <div id="userContent" class="hidden">
+            <h2 id="welcomeMsg">Welcome!</h2>
+            <div id="userInfo"></div>
+            
+            <div class="profile-section">
+                <h3>Profile Update Test</h3>
+                <button class="btn" onclick="updateProfile()">Update Profile</button>
+                <div id="updateResult"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentUser = null;
+        let isAuthenticated = false;
+        
+        function updateUI() {
+            const status = document.getElementById('status');
+            const loginPrompt = document.getElementById('loginPrompt');
+            const userContent = document.getElementById('userContent');
+            const bypassBtn = document.getElementById('bypassBtn');
+            const welcomeMsg = document.getElementById('welcomeMsg');
+            const userInfo = document.getElementById('userInfo');
+            
+            status.textContent = `Auth: ${isAuthenticated ? 'YES' : 'NO'} | User: ${currentUser?.name || 'None'}`;
+            
+            if (isAuthenticated) {
+                loginPrompt.classList.add('hidden');
+                userContent.classList.remove('hidden');
+                bypassBtn.classList.add('hidden');
+                welcomeMsg.textContent = `Welcome, ${currentUser.name}!`;
+                userInfo.innerHTML = `
+                    <p><strong>Email:</strong> ${currentUser.email}</p>
+                    <p><strong>Role:</strong> ${currentUser.role}</p>
+                    <p><strong>Bio:</strong> ${currentUser.bio || 'No bio set'}</p>
+                `;
+            } else {
+                loginPrompt.classList.remove('hidden');
+                userContent.classList.add('hidden');
+                bypassBtn.classList.remove('hidden');
+            }
+        }
+        
+        async function bypassLogin() {
+            try {
+                console.log('Attempting bypass login...');
+                const response = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: 'admin@redditaeo.com', 
+                        password: 'Admin123!' 
+                    })
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Login successful:', data);
+                    
+                    localStorage.setItem('auth_token', data.access_token);
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                    
+                    currentUser = data.user;
+                    isAuthenticated = true;
+                    updateUI();
+                } else {
+                    const errorText = await response.text();
+                    console.error('Login failed:', response.status, errorText);
+                    alert('Login failed: ' + errorText);
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login error: ' + error.message);
+            }
+        }
+        
+        async function updateProfile() {
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    alert('No auth token found');
+                    return;
+                }
+                
+                const response = await fetch('http://localhost:8080/api/auth/profile', {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ 
+                        bio: 'Updated via simple HTML page at ' + new Date().toISOString() 
+                    })
+                });
+                
+                const resultDiv = document.getElementById('updateResult');
+                
+                if (response.ok) {
+                    const updatedUser = await response.json();
+                    currentUser = updatedUser;
+                    updateUI();
+                    resultDiv.innerHTML = '<p style="color: green;">✅ Profile updated successfully!</p>';
+                } else {
+                    const errorText = await response.text();
+                    console.error('Profile update failed:', response.status, errorText);
+                    resultDiv.innerHTML = `<p style="color: red;">❌ Profile update failed: ${errorText}</p>`;
+                }
+            } catch (error) {
+                console.error('Profile update error:', error);
+                document.getElementById('updateResult').innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Initialize UI
+        updateUI();
+    </script>
+</body>
+</html>
