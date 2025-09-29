@@ -8,6 +8,7 @@ build/
 develop-eggs/
 dist/
 downloads/
+backend/ollama_models/blobs/
 eggs/
 .eggs/
 lib/
@@ -289,3 +290,4 @@ test-results/
 .kiro/cache/
 .kiro/logs/
 .kiro/temp/
+
