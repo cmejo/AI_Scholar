@@ -1,4 +1,4 @@
-# 🚀 AI Scholar - An Advanced AI Research Platform 
+# AI Scholar - An Advanced AI Research Platform 
 
 [![Production Ready](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)](https://github.com/ai-scholar/platform)
 [![Revolutionary Features](https://img.shields.io/badge/Features-Revolutionary-gold)](https://github.com/ai-scholar/platform)
@@ -9,18 +9,18 @@
 
 ---
 
-## 🌟 **Revolutionary Platform Overview**
+## **Revolutionary Platform Overview**
 
 AI Scholar is an **advanced research platform**, combining cutting-edge AI, immersive technologies, and blockchain integrity to create an unprecedented research experience. With **22 revolutionary features** and **enterprise-grade architecture**, it's ready to be used in production and by your organization.
 
-### **🏆 What Makes AI Scholar Unique**
+### ** What Makes AI Scholar Unique**
 
 - **🤖 Autonomous AI Research Assistant** - First AI that conducts complete literature reviews and generates research proposals
 - **🌍 17-Language Global Access** - Real-time academic translation with cultural context awareness
 - **⛓️ Blockchain Research Integrity** - Cryptographic verification and immutable research records
 - **🧠 Multi-Modal AI Analysis** - Revolutionary text, image, chart, and audio processing
-- **🕸️ Dynamic Knowledge Graphs** - AI-powered research connection discovery
-- **🎛️ Personalized Intelligence** - AI-driven insights tailored to each researcher
+- ** Dynamic Knowledge Graphs** - AI-powered research connection discovery
+- ** Personalized Intelligence** - AI-driven insights tailored to each researcher
 
 ---
 
