@@ -114,7 +114,7 @@ context = await analyze_cultural_context("AI research", "europe")
 print(f"Research traditions: {context.research_traditions}")
 ```
 
-### **🥽 Immersive VR/AR Research Experience**
+### **🥽 Visualized Research Experience**
 ```typescript
 // Create 3D knowledge visualization
 const vrEnvironment = new ImmersiveResearchEnvironment(container);
