@@ -290,4 +290,4 @@ test-results/
 .kiro/cache/
 .kiro/logs/
 .kiro/temp/
-
+kiro/
