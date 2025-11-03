@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Management Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.05);
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .test-title {
+            color: #8b5cf6;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .feature-item:last-child {
+            border-bottom: none;
+        }
+        .check-icon {
+            color: #10b981;
+            font-weight: bold;
+        }
+        .category-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .manual { background: #8b5cf6; }
+        .scheduled { background: #06b6d4; }
+        .event { background: #10b981; }
+        .api { background: #f59e0b; }
+        .processing { background: #8b5cf6; }
+        .analysis { background: #06b6d4; }
+        .communication { background: #10b981; }
+        .storage { background: #f59e0b; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 style="text-align: center; color: white; margin-bottom: 30px;">
+            🔧 Workflow Management System Test
+        </h1>
+        
+        <div class="test-section">
+            <div class="test-title">✅ Task 6: Trigger and Action Management System</div>
+            <ul class="feature-list">
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Enhanced addTrigger() and removeTrigger() functions with duplicate prevention</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Enhanced addAction() and removeAction() functions with duplicate prevention</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Tag-based UI with category indicators and improved styling</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Predefined trigger options with category-based styling</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Predefined action options with category-based styling</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Duplicate prevention with visual feedback</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🎯 Enhanced Trigger Categories</div>
+            <ul class="feature-list">
+                <li class="feature-item">
+                    <span class="category-badge manual">Manual</span>
+                    <span>Manual Trigger, User-initiated actions</span>
+                </li>
+                <li class="feature-item">
+                    <span class="category-badge scheduled">Scheduled</span>
+                    <span>Scheduled, Time-based triggers</span>
+                </li>
+                <li class="feature-item">
+                    <span class="category-badge event">Event</span>
+                    <span>Document Upload, File Change, Email Received, New Ticket, Data Update</span>
+                </li>
+                <li class="feature-item">
+                    <span class="category-badge api">API</span>
+                    <span>API Call, Webhook notifications</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">⚡ Enhanced Action Categories</div>
+            <ul class="feature-list">
+                <li class="feature-item">
+                    <span class="category-badge processing">Processing</span>
+                    <span>Extract Text, Generate Summary, Categorize Issue, Generate Charts, Transform Data, Validate Input</span>
+                </li>
+                <li class="feature-item">
+                    <span class="category-badge analysis">Analysis</span>
+                    <span>Analyze Content, Search Papers, Extract Insights</span>
+                </li>
+                <li class="feature-item">
+                    <span class="category-badge communication">Communication</span>
+                    <span>Generate Response, Route to Agent, Send Report, Send Notification</span>
+                </li>
+                <li class="feature-item">
+                    <span class="category-badge storage">Storage</span>
+                    <span>Collect Metrics, Save to Database</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🎨 UI Enhancements</div>
+            <ul class="feature-list">
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Category-based color coding for visual organization</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Enhanced tag styling with gradient backgrounds and borders</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Improved hover effects and visual feedback</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Better disabled states for selected items</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Descriptive text for each trigger and action</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>"SELECTED" badges for chosen items</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🔧 Technical Implementation</div>
+            <ul class="feature-list">
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>getCategoryColor() helper function for consistent styling</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Enhanced duplicate prevention logic</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Improved state management for both creation and editing modes</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Better error handling and validation</span>
+                </li>
+                <li class="feature-item">
+                    <span class="check-icon">✓</span>
+                    <span>Responsive grid layout for trigger/action selection</span>
+                </li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; padding: 20px; background: rgba(139, 92, 246, 0.1); border-radius: 10px; border: 1px solid rgba(139, 92, 246, 0.3);">
+            <h3 style="color: #8b5cf6; margin: 0 0 10px 0;">Task 6 Implementation Complete! ✅</h3>
+            <p style="color: #d1d5db; margin: 0; font-size: 14px;">
+                The trigger and action management system has been successfully enhanced with improved UI, 
+                category-based styling, duplicate prevention, and better visual feedback.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

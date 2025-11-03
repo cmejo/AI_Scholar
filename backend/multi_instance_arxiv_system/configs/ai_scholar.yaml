@@ -1,0 +1,76 @@
+_metadata:
+  description: Configuration for ai_scholar scholar instance
+  generated_by: Multi-Instance ArXiv System
+  generated_at: '2024-10-23T00:00:00'
+  version: 1.0.0
+  instance_name: ai_scholar
+
+instance:
+  name: ai_scholar
+  display_name: AI Scholar
+  description: General AI and Physics Research Papers
+
+data_sources:
+  arxiv:
+    categories:
+      - cond-mat
+      - gr-qc
+      - hep-ph
+      - hep-th
+      - math
+      - math-ph
+      - physics
+      - q-alg
+      - quant-ph
+    start_date: '2020-01-01'
+  journals: []
+
+storage:
+  pdf_directory: /datapool/aischolar/ai-scholar-arxiv-dataset/pdf
+  processed_directory: /datapool/aischolar/ai-scholar-arxiv-dataset/processed
+  state_directory: /datapool/aischolar/ai-scholar-arxiv-dataset/state
+  error_log_directory: /datapool/aischolar/ai-scholar-arxiv-dataset/errors
+  archive_directory: /datapool/aischolar/ai-scholar-arxiv-dataset/archive
+
+processing:
+  batch_size: 20
+  max_concurrent_downloads: 5
+  max_concurrent_processing: 3
+  retry_attempts: 3
+  timeout_seconds: 300
+  memory_limit_mb: 4096
+
+vector_store:
+  collection_name: ai_scholar_papers
+  embedding_model: all-MiniLM-L6-v2
+  chunk_size: 1000
+  chunk_overlap: 200
+  host: localhost
+  port: 8082
+
+notifications:
+  enabled: false
+  recipients: []
+  smtp_server: smtp.gmail.com
+  smtp_port: 587
+  username: ''
+  password: ''
+  from_email: ai-scholar@aischolar.com
+
+monthly_updates:
+  enabled: true
+  schedule:
+    day_of_month: 1
+    hour: 2
+    minute: 0
+  retention:
+    keep_reports_days: 90
+    keep_logs_days: 30
+    keep_state_files_days: 7
+
+performance:
+  memory_limit_mb: 4096
+  disk_space_warning_gb: 10
+  processing_timeout: 3600
+  health_check_interval: 300
+  progress_update_interval: 2

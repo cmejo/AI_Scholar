@@ -15,24 +15,48 @@ logger = logging.getLogger(__name__)
 class OllamaService:
     """Service for interacting with Ollama local LLM server"""
     
-    def __init__(self, base_url: str = "http://ollama:11434"):
+    def __init__(self, base_url: str = "http://localhost:11435"):
         self.base_url = base_url
         self.available_models = []
         self.current_model = "llama3.1:8b"  # Default to latest model
         self.scientific_models = {
-            # Latest State-of-the-Art Models (2024)
-            "llama3.1:8b": "Latest Llama 3.1 8B - Excellent for scientific reasoning and analysis",
-            "llama3.1:70b": "Llama 3.1 70B - Most capable model for complex scientific queries",
-            "mistral:7b-v0.3": "Mistral 7B v0.3 - Fast and efficient for scientific analysis",
-            "codellama:34b": "CodeLlama 34B - Specialized for technical and code analysis",
-            "phi3:medium": "Phi-3 Medium - Microsoft's efficient model for scientific tasks",
-            "qwen2:7b": "Qwen2 7B - Alibaba's model with strong reasoning capabilities",
-            "qwen2:72b": "Qwen2 72B - Large model for complex scientific analysis",
-            "gemma2:9b": "Gemma 2 9B - Google's efficient model for research tasks",
-            "gemma2:27b": "Gemma 2 27B - Large Google model for comprehensive analysis",
+            # Tier 1: Most Powerful Models (40-45GB VRAM) - Dual RTX 3090 Optimized
+            "llama3.1:70b": "🏆 Llama 3.1 70B - Meta's flagship model, best for complex scientific reasoning (~40GB)",
+            "qwen2.5:72b": "🧠 Qwen2.5 72B - Alibaba's most powerful model with exceptional reasoning (~45GB)",
+            "mixtral:8x22b": "🔥 Mixtral 8x22B - Mixture of Experts, exceptional performance (~45GB)",
+            "wizardlm2:8x22b": "🧙 WizardLM2 8x22B - Advanced reasoning for complex scientific tasks (~45GB)",
             
-            # Legacy Models (still supported)
-            "llama2": "General purpose model, good for scientific reasoning",
+            # Tier 2: High-Performance Models (15-25GB VRAM) - Balanced Power/Speed
+            "llama3.1:45b": "⚡ Llama 3.1 45B - Excellent balance of performance and efficiency (~25GB)",
+            "qwen2.5:32b": "⚡ Qwen2.5 32B - Excellent balance of capability and speed (~20GB)",
+            "deepseek-coder:33b": "💻 DeepSeek Coder 33B - Specialized for technical analysis (~20GB)",
+            "mixtral:8x7b": "🔀 Mixtral 8x7B - Mixture of Experts, excellent across domains (~15GB)",
+            "codellama:34b": "💻 CodeLlama 34B - Specialized for technical and code analysis (~20GB)",
+            
+            # Tier 3: Efficient High-Quality Models (5-15GB VRAM) - Fast Response
+            "llama3.1:8b": "🚀 Llama 3.1 8B - Fast and highly capable for general tasks (~5GB)",
+            "qwen2.5:14b": "🚀 Qwen2.5 14B - Strong performance with good efficiency (~8GB)",
+            "gemma2:27b": "🔬 Gemma 2 27B - Google's research-focused model (~16GB)",
+            "mistral-nemo:12b": "✨ Mistral Nemo 12B - Latest Mistral with improved capabilities (~7GB)",
+            "phi3.5:3.8b": "🚀 Phi 3.5 - Highly efficient, excellent for quick analysis (~2GB)",
+            "deepseek-coder:6.7b": "💻 DeepSeek Coder 6.7B - Efficient code analysis (~4GB)",
+            "starcoder2:15b": "💻 StarCoder2 15B - Advanced code understanding (~9GB)",
+            "neural-chat:7b": "💬 Neural Chat 7B - Optimized for natural conversations (~4GB)",
+            
+            # Tier 4: Multimodal/Vision Models - Specialized Capabilities
+            "llava:34b": "👁️ LLaVA 34B - Vision-language model for analyzing figures/charts (~20GB)",
+            "bakllava:7b": "👁️ BakLLaVA 7B - Efficient multimodal model (~4GB)",
+            "llama3.2-vision:11b": "👁️ Llama 3.2 Vision 11B - Multimodal (text + images) (~6GB)",
+            "qwen2-vl:7b": "🖼️ Qwen2-VL 7B - Vision-language model for multimodal tasks (~4GB)",
+            
+            # Tier 5: Legacy/Compatibility Models - Still Excellent
+            "qwen2:7b": "📚 Qwen2 7B - Previous generation, reliable performance (~4GB)",
+            "qwen2:72b": "📚 Qwen2 72B - Previous generation large model (~45GB)",
+            "mistral:7b-v0.3": "📚 Mistral 7B v0.3 - Fast and efficient baseline (~4GB)",
+            "phi3:medium": "📚 Phi-3 Medium - Microsoft's efficient baseline (~2GB)",
+            "gemma2:9b": "📚 Gemma 2 9B - Google's efficient research model (~5GB)",
+            "llama2:13b": "📚 Llama2 13B - Reliable legacy model (~7GB)",
+            "llama2": "📚 Llama2 7B - Legacy baseline model (~4GB)",
             "mistral": "Fast and efficient, good for scientific analysis", 
             "codellama": "Specialized for code and technical content",
             "llama2:13b": "Larger model for complex scientific queries",
@@ -75,29 +99,36 @@ class OllamaService:
             return []
     
     async def ensure_scientific_models(self):
-        """Ensure required scientific models are available"""
-        # Priority models to ensure are available
+        """Ensure required scientific models are available - optimized for dual RTX 3090"""
+        # Priority models for dual RTX 3090 setup (48GB VRAM total)
         priority_models = [
-            "llama3.1:8b",      # Default model
-            "mistral:7b-v0.3",  # Fast alternative
+            "llama3.1:8b",      # Fast default model
+            "qwen2.5:32b",      # Balanced high-performance model
+            "llama3.1:70b",     # Most capable model for complex tasks
+            "mixtral:8x7b",     # Mixture of experts
             "codellama:34b",    # For technical content
-            "phi3:medium",      # Efficient option
-            "qwen2:7b"          # Strong reasoning
         ]
         
         # Try to ensure at least the default model is available
         for model in priority_models:
             if not any(model in available for available in self.available_models):
-                logger.info(f"Pulling priority model: {model}")
+                logger.info(f"Pulling priority model for dual RTX 3090: {model}")
                 success = await self.pull_model(model)
                 if success:
                     break  # At least one model is available
                     
-        # Optionally pull larger models if resources allow
-        optional_models = ["llama3.1:70b", "qwen2:72b", "gemma2:27b"]
-        for model in optional_models:
+        # High-capability models that work well with dual 3090s
+        recommended_models = [
+            "qwen2.5:72b",      # Most capable reasoning
+            "phi3:14b",         # Efficient specialist
+            "gemma2:27b",       # Research focused
+            "mistral-nemo:12b", # Latest Mistral
+            "deepseek-coder-v2:16b"  # Technical specialist
+        ]
+        
+        for model in recommended_models:
             if not any(model in available for available in self.available_models):
-                logger.info(f"Optional model {model} not available - can be pulled on demand")
+                logger.info(f"Recommended model {model} not available - can be pulled for enhanced capabilities")
     
     async def pull_model(self, model_name: str) -> bool:
         """Pull a model from Ollama registry"""
@@ -128,13 +159,17 @@ class OllamaService:
             return False
     
     def get_recommended_model(self, query_type: str = "general") -> str:
-        """Get recommended model based on query type"""
+        """Get recommended model based on query type - optimized for dual RTX 3090"""
         recommendations = {
-            "general": ["llama3.1:8b", "mistral:7b-v0.3", "phi3:medium"],
-            "complex": ["llama3.1:70b", "qwen2:72b", "gemma2:27b"],
-            "technical": ["codellama:34b", "llama3.1:8b", "qwen2:7b"],
-            "fast": ["phi3:medium", "mistral:7b-v0.3", "qwen2:7b"],
-            "reasoning": ["qwen2:7b", "llama3.1:8b", "gemma2:9b"]
+            "general": ["qwen2.5:32b", "llama3.1:8b", "mixtral:8x7b"],
+            "complex": ["llama3.1:70b", "qwen2.5:72b", "qwen2.5:32b"],
+            "technical": ["deepseek-coder-v2:16b", "codellama:34b", "qwen2.5:32b"],
+            "fast": ["llama3.1:8b", "neural-chat:7b", "phi3:14b"],
+            "reasoning": ["qwen2.5:72b", "qwen2.5:32b", "llama3.1:70b"],
+            "research": ["llama3.1:70b", "gemma2:27b", "qwen2.5:72b"],
+            "conversation": ["neural-chat:7b", "mistral-nemo:12b", "llama3.1:8b"],
+            "multimodal": ["llama3.2-vision:11b", "qwen2-vl:7b", "llama3.1:8b"],
+            "coding": ["deepseek-coder-v2:16b", "codellama:34b", "qwen2.5:32b"]
         }
         
         preferred_models = recommendations.get(query_type, recommendations["general"])
@@ -189,19 +224,37 @@ class OllamaService:
         return "unknown"
     
     def _get_model_performance(self, model_name: str) -> Dict[str, str]:
-        """Get performance characteristics of model"""
+        """Get performance characteristics of model - optimized for dual RTX 3090"""
         performance_map = {
-            "llama3.1:8b": {"speed": "fast", "quality": "high", "memory": "medium"},
-            "llama3.1:70b": {"speed": "slow", "quality": "excellent", "memory": "high"},
-            "mistral:7b-v0.3": {"speed": "very-fast", "quality": "good", "memory": "low"},
-            "codellama:34b": {"speed": "medium", "quality": "high", "memory": "high"},
-            "phi3:medium": {"speed": "fast", "quality": "good", "memory": "low"},
-            "qwen2:7b": {"speed": "fast", "quality": "high", "memory": "medium"},
-            "qwen2:72b": {"speed": "slow", "quality": "excellent", "memory": "high"},
-            "gemma2:9b": {"speed": "fast", "quality": "good", "memory": "medium"},
-            "gemma2:27b": {"speed": "medium", "quality": "high", "memory": "high"}
+            # Tier 1: Most Powerful (40-45GB VRAM)
+            "llama3.1:70b": {"speed": "medium", "quality": "excellent", "memory": "very-high", "vram": "40GB"},
+            "qwen2.5:72b": {"speed": "medium", "quality": "excellent", "memory": "very-high", "vram": "42GB"},
+            
+            # Tier 2: High-Performance (15-25GB VRAM)
+            "qwen2.5:32b": {"speed": "fast", "quality": "excellent", "memory": "high", "vram": "20GB"},
+            "mixtral:8x7b": {"speed": "fast", "quality": "high", "memory": "high", "vram": "24GB"},
+            "codellama:34b": {"speed": "medium", "quality": "high", "memory": "high", "vram": "22GB"},
+            "llama3.1:8b": {"speed": "very-fast", "quality": "high", "memory": "medium", "vram": "8GB"},
+            
+            # Tier 3: Specialized (8-15GB VRAM)
+            "phi3:14b": {"speed": "fast", "quality": "high", "memory": "medium", "vram": "12GB"},
+            "gemma2:27b": {"speed": "medium", "quality": "high", "memory": "high", "vram": "18GB"},
+            "mistral-nemo:12b": {"speed": "fast", "quality": "high", "memory": "medium", "vram": "10GB"},
+            "neural-chat:7b": {"speed": "very-fast", "quality": "good", "memory": "low", "vram": "6GB"},
+            "deepseek-coder-v2:16b": {"speed": "fast", "quality": "high", "memory": "medium", "vram": "14GB"},
+            
+            # Tier 4: Experimental/Multimodal
+            "llama3.2-vision:11b": {"speed": "fast", "quality": "high", "memory": "medium", "vram": "12GB"},
+            "qwen2-vl:7b": {"speed": "fast", "quality": "good", "memory": "medium", "vram": "8GB"},
+            
+            # Legacy models
+            "mistral:7b-v0.3": {"speed": "very-fast", "quality": "good", "memory": "low", "vram": "6GB"},
+            "phi3:medium": {"speed": "fast", "quality": "good", "memory": "low", "vram": "8GB"},
+            "qwen2:7b": {"speed": "fast", "quality": "high", "memory": "medium", "vram": "6GB"},
+            "qwen2:72b": {"speed": "slow", "quality": "excellent", "memory": "very-high", "vram": "42GB"},
+            "gemma2:9b": {"speed": "fast", "quality": "good", "memory": "medium", "vram": "8GB"}
         }
-        return performance_map.get(model_name, {"speed": "unknown", "quality": "unknown", "memory": "unknown"})
+        return performance_map.get(model_name, {"speed": "unknown", "quality": "unknown", "memory": "unknown", "vram": "unknown"})
     
     async def generate_scientific_response(
         self, 

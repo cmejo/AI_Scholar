@@ -1,0 +1,110 @@
+services:
+  # Ollama - Local LLM Server
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-scholar-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11435:11435"
+    networks:
+      - rag-network
+    environment:
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_HOST=0.0.0.0:11435
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # Model Puller - Downloads required models
+  model-puller:
+    image: ollama/ollama:latest
+    container_name: ai-scholar-model-puller
+    restart: "no"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./scripts:/scripts
+    networks:
+      - rag-network
+    environment:
+      - OLLAMA_HOST=http://ollama:11435
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "
+        echo '🚀 Pulling Ollama models for AI Scholar...' &&
+        export OLLAMA_HOST=http://ollama:11435 &&
+        echo '📥 Pulling llama3.1:8b (default model)...' &&
+        ollama pull llama3.1:8b &&
+        echo '📥 Pulling llama3.1:70b (large model)...' &&
+        ollama pull llama3.1:70b &&
+        echo '📥 Pulling qwen2:72b (reasoning model)...' &&
+        ollama pull qwen2:72b &&
+        echo '📥 Pulling codellama:34b (code model)...' &&
+        ollama pull codellama:34b &&
+        echo '🎉 All models pulled successfully!' &&
+        echo '📋 Available models:' &&
+        ollama list
+      "
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend.simple
+    container_name: ai-scholar-backend
+    restart: unless-stopped
+    environment:
+      - OLLAMA_HOST=http://ollama:11435
+    ports:
+      - "8001:8000"
+    networks:
+      - rag-network
+    depends_on:
+      - ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy with React App
+  nginx:
+    image: nginx:alpine
+    container_name: ai-scholar-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.simple.conf:/etc/nginx/nginx.conf:ro
+      - ./dist:/usr/share/nginx/html:ro
+    networks:
+      - rag-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
+    driver: local

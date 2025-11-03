@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Storage Alert</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #ff9800; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .alert { background-color: #fff3e0; padding: 15px; margin: 10px 0; border-left: 4px solid #ff9800; }
+        .critical { background-color: #ffebee; border-left-color: #f44336; }
+        .footer { margin-top: 20px; padding: 10px; background-color: #f5f5f5; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Storage Alert</h1>
+        <p>{{ timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+    </div>
+    
+    <div class="content">
+        <div class="alert {% if alert_level == 'critical' %}critical{% endif %}">
+            <h2>{{ alert_level|title }} Storage Alert</h2>
+            <p><strong>Total Storage Used:</strong> {{ "%.1f"|format(total_storage_gb) }} GB</p>
+            <p><strong>Alert Threshold:</strong> {{ threshold }}%</p>
+            <p><strong>Current Usage:</strong> {{ "%.1f"|format(usage_percentage) }}%</p>
+        </div>
+        
+        {% if recommendations %}
+        <h2>Immediate Actions Required</h2>
+        {% for recommendation in recommendations %}
+        <div class="alert">
+            <h3>{{ recommendation.description }}</h3>
+            <p><strong>Priority:</strong> {{ recommendation.priority|title }}</p>
+            <p><strong>Estimated Savings:</strong> {{ "%.1f"|format(recommendation.estimated_space_savings_gb) }} GB</p>
+            {% if recommendation.commands %}
+            <p><strong>Commands to run:</strong></p>
+            <ul>
+            {% for command in recommendation.commands %}
+                <li><code>{{ command }}</code></li>
+            {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated storage alert from the Multi-Instance ArXiv System.</p>
+        <p>Please take immediate action to prevent system disruption.</p>
+    </div>
+</body>
+</html>

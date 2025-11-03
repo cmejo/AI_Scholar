@@ -1,0 +1,174 @@
+# Scalability Configuration for Multi-Instance ArXiv System
+# This file defines scalability settings for dynamic resource allocation and load balancing
+
+# Instance-specific scalability configurations
+instances:
+  ai_scholar:
+    # Worker configuration
+    min_workers: 2
+    max_workers: 12
+    initial_workers: 4
+    worker_scale_factor: 1.5
+    
+    # Thread pool configuration
+    min_threads_per_worker: 2
+    max_threads_per_worker: 6
+    thread_scale_factor: 1.2
+    
+    # Load thresholds for scaling decisions
+    scale_up_cpu_threshold: 0.70    # Scale up when CPU > 70%
+    scale_up_memory_threshold: 0.75  # Scale up when memory > 75%
+    scale_down_cpu_threshold: 0.25   # Scale down when CPU < 25%
+    scale_down_memory_threshold: 0.35 # Scale down when memory < 35%
+    
+    # Degradation thresholds for graceful degradation
+    degradation_cpu_threshold: 0.85   # Enter degraded mode when CPU > 85%
+    degradation_memory_threshold: 0.90 # Enter degraded mode when memory > 90%
+    emergency_cpu_threshold: 0.95     # Enter emergency mode when CPU > 95%
+    emergency_memory_threshold: 0.98  # Enter emergency mode when memory > 98%
+    
+    # Timing configuration (in seconds)
+    scale_check_interval: 30      # Check scaling needs every 30 seconds
+    scale_up_cooldown: 120        # Wait 2 minutes between scale-up actions
+    scale_down_cooldown: 300      # Wait 5 minutes between scale-down actions
+    
+    # Advanced features
+    allocation_strategy: "dynamic"     # static, dynamic, adaptive, predictive
+    enable_predictive_scaling: true    # Enable ML-based predictive scaling
+    enable_graceful_degradation: true  # Enable graceful degradation under high load
+
+  quant_scholar:
+    # Worker configuration
+    min_workers: 2
+    max_workers: 16
+    initial_workers: 6
+    worker_scale_factor: 1.4
+    
+    # Thread pool configuration
+    min_threads_per_worker: 3
+    max_threads_per_worker: 8
+    thread_scale_factor: 1.3
+    
+    # Load thresholds (more aggressive for quant scholar due to journal processing)
+    scale_up_cpu_threshold: 0.65
+    scale_up_memory_threshold: 0.70
+    scale_down_cpu_threshold: 0.30
+    scale_down_memory_threshold: 0.40
+    
+    # Degradation thresholds
+    degradation_cpu_threshold: 0.80
+    degradation_memory_threshold: 0.85
+    emergency_cpu_threshold: 0.92
+    emergency_memory_threshold: 0.95
+    
+    # Timing configuration
+    scale_check_interval: 25
+    scale_up_cooldown: 90
+    scale_down_cooldown: 240
+    
+    # Advanced features
+    allocation_strategy: "adaptive"
+    enable_predictive_scaling: true
+    enable_graceful_degradation: true
+
+# Global scalability settings
+global:
+  # Load balancing strategies
+  load_balancing_strategies:
+    - "round_robin"
+    - "least_connections"
+    - "weighted_round_robin"
+    - "resource_based"
+    - "random"
+  
+  # Default load balancing strategy
+  default_load_balancing_strategy: "resource_based"
+  
+  # System-wide resource limits
+  max_total_workers: 24           # Maximum workers across all instances
+  max_total_memory_gb: 16         # Maximum memory usage across all instances
+  max_cpu_usage_percent: 90       # Maximum CPU usage across all instances
+  
+  # Monitoring and alerting
+  monitoring:
+    metrics_collection_interval: 10    # Collect metrics every 10 seconds
+    performance_history_retention: 100 # Keep last 100 performance measurements
+    scaling_history_retention: 50      # Keep last 50 scaling actions
+    
+  # Emergency procedures
+  emergency:
+    enable_circuit_breaker: true       # Enable circuit breaker pattern
+    circuit_breaker_threshold: 0.95    # Trigger circuit breaker at 95% failure rate
+    circuit_breaker_timeout: 300       # Circuit breaker timeout in seconds
+    
+    enable_auto_recovery: true         # Enable automatic recovery from failures
+    recovery_check_interval: 60       # Check for recovery every 60 seconds
+    
+  # Predictive scaling configuration
+  predictive_scaling:
+    enable_ml_predictions: true        # Enable machine learning predictions
+    prediction_horizon_minutes: 60    # Predict load 60 minutes ahead
+    prediction_confidence_threshold: 0.8 # Only act on predictions with >80% confidence
+    training_data_retention_hours: 24  # Keep 24 hours of training data
+    
+  # Performance optimization
+  optimization:
+    enable_dynamic_batching: true      # Enable dynamic batch size optimization
+    enable_adaptive_timeouts: true     # Enable adaptive timeout adjustments
+    enable_memory_optimization: true   # Enable automatic memory optimization
+    
+    # Batch processing optimization
+    min_batch_size: 5
+    max_batch_size: 50
+    optimal_batch_size_target: 20
+    
+    # Timeout optimization
+    min_timeout_seconds: 30
+    max_timeout_seconds: 600
+    timeout_adjustment_factor: 1.2
+
+# Environment-specific overrides
+environments:
+  development:
+    # Reduced limits for development
+    instances:
+      ai_scholar:
+        max_workers: 4
+        initial_workers: 2
+      quant_scholar:
+        max_workers: 6
+        initial_workers: 3
+    
+    global:
+      max_total_workers: 8
+      max_total_memory_gb: 8
+  
+  production:
+    # Enhanced limits for production
+    instances:
+      ai_scholar:
+        max_workers: 20
+        initial_workers: 8
+      quant_scholar:
+        max_workers: 24
+        initial_workers: 10
+    
+    global:
+      max_total_workers: 40
+      max_total_memory_gb: 32
+      
+  testing:
+    # Minimal limits for testing
+    instances:
+      ai_scholar:
+        max_workers: 2
+        initial_workers: 1
+      quant_scholar:
+        max_workers: 2
+        initial_workers: 1
+    
+    global:
+      max_total_workers: 4
+      max_total_memory_gb: 4
+      enable_predictive_scaling: false
+      enable_graceful_degradation: false

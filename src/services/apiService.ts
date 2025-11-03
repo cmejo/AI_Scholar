@@ -110,10 +110,23 @@ class ApiService {
     response: string;
     sources?: any[];
     reasoning?: string;
+    dataset?: string;
+    confidence?: number;
   }>> {
     return this.request('/chat/message', {
       method: 'POST',
       body: JSON.stringify({ message, context }),
+    });
+  }
+
+  async getAvailableDatasets(): Promise<ApiResponse<any>> {
+    return this.request('/api/chat/datasets');
+  }
+
+  async switchDataset(dataset: string): Promise<ApiResponse<any>> {
+    return this.request('/api/chat/switch-dataset', {
+      method: 'POST',
+      body: JSON.stringify({ dataset }),
     });
   }
 

@@ -67,28 +67,31 @@ export interface FactCheckResult {
 
 // Additional types for chat context
 export interface ChatMessage {
-  id: string;
+  role: 'user' | 'assistant';
   content: string;
-  sender: 'user' | 'assistant';
   timestamp: Date;
-  type?: 'text' | 'voice' | 'system';
+  sources?: Array<{
+    document: string;
+    page: number;
+  }> | undefined;
 }
 
 export interface ChatConversation {
   id: string;
-  title: string;
   messages: ChatMessage[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface ChatContext {
+  currentConversation: ChatConversation | undefined;
   conversations: ChatConversation[];
-  currentConversation: ChatConversation | null;
-  addMessage: (message: ChatMessage) => void;
-  createConversation: (title: string) => void;
-  switchConversation: (id: string) => void;
-  deleteConversation: (id: string) => void;
+  sendMessage: (content: string, context?: any) => Promise<void>;
+  createConversation: () => Promise<ChatConversation>;
+  deleteConversation: (id: string) => Promise<void>;
+  loadConversation: (id: string) => Promise<void>;
+  isLoading: boolean;
+  error: string | undefined;
 }
 
 // Document types for context

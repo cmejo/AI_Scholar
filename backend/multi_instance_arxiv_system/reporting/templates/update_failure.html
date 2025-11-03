@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Monthly Update Failed</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #f44336; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .summary { background-color: #ffebee; padding: 15px; margin: 10px 0; border-left: 4px solid #f44336; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .footer { margin-top: 20px; padding: 10px; background-color: #f5f5f5; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Monthly Update Failed</h1>
+        <p>{{ timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+    </div>
+    
+    <div class="content">
+        <div class="summary">
+            <h2>Failure Summary</h2>
+            <p><strong>Error Message:</strong> <span class="error">{{ error_message }}</span></p>
+            <p><strong>Failed Instances:</strong> {{ failed_instances|length }}</p>
+            <p><strong>Successful Instances:</strong> {{ successful_instances|length }}</p>
+        </div>
+        
+        {% if failed_instances %}
+        <h2>Failed Instances</h2>
+        {% for instance in failed_instances %}
+        <div class="instance">
+            <h3>{{ instance }}</h3>
+            <p class="error">Update failed for this instance</p>
+        </div>
+        {% endfor %}
+        {% endif %}
+        
+        {% if error_details %}
+        <h2>Error Details</h2>
+        <pre>{{ error_details }}</pre>
+        {% endif %}
+        
+        <h2>Recommended Actions</h2>
+        <ul>
+            <li>Check system logs for detailed error information</li>
+            <li>Verify system resources (disk space, memory)</li>
+            <li>Run health check to identify issues</li>
+            <li>Consider manual intervention if problems persist</li>
+        </ul>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated notification from the Multi-Instance ArXiv System.</p>
+        <p>Please investigate and resolve the issues as soon as possible.</p>
+    </div>
+</body>
+</html>

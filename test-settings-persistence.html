@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings Persistence Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a2e;
+            color: white;
+        }
+        .test-section {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .error {
+            background: #f44336;
+        }
+        .success {
+            background: #4CAF50;
+        }
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Settings Persistence Test</h1>
+    
+    <div class="test-section">
+        <h2>Test localStorage Functionality</h2>
+        <button onclick="testLocalStorage()">Test localStorage</button>
+        <button onclick="testSettingsPersistence()">Test Settings Persistence</button>
+        <button onclick="testStorageQuota()">Test Storage Quota Handling</button>
+        <button onclick="clearTestData()">Clear Test Data</button>
+        <div id="localStorage-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Settings Storage Test</h2>
+        <button onclick="saveTestSettings()">Save Test Settings</button>
+        <button onclick="loadTestSettings()">Load Test Settings</button>
+        <button onclick="testAutoSave()">Test Auto-save</button>
+        <div id="settings-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Error Handling Test</h2>
+        <button onclick="testStorageError()">Test Storage Error</button>
+        <button onclick="testCorruptedData()">Test Corrupted Data</button>
+        <div id="error-result"></div>
+    </div>
+
+    <script>
+        // Constants from SettingsView
+        const SETTINGS_STORAGE_KEY = 'ai-scholar-settings';
+        const NOTIFICATIONS_STORAGE_KEY = 'ai-scholar-notifications';
+
+        const defaultSettings = {
+            theme: 'dark',
+            language: 'en',
+            timezone: 'UTC',
+            dateFormat: 'MM/DD/YYYY',
+            autoSave: true,
+            sidebarCollapsed: false,
+            compactMode: false,
+            animations: true,
+            highContrast: false,
+            defaultModel: 'llama3.1:8b',
+            defaultDataset: 'ai_scholar',
+            responseLength: 'medium',
+            temperature: 0.7,
+            dataCollection: true,
+            analytics: true,
+            crashReports: true,
+            personalizedAds: false,
+            cacheSize: '1GB',
+            maxConcurrentRequests: 5,
+            requestTimeout: 30,
+            enableGPU: true,
+            fullName: 'Administrator',
+            email: 'admin@aischolar.com',
+            organization: 'AI Scholar Enterprise',
+            role: 'Administrator'
+        };
+
+        // Test functions from SettingsView
+        const loadSettingsFromStorage = () => {
+            try {
+                const storedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+                if (storedSettings) {
+                    const parsed = JSON.parse(storedSettings);
+                    return { ...defaultSettings, ...parsed };
+                }
+            } catch (error) {
+                console.warn('Failed to load settings from localStorage:', error);
+            }
+            return defaultSettings;
+        };
+
+        const saveSettingsToStorage = (settings) => {
+            try {
+                localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+                return true;
+            } catch (error) {
+                console.error('Failed to save settings to localStorage:', error);
+                if (error instanceof DOMException && error.code === 22) {
+                    console.warn('localStorage quota exceeded. Attempting to clear old data...');
+                    try {
+                        const keys = Object.keys(localStorage);
+                        const oldKeys = keys.filter(key => 
+                            key.startsWith('ai-scholar-') && 
+                            key !== SETTINGS_STORAGE_KEY && 
+                            key !== NOTIFICATIONS_STORAGE_KEY
+                        );
+                        oldKeys.forEach(key => localStorage.removeItem(key));
+                        
+                        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+                        return true;
+                    } catch (retryError) {
+                        console.error('Failed to save settings even after cleanup:', retryError);
+                        return false;
+                    }
+                }
+                return false;
+            }
+        };
+
+        function testLocalStorage() {
+            const result = document.getElementById('localStorage-result');
+            try {
+                // Test basic localStorage functionality
+                localStorage.setItem('test', 'test-value');
+                const value = localStorage.getItem('test');
+                localStorage.removeItem('test');
+                
+                if (value === 'test-value') {
+                    result.innerHTML = '<div class="success">✓ localStorage is working correctly</div>';
+                } else {
+                    result.innerHTML = '<div class="error">✗ localStorage test failed</div>';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">✗ localStorage error: ${error.message}</div>`;
+            }
+        }
+
+        function testSettingsPersistence() {
+            const result = document.getElementById('localStorage-result');
+            try {
+                // Test settings persistence
+                const testSettings = { ...defaultSettings, theme: 'light', language: 'es' };
+                const saved = saveSettingsToStorage(testSettings);
+                
+                if (saved) {
+                    const loaded = loadSettingsFromStorage();
+                    if (loaded.theme === 'light' && loaded.language === 'es') {
+                        result.innerHTML += '<div class="success">✓ Settings persistence working correctly</div>';
+                    } else {
+                        result.innerHTML += '<div class="error">✗ Settings not loaded correctly</div>';
+                    }
+                } else {
+                    result.innerHTML += '<div class="error">✗ Failed to save settings</div>';
+                }
+            } catch (error) {
+                result.innerHTML += `<div class="error">✗ Settings persistence error: ${error.message}</div>`;
+            }
+        }
+
+        function testStorageQuota() {
+            const result = document.getElementById('localStorage-result');
+            try {
+                // Test storage quota handling by creating large data
+                const largeData = 'x'.repeat(1024 * 1024); // 1MB string
+                const testKey = 'ai-scholar-test-large';
+                
+                try {
+                    localStorage.setItem(testKey, largeData);
+                    localStorage.removeItem(testKey);
+                    result.innerHTML += '<div class="success">✓ Large data storage test passed</div>';
+                } catch (quotaError) {
+                    if (quotaError instanceof DOMException && quotaError.code === 22) {
+                        result.innerHTML += '<div class="success">✓ Storage quota error handling working (quota exceeded as expected)</div>';
+                    } else {
+                        result.innerHTML += `<div class="error">✗ Unexpected storage error: ${quotaError.message}</div>`;
+                    }
+                }
+            } catch (error) {
+                result.innerHTML += `<div class="error">✗ Storage quota test error: ${error.message}</div>`;
+            }
+        }
+
+        function clearTestData() {
+            const result = document.getElementById('localStorage-result');
+            try {
+                localStorage.removeItem(SETTINGS_STORAGE_KEY);
+                localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY);
+                const keys = Object.keys(localStorage);
+                keys.filter(key => key.startsWith('ai-scholar-')).forEach(key => {
+                    localStorage.removeItem(key);
+                });
+                result.innerHTML = '<div class="success">✓ Test data cleared</div>';
+            } catch (error) {
+                result.innerHTML = `<div class="error">✗ Failed to clear test data: ${error.message}</div>`;
+            }
+        }
+
+        function saveTestSettings() {
+            const result = document.getElementById('settings-result');
+            const testSettings = {
+                ...defaultSettings,
+                theme: 'light',
+                language: 'fr',
+                cacheSize: '2GB',
+                enableGPU: false,
+                fullName: 'Test User'
+            };
+            
+            const saved = saveSettingsToStorage(testSettings);
+            if (saved) {
+                result.innerHTML = '<div class="success">✓ Test settings saved successfully</div>';
+                result.innerHTML += `<pre>${JSON.stringify(testSettings, null, 2)}</pre>`;
+            } else {
+                result.innerHTML = '<div class="error">✗ Failed to save test settings</div>';
+            }
+        }
+
+        function loadTestSettings() {
+            const result = document.getElementById('settings-result');
+            const loaded = loadSettingsFromStorage();
+            result.innerHTML = '<div class="success">✓ Settings loaded:</div>';
+            result.innerHTML += `<pre>${JSON.stringify(loaded, null, 2)}</pre>`;
+        }
+
+        function testAutoSave() {
+            const result = document.getElementById('settings-result');
+            result.innerHTML = '<div class="success">✓ Auto-save simulation (would trigger after 1 second delay in real component)</div>';
+            
+            // Simulate the auto-save logic
+            setTimeout(() => {
+                const currentSettings = loadSettingsFromStorage();
+                const saved = saveSettingsToStorage(currentSettings);
+                if (saved) {
+                    result.innerHTML += '<div class="success">✓ Auto-save simulation completed successfully</div>';
+                } else {
+                    result.innerHTML += '<div class="error">✗ Auto-save simulation failed</div>';
+                }
+            }, 1000);
+        }
+
+        function testStorageError() {
+            const result = document.getElementById('error-result');
+            
+            // Simulate storage error by filling up localStorage
+            try {
+                let i = 0;
+                while (i < 1000) {
+                    localStorage.setItem(`test-fill-${i}`, 'x'.repeat(10000));
+                    i++;
+                }
+            } catch (error) {
+                // Now test our error handling
+                const testSettings = { ...defaultSettings, theme: 'light' };
+                const saved = saveSettingsToStorage(testSettings);
+                
+                if (!saved) {
+                    result.innerHTML = '<div class="success">✓ Storage error handling working correctly (save failed as expected)</div>';
+                } else {
+                    result.innerHTML = '<div class="error">✗ Storage error handling not working (save should have failed)</div>';
+                }
+                
+                // Clean up
+                for (let j = 0; j < i; j++) {
+                    try {
+                        localStorage.removeItem(`test-fill-${j}`);
+                    } catch (e) {
+                        // Ignore cleanup errors
+                    }
+                }
+            }
+        }
+
+        function testCorruptedData() {
+            const result = document.getElementById('error-result');
+            
+            // Save corrupted JSON data
+            try {
+                localStorage.setItem(SETTINGS_STORAGE_KEY, '{invalid json}');
+                
+                // Try to load it
+                const loaded = loadSettingsFromStorage();
+                
+                // Should return default settings
+                if (JSON.stringify(loaded) === JSON.stringify(defaultSettings)) {
+                    result.innerHTML = '<div class="success">✓ Corrupted data handling working correctly (returned defaults)</div>';
+                } else {
+                    result.innerHTML = '<div class="error">✗ Corrupted data handling failed</div>';
+                }
+                
+                // Clean up
+                localStorage.removeItem(SETTINGS_STORAGE_KEY);
+            } catch (error) {
+                result.innerHTML = `<div class="error">✗ Corrupted data test error: ${error.message}</div>`;
+            }
+        }
+
+        // Run basic test on page load
+        window.onload = function() {
+            testLocalStorage();
+        };
+    </script>
+</body>
+</html>
+</text>
+</invoke>

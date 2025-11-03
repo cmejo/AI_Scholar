@@ -1,0 +1,45 @@
+# Simplified Dockerfile for AI Scholar Chat Backend
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create app user
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /bin/bash appuser
+
+# Set working directory
+WORKDIR /app
+
+# Install Python dependencies
+RUN pip install --upgrade pip
+RUN pip install fastapi uvicorn requests python-dotenv
+
+# Copy our simple backend application
+COPY backend/simple_app_fixed.py ./app.py
+
+# Create necessary directories and set permissions
+RUN mkdir -p /app/uploads /app/logs && \
+    chown -R appuser:appuser /app && \
+    chmod -R 755 /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Start the application
+CMD ["python", "app.py"]

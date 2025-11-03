@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Monthly Update Completed Successfully</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; }
+        .summary { background-color: #f9f9f9; padding: 15px; margin: 10px 0; border-left: 4px solid #4CAF50; }
+        .instance { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .success { color: #4CAF50; }
+        .warning { color: #ff9800; }
+        .error { color: #f44336; }
+        .footer { margin-top: 20px; padding: 10px; background-color: #f5f5f5; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Monthly Update Completed Successfully</h1>
+        <p>{{ report.generated_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+    </div>
+    
+    <div class="content">
+        <div class="summary">
+            <h2>System Summary</h2>
+            <p><strong>Total Instances:</strong> {{ report.system_summary.total_instances }}</p>
+            <p><strong>Success Rate:</strong> <span class="success">{{ "%.1f"|format(report.system_summary.success_rate) }}%</span></p>
+            <p><strong>Papers Processed:</strong> {{ report.system_summary.total_papers_processed }}</p>
+            <p><strong>Total Processing Time:</strong> {{ "%.1f"|format(report.system_summary.total_processing_time_hours) }} hours</p>
+            <p><strong>Storage Used:</strong> {{ "%.1f"|format(report.system_summary.total_storage_used_gb) }} GB</p>
+        </div>
+        
+        <h2>Instance Details</h2>
+        {% for instance_name, instance_report in report.instance_reports.items() %}
+        <div class="instance">
+            <h3>{{ instance_name }}</h3>
+            <p><strong>Papers Processed:</strong> {{ instance_report.papers_processed }}</p>
+            <p><strong>Processing Time:</strong> {{ "%.1f"|format(instance_report.processing_time_seconds / 3600) }} hours</p>
+            <p><strong>Errors:</strong> 
+                {% if instance_report.errors|length == 0 %}
+                    <span class="success">None</span>
+                {% else %}
+                    <span class="error">{{ instance_report.errors|length }}</span>
+                {% endif %}
+            </p>
+            <p><strong>Storage Used:</strong> {{ "%.1f"|format(instance_report.storage_used_mb / 1024) }} GB</p>
+        </div>
+        {% endfor %}
+        
+        {% if report.storage_recommendations %}
+        <h2>Storage Recommendations</h2>
+        {% for recommendation in report.storage_recommendations %}
+        <div class="instance">
+            <h4>{{ recommendation.recommendation_type|title }} - {{ recommendation.priority|title }} Priority</h4>
+            <p>{{ recommendation.description }}</p>
+            {% if recommendation.estimated_space_savings_gb > 0 %}
+            <p><strong>Estimated Savings:</strong> {{ "%.1f"|format(recommendation.estimated_space_savings_gb) }} GB</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated notification from the Multi-Instance ArXiv System.</p>
+        <p>Report ID: {{ report.report_id }}</p>
+    </div>
+</body>
+</html>

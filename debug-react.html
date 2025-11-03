@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background-color: #2d5a2d; }
+        .error { background-color: #5a2d2d; }
+        .info { background-color: #2d4a5a; }
+    </style>
+</head>
+<body>
+    <h1>🔍 React App Debug Test</h1>
+    
+    <div id="status"></div>
+    
+    <h2>Tests:</h2>
+    <div id="tests"></div>
+    
+    <h2>Console Logs:</h2>
+    <div id="console"></div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const testsDiv = document.getElementById('tests');
+        const consoleDiv = document.getElementById('console');
+        
+        function addStatus(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            statusDiv.appendChild(div);
+        }
+        
+        function addTest(name, result, details = '') {
+            const div = document.createElement('div');
+            div.className = `status ${result ? 'success' : 'error'}`;
+            div.innerHTML = `<strong>${name}:</strong> ${result ? '✅ PASS' : '❌ FAIL'} ${details}`;
+            testsDiv.appendChild(div);
+        }
+        
+        // Capture console logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const div = document.createElement('div');
+            div.textContent = '[LOG] ' + args.join(' ');
+            consoleDiv.appendChild(div);
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            const div = document.createElement('div');
+            div.style.color = '#ff6b6b';
+            div.textContent = '[ERROR] ' + args.join(' ');
+            consoleDiv.appendChild(div);
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            const div = document.createElement('div');
+            div.style.color = '#ffa500';
+            div.textContent = '[WARN] ' + args.join(' ');
+            consoleDiv.appendChild(div);
+        };
+        
+        // Run tests
+        addStatus('Starting React App Debug Tests...', 'info');
+        
+        // Test 1: Check if main JS file loads
+        fetch('/js/main-DBHSdU81.js')
+            .then(response => {
+                addTest('Main JS File Load', response.ok, `Status: ${response.status}`);
+                return response.text();
+            })
+            .then(content => {
+                addTest('Main JS Content', content.length > 0, `Size: ${content.length} bytes`);
+                
+                // Check for React in the bundle
+                const hasReact = content.includes('React') || content.includes('react');
+                addTest('React in Bundle', hasReact);
+                
+                // Check for our app code
+                const hasApp = content.includes('App') || content.includes('root');
+                addTest('App Code in Bundle', hasApp);
+            })
+            .catch(error => {
+                addTest('Main JS File Load', false, error.message);
+            });
+        
+        // Test 2: Check vendor files
+        fetch('/js/vendor-react-DjKvHxj1.js')
+            .then(response => {
+                addTest('React Vendor File', response.ok, `Status: ${response.status}`);
+            })
+            .catch(error => {
+                addTest('React Vendor File', false, error.message);
+            });
+        
+        // Test 3: Check API connectivity
+        fetch('/health')
+            .then(response => response.json())
+            .then(data => {
+                addTest('Backend API Health', data.status === 'ok', `Response: ${JSON.stringify(data)}`);
+            })
+            .catch(error => {
+                addTest('Backend API Health', false, error.message);
+            });
+        
+        // Test 4: Check if DOM root exists
+        setTimeout(() => {
+            const root = document.getElementById('root');
+            addTest('Root Element Exists', !!root);
+            
+            if (root) {
+                addTest('Root Element Empty', root.innerHTML.trim() === '', `Content: "${root.innerHTML}"`);
+            }
+        }, 1000);
+        
+        // Test 5: Try to load the actual React app script
+        setTimeout(() => {
+            addStatus('Attempting to load React app script...', 'info');
+            
+            const script = document.createElement('script');
+            script.type = 'module';
+            script.src = '/js/main-DBHSdU81.js';
+            script.onload = () => {
+                addTest('React Script Load', true, 'Script loaded successfully');
+                
+                // Check if React mounted after a delay
+                setTimeout(() => {
+                    const root = document.getElementById('root');
+                    const hasContent = root && root.innerHTML.trim() !== '';
+                    addTest('React App Mounted', hasContent, root ? `Root content: ${root.innerHTML.substring(0, 100)}...` : 'No root element');
+                }, 2000);
+            };
+            script.onerror = (error) => {
+                addTest('React Script Load', false, 'Script failed to load');
+            };
+            
+            // Add root div for React
+            const rootDiv = document.createElement('div');
+            rootDiv.id = 'root';
+            document.body.appendChild(rootDiv);
+            
+            document.head.appendChild(script);
+        }, 2000);
+        
+        addStatus('Debug tests initiated. Check results above.', 'success');
+    </script>
+</body>
+</html>

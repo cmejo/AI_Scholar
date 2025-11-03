@@ -193,6 +193,96 @@ except Exception as e:
     raise
 
 # Add basic chat endpoints
+@app.post("/chat/message")
+async def chat_message_endpoint(request: Request):
+    """Chat message endpoint that matches frontend API calls"""
+    try:
+        data = await request.json()
+        message = data.get("message", "")
+        context = data.get("context", {})
+        dataset = context.get("dataset", "ai_scholar")  # Default to AI Scholar
+        
+        # Import services
+        from services.ollama_service import ollama_service
+        from services.vector_store_service import vector_store_service
+        
+        # Determine which dataset/collection to use
+        collection_name = "ai_scholar_papers" if dataset == "ai_scholar" else "quant_finance_papers"
+        
+        # Try to get relevant context from vector store
+        relevant_chunks = []
+        try:
+            if hasattr(vector_store_service, 'search_similar'):
+                search_results = await vector_store_service.search_similar(
+                    query=message,
+                    collection_name=collection_name,
+                    limit=5
+                )
+                relevant_chunks = [result.get('content', '') for result in search_results]
+        except Exception as search_error:
+            logger.warning(f"Vector search failed: {search_error}")
+        
+        # Use Ollama to generate response
+        try:
+            if relevant_chunks:
+                # Use scientific response with context
+                result = await ollama_service.generate_scientific_response(
+                    query=message,
+                    context_chunks=relevant_chunks,
+                    model="llama3.1:8b"  # Use latest model
+                )
+                
+                response = {
+                    "response": result['response'],
+                    "sources": result.get('citations', []),
+                    "reasoning": f"Generated using {result['model']} with {result['context_chunks_used']} relevant sources from {dataset} dataset",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "status": "success",
+                    "dataset": dataset,
+                    "confidence": result.get('confidence_score', 0.8)
+                }
+            else:
+                # Generate basic response without context
+                ai_response = await ollama_service.generate_response(
+                    prompt=f"As an AI research assistant for {dataset.replace('_', ' ').title()}, please answer: {message}",
+                    model="llama3.1:8b"
+                )
+                
+                response = {
+                    "response": ai_response,
+                    "sources": [],
+                    "reasoning": f"Generated using Ollama AI model for {dataset} dataset",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "status": "success",
+                    "dataset": dataset,
+                    "confidence": 0.7
+                }
+        except Exception as ollama_error:
+            logger.error(f"Ollama error: {ollama_error}")
+            # Fallback to a helpful response
+            response = {
+                "response": f"I understand you're asking: '{message}'. I'm having trouble connecting to the AI model right now. Please ensure Ollama is running on localhost:11435 with models like 'llama3.1:8b' available. You can check available models with 'ollama list'.",
+                "sources": [],
+                "reasoning": "Fallback response due to AI model unavailability",
+                "timestamp": datetime.utcnow().isoformat(),
+                "status": "partial_success",
+                "dataset": dataset,
+                "error_details": str(ollama_error)
+            }
+        
+        return JSONResponse(content=jsonable_encoder(response))
+    except Exception as e:
+        logger.error(f"Chat message endpoint error: {e}")
+        error_response = {
+            "response": "I'm sorry, there was an error processing your message. Please try again.",
+            "sources": [],
+            "reasoning": "Error occurred during processing",
+            "timestamp": datetime.utcnow().isoformat(),
+            "status": "error",
+            "error": str(e)
+        }
+        return JSONResponse(content=jsonable_encoder(error_response))
+
 @app.post("/api/chat")
 async def chat_endpoint(request: Request):
     """Basic chat endpoint for the chatbot"""
@@ -200,12 +290,39 @@ async def chat_endpoint(request: Request):
         data = await request.json()
         message = data.get("message", "")
         
-        # For now, return a simple response
-        response = {
-            "response": f"I received your message: '{message}'. The AI Scholar chatbot is now working! How can I help you with your research?",
-            "timestamp": datetime.utcnow().isoformat(),
-            "status": "success"
-        }
+        # Import Ollama service
+        from services.ollama_service import ollama_service
+        
+        # Check if Ollama service is available
+        if not hasattr(ollama_service, 'generate_response'):
+            # Fallback response if Ollama is not available
+            response = {
+                "response": "🤖 **AI Scholar Assistant**\n\nI'm your comprehensive research and automation assistant powered by advanced RAG technology. I can help with:\n\n**Core Capabilities:**\n• Document analysis and processing\n• Research assistance and literature review\n• Workflow automation and integration\n• Data analytics and visualization\n• Knowledge graph construction\n\n**Advanced Features:**\n• RAG (Retrieval-Augmented Generation)\n• Semantic search across processed papers\n• Multi-modal AI integration\n• Citation and source tracking\n\nAsk me anything about your research topics!",
+                "timestamp": datetime.utcnow().isoformat(),
+                "status": "success"
+            }
+        else:
+            # Use Ollama to generate response
+            try:
+                ai_response = await ollama_service.generate_response(
+                    prompt=message,
+                    model="llama2"  # or whatever model you prefer
+                )
+                
+                response = {
+                    "response": ai_response,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "status": "success"
+                }
+            except Exception as ollama_error:
+                logger.error(f"Ollama error: {ollama_error}")
+                # Fallback to a helpful response
+                response = {
+                    "response": f"I understand you're asking about: '{message}'. I'm having trouble connecting to the AI model right now, but I'm here to help with your research. Could you try rephrasing your question or check if the Ollama service is running?",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "status": "partial_success",
+                    "note": "AI model temporarily unavailable"
+                }
         
         return JSONResponse(content=jsonable_encoder(response))
     except Exception as e:
@@ -221,13 +338,62 @@ async def chat_endpoint(request: Request):
 @app.get("/api/chat/health")
 async def chat_health():
     """Chat service health check"""
+    from services.ollama_service import ollama_service
+    
+    # Check Ollama health
+    ollama_health = await ollama_service.health_check()
+    
     response = {
-        "status": "ok",
+        "status": "ok" if ollama_health.get('status') == 'healthy' else "degraded",
         "message": "Chat service is running",
         "timestamp": datetime.utcnow().isoformat(),
-        "features": ["basic_chat", "research_assistance"]
+        "features": ["basic_chat", "research_assistance", "dataset_switching", "rag_integration"],
+        "ollama_status": ollama_health,
+        "available_datasets": ["ai_scholar", "quant_finance"]
     }
     return JSONResponse(content=jsonable_encoder(response))
+
+@app.get("/api/chat/datasets")
+async def get_available_datasets():
+    """Get available datasets for chat"""
+    datasets = {
+        "ai_scholar": {
+            "name": "AI Scholar",
+            "description": "Scientific research papers and academic literature",
+            "collection": "ai_scholar_papers",
+            "features": ["arxiv_papers", "research_analysis", "citation_tracking"]
+        },
+        "quant_finance": {
+            "name": "Quant Scholar", 
+            "description": "Quantitative finance and trading research",
+            "collection": "quant_finance_papers",
+            "features": ["financial_modeling", "trading_strategies", "risk_analysis"]
+        }
+    }
+    return JSONResponse(content=jsonable_encoder(datasets))
+
+@app.post("/api/chat/switch-dataset")
+async def switch_dataset(request: Request):
+    """Switch between AI Scholar and Quant Scholar datasets"""
+    try:
+        data = await request.json()
+        dataset = data.get("dataset", "ai_scholar")
+        
+        if dataset not in ["ai_scholar", "quant_finance"]:
+            raise HTTPException(status_code=400, detail="Invalid dataset. Choose 'ai_scholar' or 'quant_finance'")
+        
+        # You could store user preferences here
+        response = {
+            "message": f"Switched to {dataset.replace('_', ' ').title()} dataset",
+            "dataset": dataset,
+            "description": "AI Scholar - Scientific research papers" if dataset == "ai_scholar" else "Quant Scholar - Quantitative finance research",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return JSONResponse(content=jsonable_encoder(response))
+    except Exception as e:
+        logger.error(f"Dataset switch error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 async def root():
@@ -238,6 +404,41 @@ async def root():
 async def health():
     """Health check endpoint"""
     return {"status": "ok"}
+
+@app.get("/debug/ollama")
+async def debug_ollama():
+    """Debug Ollama connectivity"""
+    try:
+        from services.ollama_service import ollama_service
+        
+        # Test basic connectivity
+        health_status = await ollama_service.health_check()
+        
+        # Try to list models
+        models = await ollama_service.list_models()
+        
+        # Test a simple generation
+        test_response = None
+        try:
+            test_response = await ollama_service.generate_response(
+                prompt="Hello, this is a test. Please respond with 'Ollama is working!'",
+                model="llama3.1:8b"
+            )
+        except Exception as gen_error:
+            test_response = f"Generation failed: {str(gen_error)}"
+        
+        return {
+            "ollama_health": health_status,
+            "available_models": models,
+            "test_generation": test_response,
+            "base_url": ollama_service.base_url,
+            "current_model": ollama_service.current_model
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Failed to connect to Ollama service"
+        }
 
 @app.get("/metrics")
 async def get_metrics():

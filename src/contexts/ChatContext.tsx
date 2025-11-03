@@ -13,7 +13,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = React.memo(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>();
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, context?: any) => {
     if (!currentConversation) return;
 
     setIsLoading(true);
@@ -35,24 +35,48 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = React.memo(
 
       setCurrentConversation(updatedConversation);
 
-      // Simulate AI response
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Import API service
+      const { apiService } = await import('../services/apiService');
+      
+      // Call the actual API
+      const response = await apiService.sendChatMessage(content, context);
 
-      const assistantMessage: ChatMessage = {
+      if (response.success && response.data) {
+        const assistantMessage: ChatMessage = {
+          role: 'assistant',
+          content: response.data.response,
+          timestamp: new Date(),
+          sources: response.data.sources || undefined,
+        };
+
+        const finalConversation = {
+          ...updatedConversation,
+          messages: [...updatedConversation.messages, assistantMessage],
+          updatedAt: new Date(),
+        };
+
+        setCurrentConversation(finalConversation);
+      } else {
+        throw new Error(response.error || 'Failed to get AI response');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      
+      // Add error message to conversation
+      const errorMessage: ChatMessage = {
         role: 'assistant',
-        content: 'This is a mock response from the AI assistant.',
+        content: 'I apologize, but I encountered an error processing your message. Please make sure the backend server is running and try again.',
         timestamp: new Date(),
       };
 
-      const finalConversation = {
-        ...updatedConversation,
-        messages: [...updatedConversation.messages, assistantMessage],
-        updatedAt: new Date(),
-      };
-
-      setCurrentConversation(finalConversation);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      if (currentConversation) {
+        const errorConversation = {
+          ...currentConversation,
+          messages: [...currentConversation.messages, errorMessage],
+          updatedAt: new Date(),
+        };
+        setCurrentConversation(errorConversation);
+      }
     } finally {
       setIsLoading(false);
     }

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class VectorStoreService:
     """Service for managing document embeddings and semantic search"""
     
-    def __init__(self, chroma_host: str = "chromadb", chroma_port: int = 8000):
+    def __init__(self, chroma_host: str = "localhost", chroma_port: int = 8082):
         self.chroma_host = chroma_host
         self.chroma_port = chroma_port
         self.client = None
@@ -108,8 +108,8 @@ class VectorStoreService:
                         'title': doc_metadata.get('title', ''),
                         'authors': str(doc_metadata.get('authors', [])),
                         'journal': doc_metadata.get('journal', ''),
-                        'publication_year': doc_metadata.get('publication_year'),
-                        'doi': doc_metadata.get('doi', ''),
+                        'publication_year': str(doc_metadata.get('publication_year', '')),
+                        'doi': str(doc_metadata.get('doi', '')),
                         'keywords': str(doc_metadata.get('keywords', []))
                     })
                 

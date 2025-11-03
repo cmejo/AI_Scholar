@@ -1,11 +1,12 @@
-import { Bot, FileText, Loader2, Send, User } from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
+import { Bot, FileText, Loader2, Send, User, Database } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useChat } from '../contexts/ChatContext';
 import { useDocument } from '../contexts/DocumentContext';
 
 export const ChatInterface: React.FC = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [currentDataset, setCurrentDataset] = useState('ai_scholar');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { currentConversation, sendMessage } = useChat();
   const { documents } = useDocument();
@@ -27,7 +28,8 @@ export const ChatInterface: React.FC = () => {
     setIsTyping(true);
 
     try {
-      await sendMessage(userMessage);
+      // Pass dataset context to the message
+      await sendMessage(userMessage, { dataset: currentDataset });
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -35,10 +37,58 @@ export const ChatInterface: React.FC = () => {
     }
   };
 
+  const handleDatasetChange = async (dataset: string) => {
+    setCurrentDataset(dataset);
+    // Optionally notify the backend about the dataset switch
+    try {
+      const { apiService } = await import('../services/apiService');
+      await apiService.switchDataset(dataset);
+    } catch (error) {
+      console.error('Error switching dataset:', error);
+    }
+  };
+
   const messages = currentConversation?.messages || [];
 
   return (
     <main className="flex flex-col h-full" role="main" aria-label="Chat interface">
+      {/* Dataset Selector */}
+      <section className="border-b border-gray-700 p-4" role="region" aria-label="Dataset selector">
+        <div className="flex items-center space-x-4">
+          <Database size={20} className="text-gray-400" aria-hidden="true" />
+          <div className="flex space-x-2">
+            <button
+              onClick={() => handleDatasetChange('ai_scholar')}
+              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                currentDataset === 'ai_scholar'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+              aria-pressed={currentDataset === 'ai_scholar'}
+            >
+              🔬 AI Scholar
+            </button>
+            <button
+              onClick={() => handleDatasetChange('quant_finance')}
+              className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                currentDataset === 'quant_finance'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+              aria-pressed={currentDataset === 'quant_finance'}
+            >
+              📈 Quant Scholar
+            </button>
+          </div>
+          <span className="text-sm text-gray-400">
+            {currentDataset === 'ai_scholar' 
+              ? 'Scientific research papers and academic literature'
+              : 'Quantitative finance and trading research'
+            }
+          </span>
+        </div>
+      </section>
+
       {/* Messages Area */}
       <section 
         className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar"
@@ -50,9 +100,14 @@ export const ChatInterface: React.FC = () => {
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500" role="status">
             <Bot size={48} className="mb-4 text-gray-600" aria-hidden="true" />
-            <h2 className="text-xl font-semibold mb-2">Welcome to AI Scholar</h2>
+            <h2 className="text-xl font-semibold mb-2">
+              Welcome to {currentDataset === 'ai_scholar' ? 'AI Scholar' : 'Quant Scholar'}
+            </h2>
             <p className="text-center max-w-md">
-              I'm your AI assistant with access to your documents. Ask me anything about your uploaded content!
+              {currentDataset === 'ai_scholar' 
+                ? "I'm your AI research assistant with access to scientific literature. Ask me about research papers, methodologies, or academic topics!"
+                : "I'm your quantitative finance assistant with access to financial research. Ask me about trading strategies, risk analysis, or financial modeling!"
+              }
             </p>
             {documents.length > 0 && (
               <div className="mt-4 text-sm" role="region" aria-labelledby="available-docs-heading">

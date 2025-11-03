@@ -71,15 +71,15 @@ services:
       - ollama_data:/root/.ollama
       - ./backend/ollama_models:/models
     ports:
-      - "11434:11434"
+      - "11435:11435"
     networks:
       - rag-network
     environment:
       - OLLAMA_ORIGINS=*
-      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_HOST=0.0.0.0:11435
       - OLLAMA_MODELS=/models
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "curl", "-f", "http://localhost:11435/api/tags"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -96,35 +96,23 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.backend
-    container_name: advanced-rag-backend
+      dockerfile: Dockerfile.backend.simple
+    container_name: ai-scholar-backend
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://rag_user:${POSTGRES_PASSWORD}@postgres:5432/advanced_rag_db
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-      - VECTOR_DB_URL=http://chromadb:8000
-      - SECRET_KEY=${SECRET_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - OLLAMA_HOST=http://ollama:11435
       - ENVIRONMENT=production
       - DEBUG=False
       - LOG_LEVEL=INFO
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
-      - ./backups:/app/backups
     ports:
-      - "8000:8000"
+      - "8001:8000"
     networks:
       - rag-network
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      chromadb:
-        condition: service_started
+      - ollama
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -137,20 +125,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    container_name: advanced-rag-frontend
+    container_name: ai-scholar-frontend
     restart: unless-stopped
     environment:
-      - REACT_APP_API_URL=https://yourdomain.com/api
-      - REACT_APP_WS_URL=wss://yourdomain.com/ws
+      - VITE_API_URL=http://localhost:8001
       - NODE_ENV=production
     ports:
-      - "3002:3005"
+      - "3006:3005"
     networks:
       - rag-network
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3005"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -158,7 +145,7 @@ services:
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
-    container_name: advanced-rag-nginx
+    container_name: ai-scholar-nginx
     restart: unless-stopped
     ports:
       - "8080:80"

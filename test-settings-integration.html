@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a2e;
+            color: white;
+        }
+        .test-section {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .error {
+            color: #f44336;
+        }
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Settings Persistence Integration Test</h1>
+    
+    <div class="test-section">
+        <h2>Manual Integration Tests</h2>
+        <p>These tests verify that the settings persistence functionality works correctly:</p>
+        
+        <h3>✅ Test 1: Basic localStorage Support</h3>
+        <p id="test1-result"></p>
+        
+        <h3>✅ Test 2: Settings Storage Structure</h3>
+        <p id="test2-result"></p>
+        
+        <h3>✅ Test 3: Error Handling</h3>
+        <p id="test3-result"></p>
+        
+        <h3>✅ Test 4: Auto-save Simulation</h3>
+        <p id="test4-result"></p>
+        
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="clearAllData()">Clear Test Data</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Current localStorage Contents</h2>
+        <button onclick="showStorageContents()">Show Storage Contents</button>
+        <pre id="storage-contents"></pre>
+    </div>
+
+    <script>
+        // Constants from SettingsView
+        const SETTINGS_STORAGE_KEY = 'ai-scholar-settings';
+        const NOTIFICATIONS_STORAGE_KEY = 'ai-scholar-notifications';
+
+        function runAllTests() {
+            test1BasicSupport();
+            test2StorageStructure();
+            test3ErrorHandling();
+            test4AutoSaveSimulation();
+        }
+
+        function test1BasicSupport() {
+            const result = document.getElementById('test1-result');
+            try {
+                // Test basic localStorage functionality
+                localStorage.setItem('test-key', 'test-value');
+                const value = localStorage.getItem('test-key');
+                localStorage.removeItem('test-key');
+                
+                if (value === 'test-value') {
+                    result.innerHTML = '<span class="success">✓ localStorage is working correctly</span>';
+                } else {
+                    result.innerHTML = '<span class="error">✗ localStorage test failed</span>';
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ localStorage error: ${error.message}</span>`;
+            }
+        }
+
+        function test2StorageStructure() {
+            const result = document.getElementById('test2-result');
+            try {
+                // Test settings storage structure
+                const testSettings = {
+                    theme: 'light',
+                    language: 'es',
+                    autoSave: true,
+                    cacheSize: '2GB'
+                };
+                
+                localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(testSettings));
+                const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
+                const parsed = JSON.parse(stored);
+                
+                if (parsed.theme === 'light' && parsed.language === 'es') {
+                    result.innerHTML = '<span class="success">✓ Settings storage structure is correct</span>';
+                } else {
+                    result.innerHTML = '<span class="error">✗ Settings storage structure test failed</span>';
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Storage structure error: ${error.message}</span>`;
+            }
+        }
+
+        function test3ErrorHandling() {
+            const result = document.getElementById('test3-result');
+            try {
+                // Test corrupted data handling
+                localStorage.setItem(SETTINGS_STORAGE_KEY, '{invalid json}');
+                
+                try {
+                    JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY));
+                    result.innerHTML = '<span class="error">✗ Should have thrown an error for invalid JSON</span>';
+                } catch (parseError) {
+                    // This is expected - the component should handle this gracefully
+                    result.innerHTML = '<span class="success">✓ Error handling works (invalid JSON detected)</span>';
+                }
+                
+                // Clean up
+                localStorage.removeItem(SETTINGS_STORAGE_KEY);
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Error handling test failed: ${error.message}</span>`;
+            }
+        }
+
+        function test4AutoSaveSimulation() {
+            const result = document.getElementById('test4-result');
+            try {
+                // Simulate auto-save behavior
+                const initialSettings = {
+                    theme: 'dark',
+                    autoSave: true,
+                    language: 'en'
+                };
+                
+                localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(initialSettings));
+                
+                // Simulate a setting change (what would happen in the component)
+                const updatedSettings = { ...initialSettings, theme: 'light' };
+                
+                // Simulate the debounced auto-save (1 second delay)
+                setTimeout(() => {
+                    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updatedSettings));
+                    
+                    const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY));
+                    if (saved.theme === 'light' && saved.autoSave === true) {
+                        result.innerHTML = '<span class="success">✓ Auto-save simulation successful</span>';
+                    } else {
+                        result.innerHTML = '<span class="error">✗ Auto-save simulation failed</span>';
+                    }
+                }, 100); // Shortened for testing
+                
+                result.innerHTML = '<span style="color: #fbbf24;">⏳ Auto-save simulation running...</span>';
+            } catch (error) {
+                result.innerHTML = `<span class="error">✗ Auto-save simulation error: ${error.message}</span>`;
+            }
+        }
+
+        function showStorageContents() {
+            const container = document.getElementById('storage-contents');
+            try {
+                const storageData = {};
+                
+                // Get all localStorage items
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('ai-scholar-')) {
+                        try {
+                            storageData[key] = JSON.parse(localStorage.getItem(key));
+                        } catch (e) {
+                            storageData[key] = localStorage.getItem(key); // Raw value if not JSON
+                        }
+                    }
+                }
+                
+                if (Object.keys(storageData).length === 0) {
+                    container.textContent = 'No AI Scholar data found in localStorage';
+                } else {
+                    container.textContent = JSON.stringify(storageData, null, 2);
+                }
+            } catch (error) {
+                container.textContent = `Error reading storage: ${error.message}`;
+            }
+        }
+
+        function clearAllData() {
+            try {
+                const keys = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('ai-scholar-')) {
+                        keys.push(key);
+                    }
+                }
+                
+                keys.forEach(key => localStorage.removeItem(key));
+                
+                alert(`Cleared ${keys.length} AI Scholar storage items`);
+                showStorageContents();
+            } catch (error) {
+                alert(`Error clearing data: ${error.message}`);
+            }
+        }
+
+        // Run basic test on page load
+        window.onload = function() {
+            test1BasicSupport();
+            showStorageContents();
+        };
+    </script>
+</body>
+</html>
+</text>
+</invoke>

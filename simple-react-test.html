@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple React Test</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #2a2a2a;
+            border-radius: 10px;
+        }
+        .message-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background-color: #3a3a3a;
+            color: white;
+        }
+        .send-button {
+            padding: 10px 20px;
+            background-color: #007acc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .response {
+            background-color: #3a3a3a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        function ChatApp() {
+            const [message, setMessage] = useState('');
+            const [response, setResponse] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const sendMessage = async () => {
+                if (!message.trim()) return;
+                
+                setLoading(true);
+                try {
+                    const res = await fetch('/chat/message', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            context: { dataset: 'ai_scholar' }
+                        })
+                    });
+                    
+                    const data = await res.json();
+                    setResponse(data.response || 'No response received');
+                } catch (error) {
+                    setResponse('Error: ' + error.message);
+                }
+                setLoading(false);
+                setMessage('');
+            };
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            };
+
+            return (
+                <div className="chat-container">
+                    <h1>🤖 AI Scholar - Simple React Test</h1>
+                    <p>✅ React is working! This is a simple test to verify React functionality.</p>
+                    
+                    <div>
+                        <input
+                            type="text"
+                            className="message-input"
+                            placeholder="Ask me anything..."
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            onKeyPress={handleKeyPress}
+                        />
+                        <button 
+                            className="send-button" 
+                            onClick={sendMessage}
+                            disabled={loading}
+                        >
+                            {loading ? 'Thinking...' : 'Send Message'}
+                        </button>
+                    </div>
+                    
+                    {response && (
+                        <div className="response">
+                            <strong>AI Response:</strong><br/>
+                            {response}
+                        </div>
+                    )}
+                    
+                    <div style={{marginTop: '20px', fontSize: '14px', color: '#888'}}>
+                        <p><strong>Status:</strong></p>
+                        <p>✅ React: Working</p>
+                        <p>✅ Components: Rendering</p>
+                        <p>✅ State: Functional</p>
+                        <p>🔄 API: Testing with chat endpoint</p>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<ChatApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>

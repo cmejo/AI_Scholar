@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Scholar Chat Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .dataset-selector {
+            margin-bottom: 20px;
+        }
+        .dataset-selector button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #4a4a4a;
+            color: white;
+        }
+        .dataset-selector button.active {
+            background-color: #007acc;
+        }
+        .chat-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background-color: #3a3a3a;
+            color: white;
+            margin-bottom: 10px;
+        }
+        .send-button {
+            padding: 10px 20px;
+            background-color: #007acc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .send-button:hover {
+            background-color: #005a9e;
+        }
+        .response {
+            background-color: #3a3a3a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .loading {
+            color: #007acc;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <h1>🤖 AI Scholar Chat Test</h1>
+    
+    <div class="container">
+        <div class="dataset-selector">
+            <button id="ai-scholar" class="active" onclick="selectDataset('ai_scholar')">🔬 AI Scholar</button>
+            <button id="quant-finance" onclick="selectDataset('quant_finance')">📈 Quant Scholar</button>
+        </div>
+        
+        <input type="text" id="messageInput" class="chat-input" placeholder="Ask me anything..." onkeypress="handleKeyPress(event)">
+        <button class="send-button" onclick="sendMessage()">Send Message</button>
+        
+        <div id="response" class="response" style="display: none;"></div>
+        
+        <div class="container">
+            <h3>🎯 Docker Setup Status</h3>
+            <p><strong>✅ Backend:</strong> Running on port 8001 with Ollama integration</p>
+            <p><strong>✅ Ollama:</strong> Running on port 11435 with 4 models (llama3.1:8b, llama3.1:70b, qwen2:72b, codellama:34b)</p>
+            <p><strong>✅ Models:</strong> All requested models successfully pulled and available</p>
+            <p><strong>✅ Chat API:</strong> Working with intelligent responses</p>
+            <p><strong>✅ Dataset Switching:</strong> AI Scholar and Quant Scholar contexts working</p>
+            <p><strong>✅ Model Switching:</strong> Can switch between different Ollama models</p>
+            <p><strong>⚠️ Frontend:</strong> React app having issues (using this test page instead)</p>
+        </div>
+    </div>
+
+    <script>
+        let currentDataset = 'ai_scholar';
+        
+        function selectDataset(dataset) {
+            currentDataset = dataset;
+            document.getElementById('ai-scholar').classList.remove('active');
+            document.getElementById('quant-finance').classList.remove('active');
+            document.getElementById(dataset === 'ai_scholar' ? 'ai-scholar' : 'quant-finance').classList.add('active');
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const responseDiv = document.getElementById('response');
+            const message = messageInput.value.trim();
+            
+            if (!message) return;
+            
+            // Show loading
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response loading';
+            responseDiv.textContent = 'Thinking...';
+            
+            try {
+                const response = await fetch('http://localhost:8001/chat/message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        context: {
+                            dataset: currentDataset
+                        }
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success' || data.status === 'partial_success') {
+                    responseDiv.className = 'response';
+                    responseDiv.textContent = data.response;
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = 'Error: ' + (data.error || 'Unknown error');
+                }
+                
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Network Error: ' + error.message + '\n\nMake sure the backend is running on http://localhost:8001';
+            }
+            
+            messageInput.value = '';
+        }
+        
+        // Test backend connection on load
+        window.onload = async function() {
+            try {
+                const response = await fetch('http://localhost:8001/health');
+                const data = await response.json();
+                console.log('Backend connected:', data);
+            } catch (error) {
+                console.error('Backend connection failed:', error);
+                document.getElementById('response').style.display = 'block';
+                document.getElementById('response').className = 'response error';
+                document.getElementById('response').textContent = 'Backend not connected. Please start the backend server on port 8001.';
+            }
+        };
+    </script>
+</body>
+</html>

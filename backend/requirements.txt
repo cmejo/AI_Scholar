@@ -85,6 +85,7 @@ scipy==1.11.4
 # Reference manager integrations
 aiohttp==3.9.1
 xmltodict==0.13.0
+beautifulsoup4==4.12.2
 
 # Note-taking app integrations
 PyYAML==6.0.1
